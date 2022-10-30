@@ -1,2 +1,3 @@
-# Come
-A C like language and its compiler
+# come
+
+A toy language compiler, just for fun.
