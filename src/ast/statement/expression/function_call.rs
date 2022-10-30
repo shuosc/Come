@@ -1,3 +1,5 @@
+use super::rvalue::{self, RValue};
+use crate::utility::parsing;
 use nom::{
     bytes::complete::tag,
     combinator::map,
@@ -6,17 +8,17 @@ use nom::{
     IResult,
 };
 
-use crate::utility::parsing;
-
-use super::rvalue::{self, RValue};
-
+/// [`FunctionCall`] represents result of a function call.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct FunctionCall {
+    /// Function name.
     pub name: String,
+    /// Arguments used in the call.
     pub arguments: Vec<RValue>,
 }
 
-pub(in crate::ast) fn parse(code: &str) -> IResult<&str, FunctionCall> {
+/// Parse source code to get a [`FunctionCall`].
+pub fn parse(code: &str) -> IResult<&str, FunctionCall> {
     map(
         tuple((
             parsing::ident,
@@ -36,10 +38,11 @@ mod tests {
 
     #[test]
     fn can_parse() {
-        // todo: more cases
         let function_call = parse("f()").unwrap().1;
         assert_eq!(function_call.name, "f");
+        assert_eq!(function_call.arguments.len(), 0);
         let function_call = parse("f(a,b)").unwrap().1;
         assert_eq!(function_call.name, "f");
+        assert_eq!(function_call.arguments.len(), 2);
     }
 }

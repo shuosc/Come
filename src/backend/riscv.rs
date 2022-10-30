@@ -1,4 +1,4 @@
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
 use either::Either;
 
@@ -153,22 +153,12 @@ fn emit_store(store: &ir::statements::Store, ctx: &mut FunctionCompileContext) -
     match (source, target) {
         (LocalOrNumberLiteral::Local(source), LocalOrGlobal::Local(target)) => {
             let from_reg = ctx.local_assign.get(source).unwrap().clone().unwrap_left();
-            let to = ctx
-                .local_assign
-                .get(target)
-                .unwrap()
-                .clone()
-                .unwrap_right();
+            let to = ctx.local_assign.get(target).unwrap().clone().unwrap_right();
             format!("sw {}, -{}(sp)\n", from_reg, to)
         }
         (LocalOrNumberLiteral::Local(_), LocalOrGlobal::Global(_)) => unimplemented!(),
         (LocalOrNumberLiteral::NumberLiteral(n), LocalOrGlobal::Local(target)) => {
-            let to = ctx
-                .local_assign
-                .get(target)
-                .unwrap()
-                .clone()
-                .unwrap_right();
+            let to = ctx.local_assign.get(target).unwrap().clone().unwrap_right();
             format!("li t6, {}\nsw t6, -{}(sp)\n", n, to)
         }
         (LocalOrNumberLiteral::NumberLiteral(_), LocalOrGlobal::Global(_)) => unimplemented!(),

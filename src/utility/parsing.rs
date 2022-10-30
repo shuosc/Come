@@ -2,7 +2,7 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{alpha1, alphanumeric1, digit1, hex_digit1, multispace0},
-    combinator::{map, recognize},
+    combinator::{map, opt, recognize},
     multi::many0,
     sequence::{pair, tuple},
     IResult,
@@ -27,14 +27,19 @@ where
     map(tuple((multispace0, f, multispace0)), |(_, x, _)| x)
 }
 
-// todo: 支持负数
 pub fn integer(code: &str) -> IResult<&str, i64> {
-    alt((
-        map(pair(tag("0x"), hex_digit1), |(_, digits)| {
-            i64::from_str_radix(digits, 16).unwrap()
-        }),
-        map(digit1, |digits: &str| digits.parse::<i64>().unwrap()),
-    ))(code)
+    map(
+        pair(
+            opt(tag("-")),
+            alt((
+                map(pair(tag("0x"), hex_digit1), |(_, digits)| {
+                    i64::from_str_radix(digits, 16).unwrap()
+                }),
+                map(digit1, |digits: &str| digits.parse::<i64>().unwrap()),
+            )),
+        ),
+        |(neg, n)| if neg.is_some() { -n } else { n },
+    )(code)
 }
 
 #[cfg(test)]
@@ -57,5 +62,9 @@ mod tests {
         assert_eq!(result, 0x40000000);
         let result = integer("99").unwrap().1;
         assert_eq!(result, 99);
+        let result = integer("-0x40000000").unwrap().1;
+        assert_eq!(result, -0x40000000);
+        let result = integer("-99").unwrap().1;
+        assert_eq!(result, -99);
     }
 }

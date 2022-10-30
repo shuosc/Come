@@ -32,12 +32,12 @@ pub fn parse(code: &str) -> IResult<&str, TypeDefinition> {
             tag("type"),
             multispace0,
             delimited(
-                tuple((multispace0, tag("{"), multispace0)),
+                parsing::in_multispace(tag("{")),
                 separated_list0(
-                    tuple((multispace0, tag(","), multispace0)),
+                    parsing::in_multispace(tag(",")),
                     data_type::parse,
                 ),
-                tuple((multispace0, tag("}"), multispace0)),
+                parsing::in_multispace(tag("}")),
             ),
         )),
         |(_, name, _, _, _, _, _, fields)| TypeDefinition { name, fields },

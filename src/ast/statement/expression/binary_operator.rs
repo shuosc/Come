@@ -2,20 +2,19 @@ use super::rvalue::RValue;
 use nom::{branch::alt, IResult};
 use paste::paste;
 
+/// [`BinaryOperatorResult`] represents result of a binary operator.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct BinaryOperatorResult {
+    /// The operator.
     pub operator: String,
+    /// The left hand side of the operator.
     pub lhs: Box<RValue>,
+    /// The right hand side of the operator.
     pub rhs: Box<RValue>,
 }
 
 mod level3 {
     use super::*;
-    use nom::{
-        branch::alt, bytes::complete::tag, combinator::map, multi::fold_many0, sequence::pair,
-        IResult,
-    };
-
     use crate::{
         ast::expression::{
             rvalue::RValue,
@@ -23,11 +22,15 @@ mod level3 {
         },
         utility::parsing,
     };
+    use nom::{
+        branch::alt, bytes::complete::tag, combinator::map, multi::fold_many0, sequence::pair,
+        IResult,
+    };
 
-    pub(in crate::ast::expression) fn higher_than_level3(code: &str) -> IResult<&str, RValue> {
+    pub fn higher_than_level3(code: &str) -> IResult<&str, RValue> {
         alt((
-            higher_than_unary_operator_result,
             map(unary_operator::parse, RValue::UnaryOperatorResult),
+            higher_than_unary_operator_result,
         ))(code)
     }
 
@@ -54,6 +57,8 @@ mod level3 {
     }
 }
 
+/// A macro for generating binary operator parsers.
+/// The `level` here are from C's operator precedence.
 macro_rules! bin_op_level {
     ($n: expr, $n_minus_1: expr, $($op: expr)*) => {
         paste! {
@@ -63,7 +68,6 @@ macro_rules! bin_op_level {
                 branch::alt, bytes::complete::tag, combinator::map, multi::fold_many0,
                 sequence::pair, IResult,
             };
-
             use crate::{
                 ast::expression::{rvalue::RValue, binary_operator::[<level $n_minus_1>]::{self, [<higher_than_level $n_minus_1>]}},
                 utility::parsing,
@@ -73,8 +77,8 @@ macro_rules! bin_op_level {
                 code: &str,
             ) -> IResult<&str, RValue> {
                 alt((
-                    [<higher_than_level $n_minus_1>],
                     map([<level $n_minus_1>]::parse, RValue::BinaryOperatorResult),
+                    [<higher_than_level $n_minus_1>],
                 ))(code)
             }
 
@@ -112,6 +116,7 @@ bin_op_level!(8, 7, "&" "&");
 bin_op_level!(9, 8, "^" "^");
 bin_op_level!(10, 9, "|" "|");
 
+/// Parse source code to get a [`BinaryOperatorResult`].
 pub fn parse(code: &str) -> IResult<&str, BinaryOperatorResult> {
     alt((
         level10::parse,
@@ -131,8 +136,13 @@ mod tests {
 
     #[test]
     pub fn can_parse() {
-        // todo: more cases
         let bin_op = parse("s.a + s.b").unwrap().1;
+        assert_eq!(bin_op.operator, "+");
+        let bin_op = parse("a+b*c").unwrap().1;
+        assert_eq!(bin_op.operator, "+");
+        let bin_op = parse("b*c+d").unwrap().1;
+        assert_eq!(bin_op.operator, "+");
+        let bin_op = parse("!b+d").unwrap().1;
         assert_eq!(bin_op.operator, "+");
     }
 }

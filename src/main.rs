@@ -1,5 +1,6 @@
 use backend::riscv::emit_function_code;
 
+/// [`ast`] is contains definitions of AST nodes and their parser.
 mod ast;
 pub mod backend;
 mod ir;

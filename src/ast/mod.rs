@@ -9,12 +9,13 @@ use self::{
     type_definition::TypeDefinition,
 };
 
-pub mod expression;
 pub mod function_definition;
 pub mod global_definition;
 pub mod statement;
 pub mod type_definition;
+pub use statement::expression;
 
+/// [`ASTNode`] is the level 0 nodes of the ast.
 #[enum_dispatch]
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub enum ASTNode {
@@ -23,6 +24,7 @@ pub enum ASTNode {
     GlobalVariableDefinition(VariableDefinition),
 }
 
+/// Parse source code to get a [`ASTNode`].
 pub fn parse(code: &str) -> IResult<&str, ASTNode> {
     alt((
         map(type_definition::parse, ASTNode::TypeDefinition),
@@ -31,8 +33,11 @@ pub fn parse(code: &str) -> IResult<&str, ASTNode> {
     ))(code)
 }
 
+/// `Ast` is the root node of the ast.
 pub type Ast = Vec<ASTNode>;
 
+/// Parse source code to get a [`Ast`].
 pub fn from_source(source: &str) -> IResult<&str, Ast> {
+    // todo: Maybe we should use our own error type, and handle the situation that the remain code is not empty.
     many0(delimited(multispace0, parse, multispace0))(source)
 }

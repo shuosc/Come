@@ -96,7 +96,7 @@ pub fn parse(code: &str) -> IResult<&str, FunctionDefinition> {
             parsing::ident,
             delimited(
                 tag("("),
-                separated_list0(tuple((multispace0, tag(","), multispace0)), parse_parameter),
+                separated_list0(parsing::in_multispace(tag(",")), parse_parameter),
                 tag(")"),
             ),
             multispace0,
