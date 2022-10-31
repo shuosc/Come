@@ -2,28 +2,27 @@ use std::{collections::HashMap, fmt};
 
 use enum_dispatch::enum_dispatch;
 
-mod basic_block;
+/// Data structure, parser and ir generator for functions.
 pub mod function;
 mod global_definition;
 mod integer_literal;
+/// Data structure and parser for variables (global or local) and literals.
 pub mod quantity;
-pub mod statements;
 mod type_definition;
 
+pub use function::statement;
 use crate::ast::{ASTNode, Ast};
-pub use basic_block::BasicBlock;
 pub use function::FunctionDefinition;
 pub use global_definition::GlobalDefinition;
 use nom::{
     branch::alt, character::complete::multispace0, combinator::map, multi::many0,
     sequence::delimited, IResult,
 };
-pub use quantity::Local;
-pub use statements::IRStatement;
+pub use quantity::LocalVariableName;
 pub use type_definition::TypeDefinition;
-
 use self::type_definition::TypeDefinitionMapping;
 
+/// The root nodes of IR.
 #[enum_dispatch]
 #[derive(Debug, Clone)]
 pub enum IR {
@@ -42,6 +41,7 @@ impl fmt::Display for IR {
     }
 }
 
+/// Parses the ir code to get an [`IR`].
 pub fn parse(code: &str) -> IResult<&str, IR> {
     alt((
         map(type_definition::parse, IR::TypeDefinition),
@@ -50,24 +50,43 @@ pub fn parse(code: &str) -> IResult<&str, IR> {
     ))(code)
 }
 
+/// Parses all the ir code to get a list of [`IR`].
 pub fn from_source(source: &str) -> IResult<&str, Vec<IR>> {
     many0(delimited(multispace0, parse, multispace0))(source)
 }
 
+/// Context for generating IR.
 pub struct IRGeneratingContext {
+    /// Known struct types.
     pub type_definitions: HashMap<String, TypeDefinitionMapping>,
+    /// Next local variable id.
     pub next_register_id: usize,
+    /// Next `if` statement's id, used in generating label.
     pub next_if_id: usize,
+    /// Next `while` statement's id, used in generating label.
     pub next_loop_id: usize,
 }
 
+impl IRGeneratingContext {
+    pub fn new() -> Self {
+        Self {
+            type_definitions: HashMap::new(),
+            next_register_id: 0,
+            next_if_id: 0,
+            next_loop_id: 0,
+        }
+    }
+
+    pub fn next_register(&mut self) -> LocalVariableName {
+        let register_id = self.next_register_id;
+        self.next_register_id += 1;
+        LocalVariableName(format!("{}", register_id))
+    }
+}
+
+/// Generate IR from AST.
 pub fn from_ast(ast: &Ast) -> Vec<IR> {
-    let mut context = IRGeneratingContext {
-        type_definitions: HashMap::new(),
-        next_register_id: 0,
-        next_if_id: 0,
-        next_loop_id: 0,
-    };
+    let mut context = IRGeneratingContext::new();
     ast.iter()
         .map(|node| match node {
             ASTNode::TypeDefinition(type_definition) => {
@@ -82,3 +101,5 @@ pub fn from_ast(ast: &Ast) -> Vec<IR> {
         })
         .collect()
 }
+
+// todo: tests

@@ -1,8 +1,9 @@
-use backend::riscv::emit_function_code;
+// use backend::riscv::emit_function_code;
 
-/// [`ast`] is contains definitions of AST nodes and their parser.
+/// Definitions of AST nodes and their parser.
 mod ast;
-pub mod backend;
+// pub mod backend;
+/// Definitions of IR nodes and their parser, and ir generator functions for generating ir from ast.
 mod ir;
 pub mod utility;
 fn main() {
@@ -18,7 +19,7 @@ fn main() {
     let result = ir::from_ast(&ast);
     for r in result {
         if let ir::IR::FunctionDefinition(f) = r {
-            println!("{}", emit_function_code(&f));
+            println!("{}", f);
         }
     }
 }

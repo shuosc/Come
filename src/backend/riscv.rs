@@ -4,14 +4,14 @@ use either::Either;
 
 use crate::ir::{
     self,
-    function::HasRegister,
+    function::GenerateRegister,
     quantity::{LocalOrGlobal, LocalOrNumberLiteral},
     statements::{branch::BranchType, Jump, Terminator},
     IRStatement,
 };
 pub struct FunctionCompileContext {
     // local -> Either<reg, stack_offset>
-    local_assign: HashMap<ir::Local, Either<String, usize>>,
+    local_assign: HashMap<ir::LocalVariableName, Either<String, usize>>,
 }
 
 pub fn emit_function_code(function: &ir::FunctionDefinition) -> String {

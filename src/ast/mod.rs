@@ -8,12 +8,16 @@ use self::{
     function_definition::FunctionDefinition, global_definition::VariableDefinition,
     type_definition::TypeDefinition,
 };
-
-pub mod function_definition;
-pub mod global_definition;
-pub mod statement;
-pub mod type_definition;
 pub use statement::expression;
+
+/// Data structure and parser for a function definition.
+pub mod function_definition;
+/// Data structure and parser for a global variable definition.
+pub mod global_definition;
+/// Data structure and parser for a statement.
+pub mod statement;
+/// Data structure and parser for a type definition.
+pub mod type_definition;
 
 /// [`ASTNode`] is the level 0 nodes of the ast.
 #[enum_dispatch]

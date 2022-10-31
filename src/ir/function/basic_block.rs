@@ -1,12 +1,4 @@
-use std::{collections::HashSet, fmt};
-
-use crate::{
-    ir::{
-        statements,
-        statements::{parse_terminator, phi, phi::Phi, IRStatement, Terminator},
-    },
-    utility::parsing,
-};
+use crate::{ir::LocalVariableName, utility::parsing};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -16,27 +8,64 @@ use nom::{
     sequence::{pair, tuple},
     IResult,
 };
+use std::{collections::HashSet, fmt};
 
-use super::{function::HasRegister, Local};
+use super::{
+    statement::{
+        self, parse_terminator,
+        phi::{self, Phi},
+        IRStatement, Terminator,
+    },
+    GenerateRegister,
+};
 
+/// A basic block.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct BasicBlock {
+    /// Name of the basic block.
     pub name: Option<String>,
+    /// [`Phi`] statements of the basic block.
     pub phis: Vec<Phi>,
+    /// Statements of the basic block.
     pub content: Vec<IRStatement>,
+    /// Terminator of the basic block.
     pub terminator: Option<Terminator>,
 }
 
-impl HasRegister for BasicBlock {
-    fn get_registers(&self) -> HashSet<Local> {
+impl BasicBlock {
+    /// Create an empty basic block.
+    pub fn new() -> Self {
+        Self {
+            name: None,
+            phis: Vec::new(),
+            content: Vec::new(),
+            terminator: None,
+        }
+    }
+
+    /// Registers created in the basic block.
+    pub fn registers(&self) -> HashSet<LocalVariableName> {
         let mut result = HashSet::new();
         for phi in &self.phis {
             result.insert(phi.to.clone());
         }
         for statement in &self.content {
-            result.extend(statement.get_registers());
+            result.extend(statement.register());
         }
         result
+    }
+
+    /// Append a statement to the basic block.
+    pub fn append_statement(&mut self, statement: impl Into<IRStatement>) {
+        self.content.push(statement.into());
+    }
+
+    /// Whether the basic block is empty.
+    pub fn empty(&self) -> bool {
+        self.name.is_none()
+            && self.phis.is_empty()
+            && self.content.is_empty()
+            && self.terminator.is_none()
     }
 }
 
@@ -58,17 +87,19 @@ impl fmt::Display for BasicBlock {
     }
 }
 
+/// Parse a basic block's name.
 fn parse_tag(code: &str) -> IResult<&str, String> {
     map(pair(parsing::ident, tag(":")), |(_, name)| name.to_string())(code)
 }
 
+/// Parse the ir code to get a [`BasicBlock`].
 pub fn parse(code: &str) -> IResult<&str, BasicBlock> {
     let has_tag = tuple((
         map(parse_tag, Some),
         multispace0,
         many0(parsing::in_multispace(phi::parse)),
         multispace0,
-        many0(parsing::in_multispace(statements::parse_ir_statement)),
+        many0(parsing::in_multispace(statement::parse_ir_statement)),
         multispace0,
         opt(parse_terminator),
         multispace0,
@@ -78,7 +109,7 @@ pub fn parse(code: &str) -> IResult<&str, BasicBlock> {
         multispace0,
         many1(parsing::in_multispace(phi::parse)),
         multispace0,
-        many0(parsing::in_multispace(statements::parse_ir_statement)),
+        many0(parsing::in_multispace(statement::parse_ir_statement)),
         multispace0,
         opt(parse_terminator),
         multispace0,
@@ -88,7 +119,7 @@ pub fn parse(code: &str) -> IResult<&str, BasicBlock> {
         multispace0,
         many0(parsing::in_multispace(phi::parse)),
         multispace0,
-        many1(parsing::in_multispace(statements::parse_ir_statement)),
+        many1(parsing::in_multispace(statement::parse_ir_statement)),
         multispace0,
         opt(parse_terminator),
         multispace0,
@@ -98,7 +129,7 @@ pub fn parse(code: &str) -> IResult<&str, BasicBlock> {
         multispace0,
         many0(parsing::in_multispace(phi::parse)),
         multispace0,
-        many0(parsing::in_multispace(statements::parse_ir_statement)),
+        many0(parsing::in_multispace(statement::parse_ir_statement)),
         multispace0,
         map(parse_terminator, Some),
         multispace0,
@@ -129,13 +160,11 @@ mod tests {
         %5 = load i32 %2
         %6 = add i32 %3, %4";
         let bb = parse(code).unwrap();
-        println!("{:?}", bb.1);
         assert_eq!(bb.0, "");
         let code = "WHILE_0_JUDGE:
         %7 = load i32 @g
         blt 0, %7, WHILE_0_TRUE, WHILE_0_FALSE";
         let bb = parse(code).unwrap();
-        println!("{:?}", bb.1);
         assert_eq!(bb.0, "");
         let mut multiple_parser = many0(parse);
         let code = "    %1 = alloca i32
@@ -152,6 +181,6 @@ WHILE_0_JUDGE:
     ";
         let bbs = multiple_parser(code).unwrap();
         assert_eq!(bbs.0.trim(), "");
-        assert_eq!(bbs.1.len(), 2)
+        assert_eq!(bbs.1.len(), 2);
     }
 }

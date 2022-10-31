@@ -1,9 +1,10 @@
+use super::IRGeneratingContext;
 use crate::{
     ast::{self, expression::rvalue::RValue},
     ir::{
         integer_literal,
         integer_literal::IntegerLiteral,
-        quantity::{global, Global},
+        quantity::{global, GlobalVariableName},
     },
     utility::{data_type, data_type::Type},
 };
@@ -15,16 +16,19 @@ use nom::{
     IResult,
 };
 
-use super::IRGeneratingContext;
-
+/// [`GlobalDefinition`] represents a global variable definition.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct GlobalDefinition {
-    pub item: Global,
+    /// Name of the global variable.
+    pub item: GlobalVariableName,
+    /// Type of the global variable.
     pub data_type: Type,
     // todo: Other literals
+    /// Initial value of the global variable.
     pub initial_value: IntegerLiteral,
 }
 
+/// Parse ir code to get a [`GlobalDefinition`].
 pub fn parse(code: &str) -> IResult<&str, GlobalDefinition> {
     map(
         tuple((
@@ -46,6 +50,7 @@ pub fn parse(code: &str) -> IResult<&str, GlobalDefinition> {
     )(code)
 }
 
+/// Generate ir code from a [`GlobalDefinition`].
 pub fn from_ast(
     ast: &crate::ast::global_definition::VariableDefinition,
     _ctx: &mut IRGeneratingContext,
@@ -64,7 +69,7 @@ pub fn from_ast(
     };
 
     GlobalDefinition {
-        item: Global(variable_name.clone()),
+        item: GlobalVariableName(variable_name.clone()),
         data_type: data_type.clone(),
         initial_value,
     }
@@ -73,11 +78,22 @@ pub fn from_ast(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utility::data_type::Integer;
 
     #[test]
     fn can_parse() {
         let code = "@g = global i32 100";
         let result = parse(code).unwrap().1;
-        println!("{:?}", result);
+        assert_eq!(
+            result,
+            GlobalDefinition {
+                item: GlobalVariableName("g".to_string()),
+                data_type: Type::Integer(Integer {
+                    width: 32,
+                    signed: true
+                }),
+                initial_value: IntegerLiteral(100),
+            }
+        );
     }
 }

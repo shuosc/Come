@@ -2,8 +2,8 @@ use std::fmt;
 
 use crate::{
     ir::{
-        function::HasRegister,
-        quantity::{local, local_or_global, Local, LocalOrGlobal},
+        function::GenerateRegister,
+        quantity::{self, local, LocalVariableName, Quantity},
     },
     utility::{data_type, data_type::Type},
 };
@@ -15,18 +15,17 @@ use nom::{
     IResult,
 };
 
+/// [`Load`] instruction.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Load {
-    pub to: Local,
+    pub to: LocalVariableName,
     pub data_type: Type,
-    pub from: LocalOrGlobal,
+    pub from: Quantity,
 }
 
-impl HasRegister for Load {
-    fn get_registers(&self) -> std::collections::HashSet<Local> {
-        let mut result = std::collections::HashSet::new();
-        result.insert(self.to.clone());
-        result
+impl GenerateRegister for Load {
+    fn register(&self) -> Option<LocalVariableName> {
+        Some(self.to.clone())
     }
 }
 
@@ -36,6 +35,7 @@ impl fmt::Display for Load {
     }
 }
 
+/// Parse ir code to get a [`Load`] instruction.
 pub fn parse(code: &str) -> IResult<&str, Load> {
     map(
         tuple((
@@ -47,7 +47,7 @@ pub fn parse(code: &str) -> IResult<&str, Load> {
             space1,
             data_type::parse,
             space1,
-            local_or_global,
+            quantity::parse,
         )),
         |(to, _, _, _, _, _, data_type, _, from)| Load {
             to,
@@ -55,4 +55,26 @@ pub fn parse(code: &str) -> IResult<&str, Load> {
             from,
         },
     )(code)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utility::data_type::Integer;
+
+    #[test]
+    fn test_parse() {
+        let result = parse("%0 = load i32 %1").unwrap().1;
+        assert_eq!(
+            result,
+            Load {
+                to: LocalVariableName("0".to_string()),
+                data_type: Type::Integer(Integer {
+                    width: 32,
+                    signed: true,
+                }),
+                from: LocalVariableName("1".to_string()).into(),
+            },
+        );
+    }
 }

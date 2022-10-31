@@ -1,5 +1,9 @@
 use crate::{
-    ir::quantity::{local_or_number_literal, LocalOrNumberLiteral},
+    ir::{
+        function::GenerateRegister,
+        quantity::{self, Quantity},
+        LocalVariableName,
+    },
     utility::parsing,
 };
 use nom::{
@@ -15,6 +19,7 @@ use std::{
     fmt::{Display, Formatter},
 };
 
+/// Enum of all possible branch types.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum BranchType {
     EQ,
@@ -38,13 +43,25 @@ fn branch_type(code: &str) -> IResult<&str, BranchType> {
     ))(code)
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+/// [`Branch`] instruction.
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Branch {
+    /// Type of the branch.
     pub branch_type: BranchType,
-    pub operand1: LocalOrNumberLiteral,
-    pub operand2: LocalOrNumberLiteral,
+    /// Left operand.
+    pub operand1: Quantity,
+    /// Right operand.
+    pub operand2: Quantity,
+    /// Label to jump to if the branch is taken.
     pub success_label: String,
+    /// Label to jump to if the branch is not taken.
     pub failure_label: String,
+}
+
+impl GenerateRegister for Branch {
+    fn register(&self) -> Option<LocalVariableName> {
+        None
+    }
 }
 
 impl Display for Branch {
@@ -57,17 +74,18 @@ impl Display for Branch {
     }
 }
 
+/// Parses ir code to get a [`Branch`] instruction.
 pub fn parse(code: &str) -> IResult<&str, Branch> {
     map(
         tuple((
             tag("b"),
             branch_type,
             space1,
-            local_or_number_literal,
+            quantity::parse,
             space0,
             tag(","),
             space1,
-            local_or_number_literal,
+            quantity::parse,
             space0,
             tag(","),
             space0,
@@ -102,4 +120,26 @@ pub fn parse(code: &str) -> IResult<&str, Branch> {
             failure_label,
         },
     )(code)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(
+            parse("beq 1, 2, success, failure"),
+            Ok((
+                "",
+                Branch {
+                    branch_type: BranchType::EQ,
+                    operand1: 1.into(),
+                    operand2: 2.into(),
+                    success_label: "success".to_string(),
+                    failure_label: "failure".to_string(),
+                }
+            ))
+        );
+    }
 }

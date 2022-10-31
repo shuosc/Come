@@ -1,3 +1,7 @@
+use crate::utility::{
+    data_type::{self, Type},
+    parsing,
+};
 use nom::{
     bytes::complete::tag,
     character::complete::{multispace0, space0},
@@ -5,10 +9,6 @@ use nom::{
     multi::separated_list0,
     sequence::{delimited, tuple},
     IResult,
-};
-use crate::utility::{
-    data_type::{self, Type},
-    parsing,
 };
 
 /// [`FieldDefinition`] represents a struct's field.
@@ -51,10 +51,7 @@ pub fn parse(code: &str) -> IResult<&str, TypeDefinition> {
             multispace0,
             delimited(
                 tag("{"),
-                separated_list0(
-                    parsing::in_multispace(tag(",")),
-                    parse_field_definition,
-                ),
+                separated_list0(parsing::in_multispace(tag(",")), parse_field_definition),
                 parsing::in_multispace(tag("}")),
             ),
         )),

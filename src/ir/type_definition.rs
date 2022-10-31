@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use super::IRGeneratingContext;
 use crate::{
     ast,
     utility::{data_type, data_type::Type, parsing},
@@ -12,15 +11,16 @@ use nom::{
     sequence::{delimited, tuple},
     IResult,
 };
+use std::collections::HashMap;
 
-use super::IRGeneratingContext;
-
+/// [`TypeDefinition`] represents definition of a struct.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct TypeDefinition {
     pub name: String,
     pub fields: Vec<Type>,
 }
 
+/// Parse ir code to get a [`TypeDefinition`].
 pub fn parse(code: &str) -> IResult<&str, TypeDefinition> {
     map(
         tuple((
@@ -33,10 +33,7 @@ pub fn parse(code: &str) -> IResult<&str, TypeDefinition> {
             multispace0,
             delimited(
                 parsing::in_multispace(tag("{")),
-                separated_list0(
-                    parsing::in_multispace(tag(",")),
-                    data_type::parse,
-                ),
+                separated_list0(parsing::in_multispace(tag(",")), data_type::parse),
                 parsing::in_multispace(tag("}")),
             ),
         )),
@@ -44,10 +41,12 @@ pub fn parse(code: &str) -> IResult<&str, TypeDefinition> {
     )(code)
 }
 
+/// Map field name to its index.
 pub struct TypeDefinitionMapping {
     pub field_names: HashMap<String, usize>,
 }
 
+/// Generate ir code from a [`TypeDefinition`].
 pub fn from_ast(
     ast: &ast::type_definition::TypeDefinition,
     ctx: &mut IRGeneratingContext,
@@ -65,17 +64,4 @@ pub fn from_ast(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn can_parse() {
-        let code = "%S = type {\n
-    i32,\n
-    i32\n
-}";
-        let result = parse(code).unwrap().1;
-        println!("{:?}", result);
-    }
-}
+// todo: tests

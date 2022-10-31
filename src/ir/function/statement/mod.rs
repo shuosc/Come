@@ -3,20 +3,29 @@ use std::fmt;
 use enum_dispatch::enum_dispatch;
 use nom::{branch::alt, combinator::map, IResult};
 
+/// Data structure, parser and ir generator for `alloca` statement.
 mod alloca;
+/// Data structure, parser and ir generator for `br` statement.
 pub mod branch;
+/// Data structure, parser and ir generator for calculations (unary or binary).
 pub mod calculate;
+/// Data structure, parser and ir generator for `call` statement.
 mod call;
+/// Data structure, parser and ir generator for `j` statement.
 mod jump;
+/// Data structure, parser and ir generator for `load` statement.
 mod load;
+/// Data structure, parser and ir generator for `loadfield` statement.
 mod load_field;
+/// Data structure, parser and ir generator for `phi` statement.
 pub mod phi;
+/// Data structure, parser and ir generator for `ret` statement.
 mod ret;
+/// Data structure, parser and ir generator for `setfield` statement.
 mod set_field;
+/// Data structure, parser and ir generator for `store` statement.
 mod store;
 
-use super::function::HasRegister;
-use crate::ir::quantity::Local;
 pub use alloca::Alloca;
 pub use branch::Branch;
 pub use calculate::{BinaryCalculate, UnaryCalculate};
@@ -25,10 +34,10 @@ pub use load::Load;
 pub use load_field::LoadField;
 pub use ret::Ret;
 pub use set_field::SetField;
-use std::collections::HashSet;
 pub use store::Store;
 
-#[enum_dispatch(HasRegister)]
+/// A statement in a function.
+#[enum_dispatch(GenerateRegister)]
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum IRStatement {
     Alloca,
@@ -54,18 +63,20 @@ impl fmt::Display for IRStatement {
     }
 }
 
+/// Parse ir code to get a [`IRStatement`].
 pub fn parse_ir_statement(code: &str) -> IResult<&str, IRStatement> {
     alt((
         map(alloca::parse, IRStatement::Alloca),
-        map(calculate::parse_unary, IRStatement::UnaryCalculate),
-        map(calculate::parse_binary, IRStatement::BinaryCalculate),
+        map(calculate::unary::parse, IRStatement::UnaryCalculate),
+        map(calculate::binary::parse, IRStatement::BinaryCalculate),
         map(load_field::parse, IRStatement::LoadField),
         map(load::parse, IRStatement::Load),
         map(store::parse, IRStatement::Store),
     ))(code)
 }
 
-#[enum_dispatch]
+/// A special instruction that must exists at the end of a basic block.
+#[enum_dispatch(GenerateRegister)]
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Terminator {
     Branch,
@@ -83,6 +94,7 @@ impl fmt::Display for Terminator {
     }
 }
 
+/// Parse ir code to get a [`Terminator`] instruction.
 pub fn parse_terminator(code: &str) -> IResult<&str, Terminator> {
     alt((
         map(branch::parse, Terminator::Branch),
@@ -90,3 +102,5 @@ pub fn parse_terminator(code: &str) -> IResult<&str, Terminator> {
         map(ret::parse, Terminator::Ret),
     ))(code)
 }
+
+// todo: test
