@@ -1,6 +1,8 @@
-
-
-
+use super::statement::compound::{self, Compound};
+use crate::utility::{
+    data_type::{self, Type},
+    parsing,
+};
 use nom::{
     bytes::complete::tag,
     character::complete::{multispace0, space0},
@@ -10,26 +12,22 @@ use nom::{
     IResult,
 };
 
-use crate::utility::{
-    data_type::{self, Type},
-    parsing,
-};
-
-use super::statement::compound::{self, Compound};
-
+/// [`Parameter`] represents a function's parameter.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Parameter {
     pub name: String,
     pub data_type: Type,
 }
 
-pub fn parse_parameter(code: &str) -> IResult<&str, Parameter> {
+/// Parse source code to get a [`Parameter`].
+fn parse_parameter(code: &str) -> IResult<&str, Parameter> {
     map(
         tuple((parsing::ident, space0, tag(":"), space0, data_type::parse)),
         |(name, _, _, _, data_type)| Parameter { name, data_type },
     )(code)
 }
 
+/// [`FunctionDefinition`] represents a function definition.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct FunctionDefinition {
     pub name: String,
@@ -38,6 +36,7 @@ pub struct FunctionDefinition {
     pub content: Compound,
 }
 
+/// Parse source code to get a [`FunctionDefinition`].
 pub fn parse(code: &str) -> IResult<&str, FunctionDefinition> {
     map(
         tuple((

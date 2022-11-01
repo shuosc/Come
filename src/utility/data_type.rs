@@ -1,5 +1,4 @@
-use std::fmt;
-
+use super::parsing;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -8,15 +7,14 @@ use nom::{
     sequence::pair,
     IResult,
 };
-
-use super::parsing;
-
+use std::fmt;
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Integer {
     pub signed: bool,
     pub width: usize,
 }
 
+/// Type in IR
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub enum Type {
     Integer(Integer),
@@ -42,6 +40,7 @@ impl From<Integer> for Type {
     }
 }
 
+/// Parse source code to get an [`Integer`] type.
 pub fn parse_integer(code: &str) -> IResult<&str, Integer> {
     alt((
         map(pair(tag("i"), digit1), |(_, width_str): (_, &str)| {
@@ -59,6 +58,7 @@ pub fn parse_integer(code: &str) -> IResult<&str, Integer> {
     ))(code)
 }
 
+/// Parse source code to get a [`Type`].
 pub fn parse(code: &str) -> IResult<&str, Type> {
     alt((
         map(
