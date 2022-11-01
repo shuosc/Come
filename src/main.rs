@@ -1,5 +1,3 @@
-// use backend::riscv::emit_function_code;
-
 /// Definitions of AST nodes and their parser.
 mod ast;
 /// Functions for generating assembly code from ir.
