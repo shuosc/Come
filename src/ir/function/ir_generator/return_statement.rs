@@ -16,11 +16,7 @@ pub fn from_ast(ast: &ast::statement::Return, ctx: &mut IRGeneratingContext) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        ast::expression::{IntegerLiteral, VariableRef},
-        ir::statement,
-        utility::data_type::{Integer, Type},
-    };
+    use crate::{ast::expression::IntegerLiteral, ir::statement};
 
     #[test]
     fn test_from_ast() {

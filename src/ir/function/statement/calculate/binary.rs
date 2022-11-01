@@ -198,6 +198,6 @@ mod tests {
         let mut parent_ctx = crate::ir::IRGeneratingContext::new();
         let mut ctx = super::IRGeneratingContext::new(&mut parent_ctx);
         let result = from_ast(&ast, &mut ctx);
-        assert_eq!(result, LocalVariableName("0".to_string()).into());
+        assert_eq!(result, LocalVariableName("0".to_string()));
     }
 }

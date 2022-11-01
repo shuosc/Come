@@ -1,4 +1,4 @@
-use std::fmt;
+use super::parsing;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -7,7 +7,7 @@ use nom::{
     sequence::pair,
     IResult,
 };
-use super::parsing;
+use std::fmt;
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Integer {
     pub signed: bool,

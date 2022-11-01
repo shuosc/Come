@@ -20,9 +20,9 @@ use statement::*;
 use std::fmt;
 
 /// Data structure, parser and ir generator for basic blocks.
-mod basic_block;
+pub mod basic_block;
 /// Functions to generate IR from AST.
-mod ir_generator;
+pub mod ir_generator;
 /// Data structure, parser and ir generator for ir statements.
 pub mod statement;
 

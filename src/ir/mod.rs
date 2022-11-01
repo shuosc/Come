@@ -10,9 +10,9 @@ mod integer_literal;
 pub mod quantity;
 mod type_definition;
 
-pub use function::statement;
+use self::type_definition::TypeDefinitionMapping;
 use crate::ast::{ASTNode, Ast};
-pub use function::FunctionDefinition;
+pub use function::{statement, FunctionDefinition};
 pub use global_definition::GlobalDefinition;
 use nom::{
     branch::alt, character::complete::multispace0, combinator::map, multi::many0,
@@ -20,7 +20,6 @@ use nom::{
 };
 pub use quantity::LocalVariableName;
 pub use type_definition::TypeDefinition;
-use self::type_definition::TypeDefinitionMapping;
 
 /// The root nodes of IR.
 #[enum_dispatch]
