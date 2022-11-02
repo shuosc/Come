@@ -6,8 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-either = "1.8.0"
+clap = { version = "4.0.18", features = ["derive"] }
 enum_dispatch = "0.3.8"
+ezio = "0.1.2"
 nom = "7.1.1"
 paste = "1.0.9"
 phf = { version = "0.11.1", features = ["macros"] }
