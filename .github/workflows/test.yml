@@ -1,4 +1,4 @@
-name: Rust
+name: Run tests
 
 on:
   push:
@@ -16,5 +16,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
-    - name: Run tests
+    - name: Run unit tests
       run: cargo test --verbose
+    - name: Run integration tests
+      run: python3 ./integration-test/integration_test.py

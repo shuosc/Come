@@ -75,13 +75,13 @@ impl fmt::Display for BasicBlock {
             write!(f, "{}:", name)?;
         }
         for phi in &self.phis {
-            writeln!(f, "{}", phi)?;
+            writeln!(f, "    {}", phi)?;
         }
         for statement in &self.content {
-            writeln!(f, "{}", statement)?;
+            writeln!(f, "    {}", statement)?;
         }
         if let Some(terminator) = &self.terminator {
-            writeln!(f, "{}", terminator)?;
+            writeln!(f, "    {}", terminator)?;
         }
         Ok(())
     }

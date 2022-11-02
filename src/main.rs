@@ -1,3 +1,7 @@
+use clap::Parser;
+use ezio::prelude::*;
+use std::{io::Write, path::PathBuf};
+
 /// Definitions of AST nodes and their parser.
 mod ast;
 /// Functions for generating assembly code from ir.
@@ -7,22 +11,34 @@ mod ir;
 /// Utilities shared among modules.
 mod utility;
 
+/// Come language compiler.
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Input file path.
+    #[arg(short, long)]
+    input: PathBuf,
+
+    /// Output file path.
+    #[arg(short, long)]
+    output: PathBuf,
+
+    /// IR file path, won't generate ir file if empty.
+    #[arg(short = None, long = "emit-ir")]
+    emit_ir_path: Option<PathBuf>,
+}
+
 fn main() {
-    let ast = ast::from_source(
-        r#"fn f(a: i32) -> i32 {
-        let b: i32 = 1;
-        let c: i32 = a + b;
-        return c;
-    }"#,
-    )
-    .unwrap()
-    .1;
-    let result = ir::from_ast(&ast);
-    for r in &result {
-        if let ir::IR::FunctionDefinition(f) = r {
-            println!("{}", f);
+    let args = Args::parse();
+    let code = file::read(args.input);
+    let ast = ast::from_source(&code).unwrap().1;
+    let ir = ir::from_ast(&ast);
+    if let Some(emit_ir_path) = args.emit_ir_path {
+        let mut w = file::writer(emit_ir_path);
+        for ir in ir.iter() {
+            writeln!(w, "{}", ir).unwrap();
         }
     }
-    let code = backend::riscv::emit_code(&result);
-    println!("{}", code);
+    let code = backend::riscv::emit_code(&ir);
+    file::write(args.output, &code);
 }

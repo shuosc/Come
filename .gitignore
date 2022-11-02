@@ -96,3 +96,9 @@ Cargo.lock
 
 # Local History for Visual Studio Code
 .history/
+
+# Custom
+*.asm
+*.cmir
+!integration-test/cases/*/expected/*.cmir
+!integration-test/cases/*/expected/*.asm
