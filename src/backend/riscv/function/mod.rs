@@ -1,15 +1,29 @@
-use super::{register_assign, FunctionCompileContext};
+use std::collections::HashMap;
+
+use super::register_assign::{self, RegisterAssign};
 use crate::ir;
 
 pub mod basic_block;
 pub mod statement;
 pub mod terminator;
 
+/// Context for compiling a function.
+pub struct FunctionCompileContext<'a> {
+    /// Parent context
+    pub parent_context: &'a mut super::Context,
+    /// Where a local variable is assigned to.
+    pub local_assign: HashMap<ir::LocalVariableName, RegisterAssign>,
+    /// Some times we need to do some cleanup before return (eg, pop the stack frame)
+    /// So we can jump to this label instead of return directly.
+    pub cleanup_label: Option<String>,
+}
+
 /// Emit assembly code for a [`ir::FunctionDefinition`].
-pub fn emit_code(function: &ir::FunctionDefinition) -> String {
+pub fn emit_code(function: &ir::FunctionDefinition, ctx: &mut super::Context) -> String {
     let (register_assign, stack_space) = register_assign::assign_register(function);
     let mut result = format!("{}:\n", function.name);
     let mut context = FunctionCompileContext {
+        parent_context: ctx,
         local_assign: register_assign,
         cleanup_label: if stack_space != 0 {
             Some(format!("{}_end", function.name))

@@ -1,5 +1,5 @@
 use crate::{
-    backend::riscv::{register_assign::RegisterAssign, FunctionCompileContext},
+    backend::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign},
     ir,
 };
 
@@ -18,10 +18,10 @@ pub fn emit_code(
         ir::quantity::Quantity::LocalVariableName(local) => {
             let local = ctx.local_assign.get(local).unwrap();
             match local {
-                RegisterAssign::Register(register) => register,
+                RegisterAssign::Register(register) => register.clone(),
                 RegisterAssign::StackValue(stack_offset) => {
                     result.push_str(&format!("lw t0, -{}(sp)\n", stack_offset));
-                    "t0"
+                    "t0".to_string()
                 }
                 RegisterAssign::StackRef(_) => unreachable!(),
             }
@@ -29,7 +29,7 @@ pub fn emit_code(
         ir::quantity::Quantity::GlobalVariableName(_) => todo!(),
         ir::quantity::Quantity::NumberLiteral(n) => {
             result.push_str(&format!("    li t0, {}\n", n));
-            "t0"
+            "t0".to_string()
         }
     };
     let target_stack_offset = if let ir::quantity::Quantity::LocalVariableName(local) = target {

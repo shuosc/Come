@@ -2,8 +2,12 @@ use super::{
     basic_block::BasicBlock,
     statement::{Ret, Terminator},
 };
-use crate::ast::{self, statement::Statement};
-use std::mem;
+use crate::{
+    ast::{self, expression::VariableRef, statement::Statement},
+    ir::{quantity::Quantity, LocalVariableName},
+    utility::data_type::{Integer, Type},
+};
+use std::{collections::HashMap, mem, vec};
 
 mod assign;
 mod declare;
@@ -21,6 +25,10 @@ pub struct IRGeneratingContext<'a> {
     pub done_basic_blocks: Vec<BasicBlock>,
     /// The [`BasicBlock`] that are in construction.
     pub current_basic_block: BasicBlock,
+    /// Types of variables. The latter in the [`Vec`] has higher priority.
+    pub variable_types_stack: Vec<HashMap<VariableRef, Type>>,
+    /// Typed of local variables.
+    pub local_variable_types: HashMap<LocalVariableName, Type>,
 }
 
 impl<'a> IRGeneratingContext<'a> {
@@ -30,6 +38,8 @@ impl<'a> IRGeneratingContext<'a> {
             parent_context,
             done_basic_blocks: Vec::new(),
             current_basic_block: BasicBlock::new(),
+            variable_types_stack: vec![HashMap::new()],
+            local_variable_types: HashMap::new(),
         }
     }
 
@@ -55,6 +65,58 @@ impl<'a> IRGeneratingContext<'a> {
             .into_iter()
             .filter(|it| !it.empty())
             .collect()
+    }
+
+    /// Decide a variable's type.
+    pub fn type_of_variable(&self, variable: &VariableRef) -> Type {
+        self.variable_types_stack
+            .iter()
+            .rev()
+            .find_map(|it| it.get(variable))
+            .unwrap()
+            .clone()
+    }
+
+    /// Decide a field's type.
+    pub fn type_of_field(&self, field_access: &ast::expression::FieldAccess) -> Type {
+        let ast::expression::FieldAccess { from: _, name } = field_access;
+        let parent_type = match field_access.from.as_ref() {
+            ast::expression::LValue::VariableRef(variable) => self.type_of_variable(variable),
+            ast::expression::LValue::FieldAccess(field_access) => self.type_of_field(field_access),
+        };
+        match parent_type {
+            Type::StructRef(s) => {
+                let struct_definition = self.parent_context.type_definitions.get(&s).unwrap();
+                let field_index = struct_definition.field_names.get(name).unwrap();
+                struct_definition.field_types[*field_index].clone()
+            }
+            _ => panic!("Cannot access field from non-struct type"),
+        }
+    }
+
+    /// Decide a local variable's type.
+    pub fn type_of_quantity(&self, variable: &Quantity) -> Type {
+        match variable {
+            Quantity::LocalVariableName(name) => self.local_variable_types[name].clone(),
+            Quantity::GlobalVariableName(name) => self.parent_context.global_definitions[&name.0]
+                .data_type
+                .clone(),
+            Quantity::NumberLiteral(_) => {
+                // todo: auto decide integer types
+                Type::Integer(Integer {
+                    signed: true,
+                    width: 32,
+                })
+            }
+        }
+    }
+
+    /// Generate a [`LocalVariableName`] and record its type
+    pub fn next_register_with_type(&mut self, data_type: &Type) -> LocalVariableName {
+        let register = self.parent_context.next_register();
+        self.local_variable_types
+            .insert(register.clone(), data_type.clone());
+        register
     }
 }
 

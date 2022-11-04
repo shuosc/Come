@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{ast, utility::parsing};
 use nom::{combinator::map, IResult};
 
@@ -14,6 +16,12 @@ impl From<i64> for IntegerLiteral {
 impl From<ast::expression::integer_literal::IntegerLiteral> for IntegerLiteral {
     fn from(i: ast::expression::IntegerLiteral) -> Self {
         Self(i.0)
+    }
+}
+
+impl fmt::Display for IntegerLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 

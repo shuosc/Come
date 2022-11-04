@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     ir::{
         function::GenerateRegister,
-        quantity::{self, Quantity},
+        quantity::{self, local, Quantity},
         LocalVariableName,
     },
     utility::{data_type, data_type::Type, parsing},
@@ -50,6 +50,8 @@ pub fn parse_field(code: &str) -> IResult<&str, Field> {
 /// [`SetField`] instruction.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct SetField {
+    /// Result register
+    pub result: LocalVariableName,
     /// Type of the value to store.
     pub data_type: Type,
     /// Value to store.
@@ -68,8 +70,8 @@ impl fmt::Display for SetField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "setfield {} {}, {}",
-            self.data_type, self.value, self.field
+            "{} = setfield {} {}, {}",
+            self.result, self.data_type, self.value, self.field
         )
     }
 }
@@ -78,6 +80,10 @@ impl fmt::Display for SetField {
 pub fn parse(code: &str) -> IResult<&str, SetField> {
     map(
         tuple((
+            local::parse,
+            space0,
+            tag("="),
+            space0,
             tag("setfield"),
             space1,
             data_type::parse,
@@ -88,10 +94,11 @@ pub fn parse(code: &str) -> IResult<&str, SetField> {
             space0,
             quantity::parse,
         )),
-        |(_, _, data_type, _, field, _, _, _, value)| SetField {
+        |(result, _, _, _, _, _, data_type, _, field, _, _, _, value)| SetField {
             data_type,
             field,
             value,
+            result,
         },
     )(code)
 }
@@ -103,7 +110,7 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let code = "setfield i32 %0.0.1, %1";
+        let code = "%2 = setfield i32 %0.0.1, %1";
         let (_, set_field) = parse(code).unwrap();
         assert_eq!(
             set_field,
@@ -117,6 +124,7 @@ mod tests {
                     index: vec![0, 1],
                 },
                 value: LocalVariableName("1".to_string()).into(),
+                result: LocalVariableName("2".to_string())
             }
         );
     }

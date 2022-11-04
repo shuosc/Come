@@ -8,7 +8,7 @@ use crate::{
         quantity::{self, local, Quantity},
         LocalVariableName,
     },
-    utility::data_type::{self, Integer, Type},
+    utility::data_type::{self, Type},
 };
 use nom::{
     branch::alt,
@@ -106,11 +106,13 @@ pub fn from_ast(
     ctx: &mut IRGeneratingContext,
 ) -> Quantity {
     let ast::expression::unary_operator::UnaryOperatorResult { operator, operand } = ast;
-    let result_register = ctx.parent_context.next_register();
     let rvalue_register = rvalue_from_ast(operand.as_ref(), ctx);
+    let data_type = ctx.type_of_quantity(&rvalue_register);
+    let result_register = ctx.next_register_with_type(&data_type);
     match operator.as_str() {
         "+" => {
             ctx.parent_context.next_register_id -= 1;
+            ctx.local_variable_types.remove(&result_register);
             return rvalue_register;
         }
         operator => {
@@ -119,10 +121,7 @@ pub fn from_ast(
                 operation,
                 operand: rvalue_register,
                 to: result_register.clone(),
-                data_type: Type::Integer(Integer {
-                    signed: true,
-                    width: 32,
-                }),
+                data_type,
             })
         }
     }

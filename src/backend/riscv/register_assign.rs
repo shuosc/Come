@@ -38,6 +38,7 @@ pub fn assign_register(
             // todo: alloca.alloc_type.size() instead of 4
             current_used_stack_space += 4;
         } else {
+            // todo: handle data types which are larger than 4 bytes
             let logic_register = statement.register();
             if let Some(logic_register) = logic_register {
                 if next_temporary_register_id <= 6 {

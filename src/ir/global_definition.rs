@@ -1,3 +1,5 @@
+use std::fmt;
+
 use super::IRGeneratingContext;
 use crate::{
     ast::{self, expression::rvalue::RValue},
@@ -20,12 +22,22 @@ use nom::{
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct GlobalDefinition {
     /// Name of the global variable.
-    pub item: GlobalVariableName,
+    pub name: GlobalVariableName,
     /// Type of the global variable.
     pub data_type: Type,
     // todo: Other literals
     /// Initial value of the global variable.
     pub initial_value: IntegerLiteral,
+}
+
+impl fmt::Display for GlobalDefinition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "@{}: {} = {}",
+            self.name, self.data_type, self.initial_value
+        )
+    }
 }
 
 /// Parse ir code to get a [`GlobalDefinition`].
@@ -43,7 +55,7 @@ pub fn parse(code: &str) -> IResult<&str, GlobalDefinition> {
             integer_literal::parse,
         )),
         |(item, _, _, _, _, _, data_type, _, initial_value)| GlobalDefinition {
-            item,
+            name: item,
             data_type,
             initial_value,
         },
@@ -69,7 +81,7 @@ pub fn from_ast(
     };
 
     GlobalDefinition {
-        item: GlobalVariableName(variable_name.clone()),
+        name: GlobalVariableName(variable_name.clone()),
         data_type: data_type.clone(),
         initial_value,
     }
@@ -87,7 +99,7 @@ mod tests {
         assert_eq!(
             result,
             GlobalDefinition {
-                item: GlobalVariableName("g".to_string()),
+                name: GlobalVariableName("g".to_string()),
                 data_type: Type::Integer(Integer {
                     width: 32,
                     signed: true

@@ -43,12 +43,44 @@ pub fn from_ast(ast: &ast::statement::If, ctx: &mut IRGeneratingContext) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ast::expression::IntegerLiteral, ir::statement};
+    use crate::{
+        ast::expression::{IntegerLiteral, VariableRef},
+        ir::{statement, LocalVariableName},
+        utility::data_type::{Integer, Type},
+    };
 
     #[test]
     fn test_from_ast() {
         let mut parent_ctx = crate::ir::IRGeneratingContext::new();
         let mut ctx = IRGeneratingContext::new(&mut parent_ctx);
+        ctx.local_variable_types.insert(
+            LocalVariableName("a".to_string()),
+            Type::Integer(Integer {
+                signed: true,
+                width: 32,
+            }),
+        );
+        ctx.local_variable_types.insert(
+            LocalVariableName("b".to_string()),
+            Type::Integer(Integer {
+                signed: true,
+                width: 32,
+            }),
+        );
+        ctx.variable_types_stack.last_mut().unwrap().insert(
+            VariableRef("a".to_string()),
+            Type::Integer(Integer {
+                signed: true,
+                width: 32,
+            }),
+        );
+        ctx.variable_types_stack.last_mut().unwrap().insert(
+            VariableRef("b".to_string()),
+            Type::Integer(Integer {
+                signed: true,
+                width: 32,
+            }),
+        );
         let ast = ast::statement::If {
             condition: IntegerLiteral(42).into(),
             content: ast::statement::compound::Compound(vec![ast::statement::Assign {

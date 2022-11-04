@@ -1,4 +1,6 @@
-use crate::{backend::riscv::FunctionCompileContext, ir};
+use crate::ir;
+
+use super::FunctionCompileContext;
 
 /// Compile a binary operator.
 mod binary_calculate;

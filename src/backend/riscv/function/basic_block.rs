@@ -1,5 +1,5 @@
-use super::{statement, terminator};
-use crate::{backend::riscv::FunctionCompileContext, ir};
+use super::{statement, terminator, FunctionCompileContext};
+use crate::ir;
 
 /// Emit assembly code for a [`ir::function::basic_block::BasicBlock`].
 pub fn emit_code(

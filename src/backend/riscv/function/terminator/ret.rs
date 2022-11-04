@@ -1,5 +1,5 @@
 use crate::{
-    backend::riscv::{register_assign::RegisterAssign, FunctionCompileContext},
+    backend::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign},
     ir::{quantity::Quantity, statement::Ret},
 };
 

@@ -3,7 +3,7 @@ use self::{
     ir_generator::{compound_from_ast, IRGeneratingContext},
 };
 use crate::{
-    ast,
+    ast::{self, expression::VariableRef},
     ir::quantity::{local, LocalVariableName},
     utility::{data_type, data_type::Type, parsing},
 };
@@ -134,10 +134,20 @@ pub fn from_ast(
     let mut ctx = IRGeneratingContext::new(ctx);
     let parameters: Vec<_> = parameters.iter().map(parameter_from_ast).collect();
     for param in &parameters {
+        ctx.local_variable_types
+            .insert(param.name.clone(), param.data_type.clone());
+        ctx.variable_types_stack
+            .last_mut()
+            .unwrap()
+            .insert(VariableRef(param.name.0.clone()), param.data_type.clone());
         ctx.current_basic_block.append_statement(Alloca {
             to: LocalVariableName(format!("{}_addr", param.name.0)),
             alloc_type: param.data_type.clone(),
         });
+        ctx.variable_types_stack
+            .last_mut()
+            .unwrap()
+            .insert(VariableRef(format!("{}_addr", param.name.0)), Type::Address);
         ctx.current_basic_block.append_statement(Store {
             data_type: param.data_type.clone(),
             source: param.name.clone().into(),

@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::HashMap,
+    fmt::{self, Debug},
+};
 
 use enum_dispatch::enum_dispatch;
 
@@ -33,9 +36,11 @@ pub enum IR {
 impl fmt::Display for IR {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            IR::TypeDefinition(_type_definition) => todo!(),
-            IR::FunctionDefinition(function_definition) => write!(f, "{}", function_definition),
-            IR::GlobalDefinition(_global_definition) => todo!(),
+            IR::TypeDefinition(type_definition) => fmt::Display::fmt(&type_definition, f),
+            IR::FunctionDefinition(function_definition) => {
+                fmt::Display::fmt(&function_definition, f)
+            }
+            IR::GlobalDefinition(global_definition) => fmt::Display::fmt(&global_definition, f),
         }
     }
 }
@@ -58,6 +63,8 @@ pub fn from_source(source: &str) -> IResult<&str, Vec<IR>> {
 pub struct IRGeneratingContext {
     /// Known struct types.
     pub type_definitions: HashMap<String, TypeDefinitionMapping>,
+    /// Known global variables.
+    pub global_definitions: HashMap<String, GlobalDefinition>,
     /// Next local variable id.
     pub next_register_id: usize,
     /// Next `if` statement's id, used in generating label.
@@ -70,6 +77,7 @@ impl IRGeneratingContext {
     pub fn new() -> Self {
         Self {
             type_definitions: HashMap::new(),
+            global_definitions: HashMap::new(),
             next_register_id: 0,
             next_if_id: 0,
             next_loop_id: 0,

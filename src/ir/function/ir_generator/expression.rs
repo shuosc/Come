@@ -1,12 +1,15 @@
 use super::IRGeneratingContext;
 use crate::{
-    ast::{self, expression::RValue},
+    ast::{
+        self,
+        expression::{LValue, RValue},
+    },
     ir::{
         function::statement::{calculate, Load},
         quantity::Quantity,
         LocalVariableName,
     },
-    utility::data_type::{Integer, Type},
+    utility::data_type::Type,
 };
 
 /// Generate IR from an [`ast::expression::RValue`] AST node.
@@ -15,15 +18,13 @@ pub fn rvalue_from_ast(ast: &RValue, ctx: &mut IRGeneratingContext) -> Quantity 
     match ast {
         RValue::IntegerLiteral(number_literal) => number_literal.0.into(),
         RValue::VariableRef(variable_ref) => {
-            let target = ctx.parent_context.next_register();
+            let data_type = ctx.type_of_variable(variable_ref);
+            let target = ctx.next_register_with_type(&data_type);
             let source = LocalVariableName(format!("{}_addr", variable_ref.0.clone()));
             ctx.current_basic_block.append_statement(Load {
                 from: source.into(),
                 to: target.clone(),
-                data_type: Type::Integer(Integer {
-                    signed: true,
-                    width: 32,
-                }),
+                data_type,
             });
             target.into()
         }
@@ -45,12 +46,23 @@ pub fn rvalue_from_ast(ast: &RValue, ctx: &mut IRGeneratingContext) -> Quantity 
 /// Return the register where the result address is stored.
 pub fn lvalue_from_ast(
     ast: &ast::expression::lvalue::LValue,
-    _ctx: &mut IRGeneratingContext,
+    ctx: &mut IRGeneratingContext,
 ) -> Quantity {
-    if let ast::expression::LValue::VariableRef(variable_ref) = ast {
-        LocalVariableName(format!("{}_addr", variable_ref.0)).into()
-    } else {
-        unimplemented!()
+    match ast {
+        ast::expression::LValue::VariableRef(variable_ref) => {
+            let result = LocalVariableName(format!("{}_addr", variable_ref.0));
+            ctx.local_variable_types
+                .insert(result.clone(), Type::Address);
+            result.into()
+        }
+        ast::expression::LValue::FieldAccess(field_access) => {
+            // for field access, we will return the "root" object's address
+            let mut root = field_access.from.as_ref();
+            while let LValue::FieldAccess(field_access) = &root {
+                root = field_access.from.as_ref();
+            }
+            lvalue_from_ast(root, ctx)
+        }
     }
 }
 

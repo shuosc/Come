@@ -1,5 +1,5 @@
 use crate::{
-    backend::riscv::{register_assign::RegisterAssign, FunctionCompileContext},
+    backend::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign},
     ir::{
         quantity::Quantity,
         statement::{branch::BranchType, Branch},
@@ -26,10 +26,10 @@ pub fn emit_code(branch: &Branch, ctx: &mut FunctionCompileContext) -> String {
         Quantity::LocalVariableName(local) => {
             let logical_register_assign = ctx.local_assign.get(local).unwrap();
             match logical_register_assign {
-                RegisterAssign::Register(register) => register,
+                RegisterAssign::Register(register) => register.clone(),
                 RegisterAssign::StackValue(stack_offset) => {
                     result.push_str(&format!("    lw t0, -{}(sp)\n", stack_offset));
-                    "t0"
+                    "t0".to_string()
                 }
                 RegisterAssign::StackRef(_) => unreachable!(),
             }
@@ -37,17 +37,17 @@ pub fn emit_code(branch: &Branch, ctx: &mut FunctionCompileContext) -> String {
         Quantity::GlobalVariableName(_) => todo!(),
         Quantity::NumberLiteral(n) => {
             result.push_str(&format!("    li t0, {}\n", n));
-            "t0"
+            "t0".to_string()
         }
     };
     let operand2_register = match operand2 {
         Quantity::LocalVariableName(local) => {
             let logical_register_assign = ctx.local_assign.get(local).unwrap();
             match logical_register_assign {
-                RegisterAssign::Register(register) => register,
+                RegisterAssign::Register(register) => register.clone(),
                 RegisterAssign::StackValue(stack_offset) => {
                     result.push_str(&format!("    lw t1, -{}(sp)\n", stack_offset));
-                    "t1"
+                    "t1".to_string()
                 }
                 RegisterAssign::StackRef(_) => unreachable!(),
             }
@@ -55,7 +55,7 @@ pub fn emit_code(branch: &Branch, ctx: &mut FunctionCompileContext) -> String {
         Quantity::GlobalVariableName(_) => todo!(),
         Quantity::NumberLiteral(n) => {
             result.push_str(&format!("    li t1, {}\n", n));
-            "t1"
+            "t1".to_string()
         }
     };
     result.push_str(&format!(

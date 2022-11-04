@@ -1,26 +1,18 @@
-use super::{function_call, in_brackets, integer_literal, rvalue::RValue, variable_ref};
+use super::{variable_ref, LValue};
 use crate::utility::parsing;
-use nom::{
-    branch::alt, bytes::complete::tag, combinator::map, multi::fold_many0, sequence::preceded,
-    IResult,
-};
+use nom::{bytes::complete::tag, combinator::map, multi::fold_many0, sequence::preceded, IResult};
 
 /// [`FieldAccess`] represents result of accessing field in a struct.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct FieldAccess {
     /// Which struct instance to access from.
-    pub from: Box<RValue>,
+    pub from: Box<LValue>,
     /// The field name.
     pub name: String,
 }
 
-pub fn higher_than_field_access(code: &str) -> IResult<&str, RValue> {
-    alt((
-        map(in_brackets::parse, RValue::InBrackets),
-        map(function_call::parse, RValue::FunctionCall),
-        map(variable_ref::parse, RValue::VariableRef),
-        map(integer_literal::parse, RValue::IntegerLiteral),
-    ))(code)
+pub fn higher_than_field_access(code: &str) -> IResult<&str, LValue> {
+    map(variable_ref::parse, LValue::VariableRef)(code)
 }
 
 /// Parse source code to get a [`FieldAccess`].
@@ -34,7 +26,7 @@ pub fn parse(code: &str) -> IResult<&str, FieldAccess> {
             name: second.clone(),
         },
         |acc, next| FieldAccess {
-            from: Box::new(RValue::FieldAccess(acc)),
+            from: Box::new(LValue::FieldAccess(acc)),
             name: next,
         },
     )(rest)
@@ -50,7 +42,7 @@ mod tests {
         assert_eq!(
             result,
             FieldAccess {
-                from: Box::new(RValue::VariableRef(variable_ref::VariableRef(
+                from: Box::new(LValue::VariableRef(variable_ref::VariableRef(
                     "a".to_string()
                 ))),
                 name: "b".to_string()

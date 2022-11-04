@@ -22,7 +22,7 @@ pub mod phi;
 /// Data structure, parser and ir generator for `ret` statement.
 mod ret;
 /// Data structure, parser and ir generator for `setfield` statement.
-mod set_field;
+pub(crate) mod set_field;
 /// Data structure, parser and ir generator for `store` statement.
 mod store;
 

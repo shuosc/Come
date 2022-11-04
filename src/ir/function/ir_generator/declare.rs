@@ -15,6 +15,10 @@ pub fn from_ast(ast: &ast::statement::declare::Declare, ctx: &mut IRGeneratingCo
         to: LocalVariableName(format!("{}_addr", variable_name)),
         alloc_type: data_type.clone(),
     });
+    ctx.variable_types_stack.last_mut().unwrap().insert(
+        ast::expression::variable_ref::VariableRef(variable_name.clone()),
+        data_type.clone(),
+    );
     if let Some(init_value) = init_value {
         // create a dummy assign node
         let assign_statement = ast::statement::Assign {

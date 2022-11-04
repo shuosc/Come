@@ -13,7 +13,7 @@ use nom::{branch::alt, combinator::map, IResult};
 
 /// Tag trait for [`RValue`].
 #[enum_dispatch]
-trait IsRValue {}
+pub trait IsRValue {}
 
 /// [`RValue`] represents an expression that has a value.
 #[enum_dispatch(IsRValue)]

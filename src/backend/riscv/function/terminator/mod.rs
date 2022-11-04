@@ -1,4 +1,6 @@
-use crate::{backend::riscv::FunctionCompileContext, ir::statement::Terminator};
+use crate::ir::statement::Terminator;
+
+use super::FunctionCompileContext;
 
 /// Compile a branch command.
 mod branch;

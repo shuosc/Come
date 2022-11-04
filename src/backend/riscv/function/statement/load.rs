@@ -1,5 +1,5 @@
 use crate::{
-    backend::riscv::{register_assign::RegisterAssign, FunctionCompileContext},
+    backend::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign},
     ir,
 };
 
@@ -34,8 +34,8 @@ pub fn emit_code(
     };
     let to_physical = ctx.local_assign.get(to).unwrap();
     let to_register = match to_physical {
-        RegisterAssign::Register(register) => register,
-        RegisterAssign::StackValue(_) => "t0",
+        RegisterAssign::Register(register) => register.to_string(),
+        RegisterAssign::StackValue(_) => "t0".to_string(),
         RegisterAssign::StackRef(_) => unreachable!(),
     };
     result.push_str(&format!(
