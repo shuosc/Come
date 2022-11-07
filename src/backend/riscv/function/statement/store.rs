@@ -20,10 +20,29 @@ pub fn emit_code(
             match local {
                 RegisterAssign::Register(register) => register.clone(),
                 RegisterAssign::StackValue(stack_offset) => {
-                    result.push_str(&format!("lw t0, -{}(sp)\n", stack_offset));
+                    result.push_str(&format!("    lw t0, {}(sp)\n", stack_offset));
                     "t0".to_string()
                 }
                 RegisterAssign::StackRef(_) => unreachable!(),
+                RegisterAssign::MultipleRegisters(registers) => {
+                    if let ir::quantity::Quantity::LocalVariableName(local) = target {
+                        let local = ctx.local_assign.get(local).unwrap();
+                        if let RegisterAssign::StackRef(stack_offset) = local {
+                            for (i, register) in registers.iter().enumerate() {
+                                result.push_str(&format!(
+                                    "    sw {}, {}(sp)\n",
+                                    register,
+                                    stack_offset + i * 4
+                                ));
+                            }
+                        } else {
+                            unimplemented!()
+                        }
+                    } else {
+                        unimplemented!()
+                    }
+                    return result;
+                }
             }
         }
         ir::quantity::Quantity::GlobalVariableName(_) => todo!(),
@@ -38,14 +57,23 @@ pub fn emit_code(
             RegisterAssign::StackRef(stack_offset) => stack_offset,
             RegisterAssign::Register(_) => todo!(),
             RegisterAssign::StackValue(_) => todo!(),
+            RegisterAssign::MultipleRegisters(_) => todo!(),
         }
     } else {
         // unreachable!() ?
         todo!()
     };
     result.push_str(&format!(
-        "    sw {}, -{}(sp)\n",
+        "    sw {}, {}(sp)\n",
         source_register, target_stack_offset
     ));
     result
+}
+
+#[cfg(test)]
+mod tests {
+    
+
+    #[test]
+    fn test_emit_code() {}
 }

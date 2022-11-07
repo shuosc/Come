@@ -16,7 +16,7 @@ mod jump;
 /// Data structure, parser and ir generator for `load` statement.
 mod load;
 /// Data structure, parser and ir generator for `loadfield` statement.
-mod load_field;
+pub mod load_field;
 /// Data structure, parser and ir generator for `phi` statement.
 pub mod phi;
 /// Data structure, parser and ir generator for `ret` statement.

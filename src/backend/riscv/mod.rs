@@ -12,23 +12,30 @@ pub struct Context {
 }
 
 pub trait HasSize {
+    fn trivial_size(&self) -> Option<usize>;
     fn size(&self, ctx: &Context) -> usize;
 }
 
 impl HasSize for data_type::Type {
-    fn size(&self, ctx: &Context) -> usize {
+    fn trivial_size(&self) -> Option<usize> {
         match self {
-            data_type::Type::Integer(integer) => integer.width,
-            data_type::Type::StructRef(name) => {
-                let struct_definition = ctx.struct_definitions.get(name).unwrap();
-                struct_definition
-                    .fields
-                    .iter()
-                    .map(|field_type| field_type.size(ctx))
-                    .sum()
-            }
-            data_type::Type::None => 0,
-            data_type::Type::Address => 32,
+            data_type::Type::Integer(integer) => Some(integer.width),
+            data_type::Type::StructRef(_name) => None,
+            data_type::Type::None => Some(0),
+            data_type::Type::Address => Some(32),
+        }
+    }
+
+    fn size(&self, ctx: &Context) -> usize {
+        if let data_type::Type::StructRef(name) = self {
+            let struct_definition = ctx.struct_definitions.get(name).unwrap();
+            struct_definition
+                .fields
+                .iter()
+                .map(|field_type| field_type.size(ctx))
+                .sum()
+        } else {
+            self.trivial_size().unwrap()
         }
     }
 }

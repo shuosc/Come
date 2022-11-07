@@ -12,9 +12,10 @@ pub fn emit_code(ret: &Ret, ctx: &mut FunctionCompileContext) -> String {
                 match logical_register_assign {
                     RegisterAssign::Register(register) => format!("    mv a0, {}\n", register),
                     RegisterAssign::StackValue(stack_offset) => {
-                        format!("    lw a0, -{}(sp)\n", stack_offset)
+                        format!("    lw a0, {}(sp)\n", stack_offset)
                     }
                     RegisterAssign::StackRef(_) => unreachable!(),
+                    RegisterAssign::MultipleRegisters(_) => todo!(),
                 }
             }
             Quantity::NumberLiteral(n) => format!("    li a0, {}\n", n),

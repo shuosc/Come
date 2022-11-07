@@ -1,6 +1,6 @@
 use crate::{
     ir::{function::GenerateRegister, LocalVariableName},
-    utility::parsing,
+    utility::{data_type::Type, parsing},
 };
 use nom::{
     bytes::complete::tag, character::complete::space1, combinator::map, sequence::tuple, IResult,
@@ -17,7 +17,7 @@ pub struct Jump {
 }
 
 impl GenerateRegister for Jump {
-    fn register(&self) -> Option<LocalVariableName> {
+    fn register(&self) -> Option<(LocalVariableName, Type)> {
         None
     }
 }

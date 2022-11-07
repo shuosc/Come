@@ -20,7 +20,7 @@ pub struct FunctionCompileContext<'a> {
 
 /// Emit assembly code for a [`ir::FunctionDefinition`].
 pub fn emit_code(function: &ir::FunctionDefinition, ctx: &mut super::Context) -> String {
-    let (register_assign, stack_space) = register_assign::assign_register(function);
+    let (register_assign, stack_space) = register_assign::assign_register(function, ctx);
     let mut result = format!("{}:\n", function.name);
     let mut context = FunctionCompileContext {
         parent_context: ctx,

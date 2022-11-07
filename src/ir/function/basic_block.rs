@@ -1,4 +1,4 @@
-use crate::{ir::LocalVariableName, utility::parsing};
+use crate::{utility::parsing};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -8,7 +8,7 @@ use nom::{
     sequence::{pair, tuple},
     IResult,
 };
-use std::{collections::HashSet, fmt};
+use std::{fmt};
 
 use super::{
     statement::{
@@ -16,7 +16,6 @@ use super::{
         phi::{self, Phi},
         IRStatement, Terminator,
     },
-    GenerateRegister,
 };
 
 /// A basic block.
@@ -41,18 +40,6 @@ impl BasicBlock {
             content: Vec::new(),
             terminator: None,
         }
-    }
-
-    /// Registers created in the basic block.
-    pub fn registers(&self) -> HashSet<LocalVariableName> {
-        let mut result = HashSet::new();
-        for phi in &self.phis {
-            result.insert(phi.to.clone());
-        }
-        for statement in &self.content {
-            result.extend(statement.register());
-        }
-        result
     }
 
     /// Append a statement to the basic block.

@@ -28,10 +28,11 @@ pub fn emit_code(branch: &Branch, ctx: &mut FunctionCompileContext) -> String {
             match logical_register_assign {
                 RegisterAssign::Register(register) => register.clone(),
                 RegisterAssign::StackValue(stack_offset) => {
-                    result.push_str(&format!("    lw t0, -{}(sp)\n", stack_offset));
+                    result.push_str(&format!("    lw t0, {}(sp)\n", stack_offset));
                     "t0".to_string()
                 }
                 RegisterAssign::StackRef(_) => unreachable!(),
+                RegisterAssign::MultipleRegisters(_) => unreachable!(),
             }
         }
         Quantity::GlobalVariableName(_) => todo!(),
@@ -46,10 +47,11 @@ pub fn emit_code(branch: &Branch, ctx: &mut FunctionCompileContext) -> String {
             match logical_register_assign {
                 RegisterAssign::Register(register) => register.clone(),
                 RegisterAssign::StackValue(stack_offset) => {
-                    result.push_str(&format!("    lw t1, -{}(sp)\n", stack_offset));
+                    result.push_str(&format!("    lw t1, {}(sp)\n", stack_offset));
                     "t1".to_string()
                 }
                 RegisterAssign::StackRef(_) => unreachable!(),
+                RegisterAssign::MultipleRegisters(_) => unreachable!(),
             }
         }
         Quantity::GlobalVariableName(_) => todo!(),

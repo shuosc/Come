@@ -4,7 +4,7 @@ use crate::{
         quantity::{self, Quantity},
         LocalVariableName,
     },
-    utility::parsing,
+    utility::{data_type::Type, parsing},
 };
 use nom::{
     branch::alt,
@@ -59,7 +59,7 @@ pub struct Branch {
 }
 
 impl GenerateRegister for Branch {
-    fn register(&self) -> Option<LocalVariableName> {
+    fn register(&self) -> Option<(LocalVariableName, Type)> {
         None
     }
 }

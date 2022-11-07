@@ -27,6 +27,7 @@ pub fn emit_code(
                     // unreachable!() ?
                     todo!()
                 }
+                RegisterAssign::MultipleRegisters(_) => unreachable!(),
             }
         }
         ir::quantity::Quantity::GlobalVariableName(_global) => todo!(),
@@ -37,13 +38,23 @@ pub fn emit_code(
         RegisterAssign::Register(register) => register.to_string(),
         RegisterAssign::StackValue(_) => "t0".to_string(),
         RegisterAssign::StackRef(_) => unreachable!(),
+        RegisterAssign::MultipleRegisters(registers) => {
+            for (i, register) in registers.iter().enumerate() {
+                result.push_str(&format!(
+                    "    lw {}, {}(sp)\n",
+                    register,
+                    from_stack_offset + i * 4
+                ));
+            }
+            return result;
+        }
     };
     result.push_str(&format!(
-        "    lw {}, -{}(sp)\n",
+        "    lw {}, {}(sp)\n",
         to_register, from_stack_offset
     ));
     if let RegisterAssign::StackValue(stack_offset) = to_physical {
-        result.push_str(&format!("    sw {}, -{}(sp)\n", to_register, stack_offset));
+        result.push_str(&format!("    sw {}, {}(sp)\n", to_register, stack_offset));
     }
     result
 }

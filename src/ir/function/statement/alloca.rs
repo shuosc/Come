@@ -24,8 +24,8 @@ pub struct Alloca {
 }
 
 impl GenerateRegister for Alloca {
-    fn register(&self) -> Option<LocalVariableName> {
-        Some(self.to.clone())
+    fn register(&self) -> Option<(LocalVariableName, Type)> {
+        Some((self.to.clone(), Type::Address))
     }
 }
 

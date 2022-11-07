@@ -95,8 +95,8 @@ pub struct BinaryCalculate {
 }
 
 impl GenerateRegister for BinaryCalculate {
-    fn register(&self) -> Option<LocalVariableName> {
-        Some(self.to.clone())
+    fn register(&self) -> Option<(LocalVariableName, Type)> {
+        Some((self.to.clone(), self.data_type.clone()))
     }
 }
 
@@ -148,7 +148,10 @@ pub fn from_ast(
     ctx: &mut IRGeneratingContext,
 ) -> LocalVariableName {
     let ast::expression::BinaryOperatorResult { operator, lhs, rhs } = ast;
-    let result_register = ctx.parent_context.next_register();
+    let result_register = ctx.next_register_with_type(&Type::Integer(Integer {
+        signed: true,
+        width: 32,
+    }));
     let left_register = rvalue_from_ast(lhs.as_ref(), ctx);
     let right_register = rvalue_from_ast(rhs.as_ref(), ctx);
     let operation = BINARY_OPERATION_MAP[operator.as_str()];

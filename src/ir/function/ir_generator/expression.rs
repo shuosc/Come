@@ -7,6 +7,7 @@ use crate::{
     ir::{
         function::statement::{calculate, Load},
         quantity::Quantity,
+        statement::load_field,
         LocalVariableName,
     },
     utility::data_type::Type,
@@ -32,7 +33,9 @@ pub fn rvalue_from_ast(ast: &RValue, ctx: &mut IRGeneratingContext) -> Quantity 
             todo!()
         }
         ast::expression::rvalue::RValue::InBrackets(x) => rvalue_from_ast(&x.0, ctx),
-        ast::expression::rvalue::RValue::FieldAccess(_) => todo!(),
+        ast::expression::rvalue::RValue::FieldAccess(field_access) => {
+            load_field::from_ast(field_access, ctx).into()
+        }
         ast::expression::rvalue::RValue::UnaryOperatorResult(unary_operator_result) => {
             calculate::unary::from_ast(unary_operator_result, ctx)
         }

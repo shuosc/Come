@@ -6,63 +6,39 @@ use crate::{
         quantity::{self, local, Quantity},
         LocalVariableName,
     },
-    utility::{data_type, data_type::Type, parsing},
+    utility::{
+        data_type,
+        data_type::Type,
+        parsing::{self, in_multispace},
+    },
 };
 use nom::{
     bytes::complete::tag,
-    character::complete::{space0, space1},
+    character::complete::space1,
     combinator::map,
-    multi::many1,
-    sequence::{preceded, tuple},
+    multi::separated_list1,
+    sequence::{delimited, tuple},
     IResult,
 };
-
-/// Reference to a field.
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub struct Field {
-    /// Name of the field.
-    pub name: Quantity,
-    /// Index of the field.
-    pub index: Vec<usize>,
-}
-
-impl fmt::Display for Field {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.name)?;
-        for index in &self.index {
-            write!(f, ".{}", index)?;
-        }
-        Ok(())
-    }
-}
-
-/// Parse ir code to get a field reference.
-pub fn parse_field(code: &str) -> IResult<&str, Field> {
-    map(
-        tuple((quantity::parse, many1(preceded(tag("."), parsing::integer)))),
-        |(name, index)| Field {
-            name,
-            index: index.into_iter().map(|i| i as usize).collect(),
-        },
-    )(code)
-}
 
 /// [`SetField`] instruction.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct SetField {
-    /// Result register
-    pub result: LocalVariableName,
-    /// Type of the value to store.
-    pub data_type: Type,
-    /// Value to store.
-    pub value: Quantity,
-    /// Where to store the value.
-    pub field: Field,
+    /// Where to store the result.
+    pub target: LocalVariableName,
+    /// What value to set.
+    pub source: Quantity,
+    /// Which value to set.
+    pub origin_root: LocalVariableName,
+    /// Access `.0`th field of the struct, which is `.1` type.
+    pub field_chain: Vec<(Type, usize)>,
+    /// `source`'s type.
+    pub final_type: Type,
 }
 
 impl GenerateRegister for SetField {
-    fn register(&self) -> Option<LocalVariableName> {
-        None
+    fn register(&self) -> Option<(LocalVariableName, Type)> {
+        Some((self.target.clone(), self.field_chain[0].0.clone()))
     }
 }
 
@@ -70,10 +46,25 @@ impl fmt::Display for SetField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{} = setfield {} {}, {}",
-            self.result, self.data_type, self.value, self.field
+            "{} = setfield {} {}.[{}] {}",
+            self.target,
+            self.final_type,
+            self.origin_root,
+            self.field_chain
+                .iter()
+                .map(|(t, i)| format!("{}.{}", t, i))
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.source
         )
     }
+}
+
+fn parse_field(code: &str) -> IResult<&str, (Type, usize)> {
+    map(
+        tuple((data_type::parse, tag("."), parsing::integer)),
+        |(t, _, i)| (t, i as usize),
+    )(code)
 }
 
 /// Parse ir code to get a [`SetField`] instruction.
@@ -81,24 +72,43 @@ pub fn parse(code: &str) -> IResult<&str, SetField> {
     map(
         tuple((
             local::parse,
-            space0,
+            space1,
             tag("="),
-            space0,
+            space1,
             tag("setfield"),
             space1,
             data_type::parse,
             space1,
-            parse_field,
-            space0,
-            tag(","),
-            space0,
+            local::parse,
+            tag("."),
+            delimited(
+                tag("["),
+                separated_list1(tag(","), in_multispace(parse_field)),
+                tag("]"),
+            ),
+            space1,
             quantity::parse,
         )),
-        |(result, _, _, _, _, _, data_type, _, field, _, _, _, value)| SetField {
-            data_type,
-            field,
-            value,
-            result,
+        |(
+            target,
+            _,
+            _eq,
+            _,
+            _setfield,
+            _,
+            final_type,
+            _,
+            origin_root,
+            _dot,
+            field_chain,
+            _,
+            source,
+        )| SetField {
+            target,
+            source,
+            origin_root,
+            field_chain,
+            final_type,
         },
     )(code)
 }
@@ -110,21 +120,22 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let code = "%2 = setfield i32 %0.0.1, %1";
+        let code = "%2 = setfield i32 %1.[SS.1, S.0] %0";
         let (_, set_field) = parse(code).unwrap();
         assert_eq!(
             set_field,
             SetField {
-                data_type: Type::Integer(Integer {
+                source: LocalVariableName("0".to_string()).into(),
+                origin_root: LocalVariableName("1".to_string()),
+                field_chain: vec![
+                    (Type::StructRef("SS".to_string()), 1),
+                    (Type::StructRef("S".to_string()), 0),
+                ],
+                final_type: Type::Integer(Integer {
                     signed: true,
                     width: 32
                 }),
-                field: Field {
-                    name: LocalVariableName("0".to_string()).into(),
-                    index: vec![0, 1],
-                },
-                value: LocalVariableName("1".to_string()).into(),
-                result: LocalVariableName("2".to_string())
+                target: LocalVariableName("2".to_string())
             }
         );
     }

@@ -1,7 +1,7 @@
 use super::{rvalue_from_ast, IRGeneratingContext};
 use crate::{
     ast::{self, expression::LValue},
-    ir::{function::statement, statement::set_field::Field, LocalVariableName},
+    ir::{function::statement, LocalVariableName},
     utility::data_type::Type,
 };
 
@@ -19,24 +19,20 @@ pub fn from_ast(ast: &ast::statement::Assign, ctx: &mut IRGeneratingContext) {
     }
 }
 
-fn field_indexes_and_leaf_type(
+fn field_chain_from_ast(
     mut root_type: Type,
     mut field_name_chain: impl Iterator<Item = String>,
     ctx: &mut IRGeneratingContext,
-) -> (Vec<usize>, Type) {
+) -> (Vec<(Type, usize)>, Type) {
     let mut result = Vec::new();
-    while let Type::StructRef(struct_ref) = root_type {
-        let current_mapping = ctx
-            .parent_context
-            .type_definitions
-            .get(&struct_ref)
-            .unwrap();
+    while let Type::StructRef(struct_ref) = &root_type {
+        let current_mapping = ctx.parent_context.type_definitions.get(struct_ref).unwrap();
         let field_name = field_name_chain.next().unwrap();
         let index = current_mapping.field_names.get(&field_name).unwrap();
-        result.push(*index);
+        result.push((root_type.clone(), *index));
         root_type = current_mapping.field_types.get(*index).unwrap().clone();
     }
-    (result, root_type.clone())
+    (result, root_type)
 }
 
 fn to_field_access(
@@ -66,28 +62,25 @@ fn to_field_access(
         data_type: root_variable_type.clone(),
         from: root_variable_addr.clone().into(),
     });
-    let (field_indexes, leaf_type) = field_indexes_and_leaf_type(
+    let (field_chain, leaf_type) = field_chain_from_ast(
         root_variable_type.clone(),
         field_names.into_iter().rev(),
         ctx,
     );
     // then we will generate code for field set
-    let field = Field {
-        name: root_variable_register.into(),
-        index: field_indexes,
-    };
-    let result_register = ctx.next_register_with_type(&root_variable_type);
+    let set_field_result = ctx.next_register_with_type(&field_chain.first().unwrap().0);
     ctx.current_basic_block
         .append_statement(statement::SetField {
-            data_type: leaf_type,
-            value: rvalue_register,
-            field,
-            result: result_register.clone(),
+            source: rvalue_register,
+            origin_root: root_variable_register,
+            field_chain,
+            final_type: leaf_type,
+            target: set_field_result.clone(),
         });
     // and store the register back
     ctx.current_basic_block.append_statement(statement::Store {
         data_type: root_variable_type,
-        source: result_register.into(),
+        source: set_field_result.into(),
         target: root_variable_addr.into(),
     });
 }
@@ -219,16 +212,14 @@ mod tests {
         assert_eq!(
             basic_blocks[0].content[1],
             statement::SetField {
-                data_type: Type::Integer(Integer {
+                target: LocalVariableName("1".to_string()),
+                source: 42.into(),
+                origin_root: LocalVariableName("0".to_string()),
+                field_chain: vec![(Type::StructRef("S".to_string()), 1)],
+                final_type: Type::Integer(Integer {
                     signed: false,
                     width: 32
                 }),
-                value: 42.into(),
-                field: Field {
-                    name: LocalVariableName("0".to_string()).into(),
-                    index: vec![1],
-                },
-                result: LocalVariableName("1".to_string()),
             }
             .into()
         );
@@ -272,16 +263,17 @@ mod tests {
         assert_eq!(
             basic_blocks[0].content[1],
             statement::SetField {
-                data_type: Type::Integer(Integer {
+                target: LocalVariableName("1".to_string()),
+                source: 42.into(),
+                origin_root: LocalVariableName("0".to_string()),
+                field_chain: vec![
+                    (Type::StructRef("SS".to_string()), 0),
+                    (Type::StructRef("S".to_string()), 0),
+                ],
+                final_type: Type::Integer(Integer {
                     signed: true,
-                    width: 64,
+                    width: 64
                 }),
-                value: 42.into(),
-                field: Field {
-                    name: LocalVariableName("0".to_string()).into(),
-                    index: vec![0, 0],
-                },
-                result: LocalVariableName("1".to_string())
             }
             .into()
         );

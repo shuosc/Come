@@ -30,8 +30,8 @@ pub struct Call {
 }
 
 impl GenerateRegister for Call {
-    fn register(&self) -> Option<LocalVariableName> {
-        self.to.clone()
+    fn register(&self) -> Option<(LocalVariableName, Type)> {
+        self.to.clone().map(|it| (it, self.data_type.clone()))
     }
 }
 

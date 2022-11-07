@@ -1,7 +1,10 @@
-use crate::ir::{
-    function::GenerateRegister,
-    quantity::{self, Quantity},
-    LocalVariableName,
+use crate::{
+    ir::{
+        function::GenerateRegister,
+        quantity::{self, Quantity},
+        LocalVariableName,
+    },
+    utility::data_type::Type,
 };
 use nom::{
     bytes::complete::tag,
@@ -19,7 +22,7 @@ pub struct Ret {
 }
 
 impl GenerateRegister for Ret {
-    fn register(&self) -> Option<LocalVariableName> {
+    fn register(&self) -> Option<(LocalVariableName, Type)> {
         None
     }
 }

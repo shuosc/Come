@@ -49,8 +49,8 @@ pub struct Phi {
 }
 
 impl GenerateRegister for Phi {
-    fn register(&self) -> Option<LocalVariableName> {
-        Some(self.to.clone())
+    fn register(&self) -> Option<(LocalVariableName, Type)> {
+        Some((self.to.clone(), self.data_type.clone()))
     }
 }
 

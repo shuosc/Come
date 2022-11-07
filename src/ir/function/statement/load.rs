@@ -24,8 +24,8 @@ pub struct Load {
 }
 
 impl GenerateRegister for Load {
-    fn register(&self) -> Option<LocalVariableName> {
-        Some(self.to.clone())
+    fn register(&self) -> Option<(LocalVariableName, Type)> {
+        Some((self.to.clone(), self.data_type.clone()))
     }
 }
 

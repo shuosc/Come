@@ -27,7 +27,7 @@ pub struct Store {
 }
 
 impl GenerateRegister for Store {
-    fn register(&self) -> Option<LocalVariableName> {
+    fn register(&self) -> Option<(LocalVariableName, Type)> {
         None
     }
 }
