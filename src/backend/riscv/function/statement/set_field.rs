@@ -1,11 +1,12 @@
 use crate::{
     backend::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign, HasSize},
-    ir::{quantity::Quantity, statement::set_field},
+    ir::{self, quantity::Quantity},
     utility::data_type::Type,
 };
 
-pub fn emit_code(set_field: &set_field::SetField, ctx: &mut FunctionCompileContext) -> String {
-    let set_field::SetField {
+/// Emit assembly code for a [`ir::statement::SetField`].
+pub fn emit_code(set_field: &ir::statement::SetField, ctx: &mut FunctionCompileContext) -> String {
+    let ir::statement::SetField {
         target,
         source,
         origin_root,
@@ -117,12 +118,14 @@ pub fn emit_code(set_field: &set_field::SetField, ctx: &mut FunctionCompileConte
                 RegisterAssign::Register(value_to_set),
             ) => {
                 let mut result_code = String::new();
-                for i in 0..result.len() {
+                for (i, result_register) in result.iter().enumerate() {
                     if i == current_offset_bytes / 4 {
-                        result_code.push_str(&format!("    mv {}, {}\n", result[i], value_to_set));
+                        result_code
+                            .push_str(&format!("    mv {}, {}\n", result_register, value_to_set));
                     } else {
                         let offset = to_be_setted + i * 4;
-                        result_code.push_str(&format!("    lw {}, {}(sp)\n", result[i], offset));
+                        result_code
+                            .push_str(&format!("    lw {}, {}(sp)\n", result_register, offset));
                     }
                 }
                 result_code
@@ -195,13 +198,15 @@ pub fn emit_code(set_field: &set_field::SetField, ctx: &mut FunctionCompileConte
                 RegisterAssign::Register(value_to_set),
             ) => {
                 let mut result_code = String::new();
-                for i in 0..to_be_setted.len() {
+                for (i, to_be_setted_register) in to_be_setted.iter().enumerate() {
                     let offset = result + i * 4;
                     if i == current_offset_bytes / 4 {
                         result_code.push_str(&format!("    sw {}, {}(sp)\n", value_to_set, offset));
                     } else {
-                        result_code
-                            .push_str(&format!("    sw {}, {}(sp)\n", to_be_setted[i], offset));
+                        result_code.push_str(&format!(
+                            "    sw {}, {}(sp)\n",
+                            to_be_setted_register, offset
+                        ));
                     }
                 }
                 result_code

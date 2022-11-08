@@ -1,16 +1,12 @@
 use super::IRGeneratingContext;
 use crate::{
-    ast::{
-        self,
-        expression::{LValue, RValue},
-    },
+    ast::{self, expression::RValue},
     ir::{
         function::statement::{calculate, Load},
         quantity::Quantity,
         statement::load_field,
         LocalVariableName,
     },
-    utility::data_type::Type,
 };
 
 /// Generate IR from an [`ast::expression::RValue`] AST node.
@@ -44,29 +40,4 @@ pub fn rvalue_from_ast(ast: &RValue, ctx: &mut IRGeneratingContext) -> Quantity 
         }
     }
 }
-
-/// Generate IR from an [`ast::expression::LValue`] AST node.
-/// Return the register where the result address is stored.
-pub fn lvalue_from_ast(
-    ast: &ast::expression::lvalue::LValue,
-    ctx: &mut IRGeneratingContext,
-) -> Quantity {
-    match ast {
-        ast::expression::LValue::VariableRef(variable_ref) => {
-            let result = LocalVariableName(format!("{}_addr", variable_ref.0));
-            ctx.local_variable_types
-                .insert(result.clone(), Type::Address);
-            result.into()
-        }
-        ast::expression::LValue::FieldAccess(field_access) => {
-            // for field access, we will return the "root" object's address
-            let mut root = field_access.from.as_ref();
-            while let LValue::FieldAccess(field_access) = &root {
-                root = field_access.from.as_ref();
-            }
-            lvalue_from_ast(root, ctx)
-        }
-    }
-}
-
 // todo: tests

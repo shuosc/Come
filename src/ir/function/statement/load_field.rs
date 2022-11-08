@@ -99,6 +99,7 @@ pub fn parse(code: &str) -> IResult<&str, LoadField> {
     )(code)
 }
 
+/// Generate IR from an [`ast::expression::FieldAccess`] AST node.
 pub fn from_ast(
     ast: &ast::expression::FieldAccess,
     ctx: &mut IRGeneratingContext,

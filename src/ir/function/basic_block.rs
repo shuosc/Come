@@ -1,4 +1,4 @@
-use crate::{utility::parsing};
+use crate::utility::parsing;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -8,14 +8,12 @@ use nom::{
     sequence::{pair, tuple},
     IResult,
 };
-use std::{fmt};
+use std::fmt;
 
-use super::{
-    statement::{
-        self, parse_terminator,
-        phi::{self, Phi},
-        IRStatement, Terminator,
-    },
+use super::statement::{
+    self, parse_terminator,
+    phi::{self, Phi},
+    IRStatement, Terminator,
 };
 
 /// A basic block.

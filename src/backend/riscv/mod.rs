@@ -11,31 +11,25 @@ pub struct Context {
     pub struct_definitions: HashMap<String, ir::TypeDefinition>,
 }
 
+/// Implement the [`data_type::Type`] struct for calculating the size of a type.
 pub trait HasSize {
-    fn trivial_size(&self) -> Option<usize>;
     fn size(&self, ctx: &Context) -> usize;
 }
 
 impl HasSize for data_type::Type {
-    fn trivial_size(&self) -> Option<usize> {
-        match self {
-            data_type::Type::Integer(integer) => Some(integer.width),
-            data_type::Type::StructRef(_name) => None,
-            data_type::Type::None => Some(0),
-            data_type::Type::Address => Some(32),
-        }
-    }
-
     fn size(&self, ctx: &Context) -> usize {
-        if let data_type::Type::StructRef(name) = self {
-            let struct_definition = ctx.struct_definitions.get(name).unwrap();
-            struct_definition
-                .fields
-                .iter()
-                .map(|field_type| field_type.size(ctx))
-                .sum()
-        } else {
-            self.trivial_size().unwrap()
+        match self {
+            data_type::Type::Integer(integer) => integer.width,
+            data_type::Type::StructRef(name) => {
+                let struct_definition = ctx.struct_definitions.get(name).unwrap();
+                struct_definition
+                    .fields
+                    .iter()
+                    .map(|field_type| field_type.size(ctx))
+                    .sum()
+            }
+            data_type::Type::None => 0,
+            data_type::Type::Address => 32,
         }
     }
 }

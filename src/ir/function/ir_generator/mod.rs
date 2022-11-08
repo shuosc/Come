@@ -15,7 +15,7 @@ pub mod expression;
 mod if_statement;
 mod return_statement;
 mod while_statement;
-pub use expression::{lvalue_from_ast, rvalue_from_ast};
+pub use expression::rvalue_from_ast;
 
 /// [`IRGeneratingContext`] is used to collect the basic blocks generated.
 pub struct IRGeneratingContext<'a> {

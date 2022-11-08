@@ -1,16 +1,12 @@
 use crate::{
-    backend::riscv::{function::FunctionCompileContext, HasSize},
+    backend::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign, HasSize},
     ir,
     utility::data_type::Type,
 };
 
-use super::logical_register_content_copy;
-
-pub fn emit_code(
-    statement: &ir::function::statement::LoadField,
-    ctx: &mut FunctionCompileContext,
-) -> String {
-    let ir::function::statement::LoadField {
+/// Emit assembly code for a [`ir::statement::SetField`].
+pub fn emit_code(statement: &ir::statement::LoadField, ctx: &mut FunctionCompileContext) -> String {
+    let ir::statement::LoadField {
         target: to,
         source,
         field_chain,
@@ -34,12 +30,84 @@ pub fn emit_code(
     let to_physical_register = ctx.local_assign.get(to).unwrap();
     let from_physical_register = ctx.local_assign.get(source).unwrap();
     let final_result_bytes = (final_type.size(ctx.parent_context) + 7) / 8;
-    logical_register_content_copy(
-        to_physical_register,
-        from_physical_register,
-        current_offset_bytes,
-        final_result_bytes,
-    )
+    {
+        let current_offset_bytes = current_offset_bytes;
+        match (to_physical_register, from_physical_register) {
+            (RegisterAssign::Register(to), RegisterAssign::Register(from)) => {
+                format!("    mv {}, {}\n", to, from)
+            }
+            (RegisterAssign::Register(to), RegisterAssign::MultipleRegisters(from)) => {
+                // todo: handle unaligned access
+                let field_at_register = current_offset_bytes / 4;
+                format!("    mv {}, {}\n", to, from[field_at_register])
+            }
+            (RegisterAssign::Register(to), RegisterAssign::StackValue(stack_offset)) => {
+                format!(
+                    "    lw {}, {}(sp)\n",
+                    to,
+                    stack_offset + current_offset_bytes
+                )
+            }
+            (RegisterAssign::MultipleRegisters(to), RegisterAssign::MultipleRegisters(from)) => {
+                let mut field_at_register = current_offset_bytes / 4;
+                let mut result = String::new();
+                for to_register in to {
+                    result.push_str(&format!(
+                        "    mv {}, {}\n",
+                        to_register, from[field_at_register]
+                    ));
+                    field_at_register += 1;
+                }
+                result
+            }
+            (RegisterAssign::MultipleRegisters(to), RegisterAssign::StackValue(from)) => {
+                let mut result = String::new();
+                let mut current_offset = from + current_offset_bytes;
+                for to_register in to {
+                    result.push_str(&format!("    lw {}, {}(sp)\n", to_register, current_offset));
+                    current_offset += 4;
+                }
+                result
+            }
+            (RegisterAssign::StackValue(to), RegisterAssign::Register(from)) => {
+                format!("    sw {}, {}(sp)\n", from, to)
+            }
+            (RegisterAssign::StackValue(to), RegisterAssign::StackValue(from)) => {
+                let mut result = String::new();
+                let mut current_from = from + current_offset_bytes;
+                let mut current_to = to + current_offset_bytes;
+                for _ in 0..final_result_bytes / 4 {
+                    result.push_str(&format!("    lw t0, {}(sp)\n", current_from));
+                    result.push_str(&format!("    sw t0, {}(sp)\n", current_to));
+                    current_from += 4;
+                    current_to += 4;
+                }
+                result
+            }
+            (RegisterAssign::StackValue(to), RegisterAssign::MultipleRegisters(from)) => {
+                let mut result = String::new();
+                let mut current_offset = to + current_offset_bytes;
+                let start_at_register = current_offset_bytes / 4;
+                let final_result_words = final_result_bytes / 4;
+                for from_item in from.iter().skip(start_at_register).take(final_result_words) {
+                    result.push_str(&format!("    sw {}, {}(sp)\n", from_item, current_offset));
+                    current_offset += 4;
+                }
+                result
+            }
+            (RegisterAssign::MultipleRegisters(_), RegisterAssign::Register(_)) => {
+                unreachable!(
+                    "Unreasonable to copy a single register's content into multiple registers"
+                )
+            }
+            (_, RegisterAssign::StackRef(_)) => {
+                unreachable!("Unreasonable to copy a field of an address")
+            }
+            (RegisterAssign::StackRef(_), _) => {
+                unreachable!("Unreasonable to copy a field into an address")
+            }
+        }
+    }
 }
 
 #[cfg(test)]

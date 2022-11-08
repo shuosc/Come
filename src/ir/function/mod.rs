@@ -120,7 +120,7 @@ pub fn parse(code: &str) -> IResult<&str, FunctionDefinition> {
     )(code)
 }
 
-/// Generate [`FunctionDefinition`] from [`ast::FunctionDefinition`].
+/// Generate [`FunctionDefinition`] from [`ast::function_definition::FunctionDefinition`].
 pub fn from_ast(
     ast: &ast::function_definition::FunctionDefinition,
     ctx: &mut crate::ir::IRGeneratingContext,

@@ -69,11 +69,3 @@ pub fn emit_code(
     ));
     result
 }
-
-#[cfg(test)]
-mod tests {
-    
-
-    #[test]
-    fn test_emit_code() {}
-}
