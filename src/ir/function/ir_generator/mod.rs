@@ -127,7 +127,9 @@ pub fn compound_from_ast(ast: &ast::statement::compound::Compound, ctx: &mut IRG
             Statement::Declare(declare) => declare::from_ast(declare, ctx),
             Statement::Assign(assign) => assign::from_ast(assign, ctx),
             Statement::Return(return_statement) => {
-                return_statement::from_ast(return_statement, ctx)
+                return_statement::from_ast(return_statement, ctx);
+                // statements after return is meanless
+                break;
             }
             Statement::If(if_statement) => if_statement::from_ast(if_statement, ctx),
             Statement::While(while_statement) => while_statement::from_ast(while_statement, ctx),

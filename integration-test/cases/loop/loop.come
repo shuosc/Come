@@ -1,0 +1,9 @@
+fn test_condition(a: i32, b: i32) -> i32 {
+    let result: i32 = 0;
+    let i: i32 = a;
+    while i < b {
+        result = result + i;
+        i = i + 1;
+    }
+    return result;
+}

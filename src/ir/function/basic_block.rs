@@ -57,7 +57,7 @@ impl BasicBlock {
 impl fmt::Display for BasicBlock {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(name) = &self.name {
-            write!(f, "{}:", name)?;
+            writeln!(f, "  {}:", name)?;
         }
         for phi in &self.phis {
             writeln!(f, "    {}", phi)?;

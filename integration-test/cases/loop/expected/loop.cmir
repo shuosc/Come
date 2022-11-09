@@ -1,0 +1,29 @@
+fn test_condition(i32 %a, i32 %b) -> i32 {
+    %a_addr = alloca i32
+    store i32 %a, address %a_addr
+    %b_addr = alloca i32
+    store i32 %b, address %b_addr
+    %result_addr = alloca i32
+    store i32 0, address %result_addr
+    %i_addr = alloca i32
+    %0 = load i32 %a_addr
+    store i32 %0, address %i_addr
+    j loop_0_condition
+  loop_0_condition:
+    %2 = load i32 %i_addr
+    %3 = load i32 %b_addr
+    %1 = slt i32 %2, %3
+    bne %1, 0, loop_0_success, loop_0_fail
+  loop_0_success:
+    %5 = load i32 %result_addr
+    %6 = load i32 %i_addr
+    %4 = add i32 %5, %6
+    store i32 %4, address %result_addr
+    %8 = load i32 %i_addr
+    %7 = add i32 %8, 1
+    store i32 %7, address %i_addr
+    j loop_0_condition
+  loop_0_fail:
+    %9 = load i32 %result_addr
+    ret %9
+}
