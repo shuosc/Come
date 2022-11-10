@@ -1,0 +1,12 @@
+fn test_code(a: i32, b: i32) -> i32 {
+    let result: i32;
+    let c: i32 = a + b;
+    if a < b {
+        let c: i32 = a + b;
+        result = c;
+    } else {
+        let c: i32 = a + a;
+        result = c;
+    }
+    return result + c;
+}

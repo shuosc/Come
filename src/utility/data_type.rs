@@ -76,3 +76,35 @@ impl fmt::Display for Integer {
         write!(f, "{}{}", if self.signed { "i" } else { "u" }, self.width)
     }
 }
+
+#[cfg(test)]
+pub const I32: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
+    Type::Integer(Integer {
+        signed: true,
+        width: 32,
+    })
+});
+
+#[cfg(test)]
+pub const U32: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
+    Type::Integer(Integer {
+        signed: false,
+        width: 32,
+    })
+});
+
+#[cfg(test)]
+pub const I64: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
+    Type::Integer(Integer {
+        signed: true,
+        width: 64,
+    })
+});
+
+#[cfg(test)]
+pub const U64: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
+    Type::Integer(Integer {
+        signed: false,
+        width: 64,
+    })
+});

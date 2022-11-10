@@ -5,7 +5,7 @@ use crate::{
     },
     ir::{
         function::{ir_generator::IRGeneratingContext, GenerateRegister},
-        quantity::{local, LocalVariableName},
+        quantity::{local, RegisterName},
     },
     utility::{
         data_type,
@@ -29,9 +29,9 @@ use super::Load;
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct LoadField {
     /// Where to store the result of the load.
-    pub target: LocalVariableName,
+    pub target: RegisterName,
     /// Where to load from.
-    pub source: LocalVariableName,
+    pub source: RegisterName,
     /// Access `.0`th field of the struct, which is `.1` type.
     pub field_chain: Vec<(Type, usize)>,
     /// `to`'s type.
@@ -56,7 +56,7 @@ impl fmt::Display for LoadField {
 }
 
 impl GenerateRegister for LoadField {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         Some((self.target.clone(), self.leaf_type.clone()))
     }
 }
@@ -100,10 +100,7 @@ pub fn parse(code: &str) -> IResult<&str, LoadField> {
 }
 
 /// Generate IR from an [`ast::expression::FieldAccess`] AST node.
-pub fn from_ast(
-    ast: &ast::expression::FieldAccess,
-    ctx: &mut IRGeneratingContext,
-) -> LocalVariableName {
+pub fn from_ast(ast: &ast::expression::FieldAccess, ctx: &mut IRGeneratingContext) -> RegisterName {
     let ast::expression::FieldAccess { from, name } = ast;
     let mut current = *from.clone();
     let mut field_chain_rev = vec![name.clone()];
@@ -117,7 +114,7 @@ pub fn from_ast(
     } else {
         unreachable!()
     };
-    let mut current_type = ctx.type_of_variable(root);
+    let mut current_type = ctx.symbol_table.type_of_variable(root);
     let mut field_chain = vec![];
     for field in field_chain_rev.into_iter().rev() {
         let current_type_name = if let Type::StructRef(name) = &current_type {
@@ -135,7 +132,7 @@ pub fn from_ast(
         field_chain.push((current_type, *index));
         current_type = data_type;
     }
-    let root_variable_addr = LocalVariableName(format!("{}_addr", root.0));
+    let root_variable_addr = ctx.symbol_table.current_variable_address_register(root);
     let load_to = ctx.next_register_with_type(&field_chain[0].0);
     ctx.current_basic_block.append_statement(Load {
         to: load_to.clone(),
@@ -155,7 +152,6 @@ pub fn from_ast(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utility::data_type::Integer;
 
     #[test]
     fn test_parse() {
@@ -163,13 +159,10 @@ mod tests {
         assert_eq!(
             result,
             LoadField {
-                target: LocalVariableName("1".to_string()),
-                source: LocalVariableName("0".to_string()),
+                target: RegisterName("1".to_string()),
+                source: RegisterName("0".to_string()),
                 field_chain: vec![(Type::StructRef("S".to_string()), 0)],
-                leaf_type: Type::Integer(Integer {
-                    signed: true,
-                    width: 32
-                })
+                leaf_type: data_type::I32.clone()
             },
         );
 
@@ -177,16 +170,13 @@ mod tests {
         assert_eq!(
             result,
             LoadField {
-                target: LocalVariableName("1".to_string()),
-                source: LocalVariableName("0".to_string()),
+                target: RegisterName("1".to_string()),
+                source: RegisterName("0".to_string()),
                 field_chain: vec![
                     (Type::StructRef("SS".to_string()), 1),
                     (Type::StructRef("S".to_string()), 0)
                 ],
-                leaf_type: Type::Integer(Integer {
-                    signed: true,
-                    width: 32
-                })
+                leaf_type: data_type::I32.clone()
             },
         );
     }

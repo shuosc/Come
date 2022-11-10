@@ -2,7 +2,7 @@ use crate::{
     ir::{
         function::GenerateRegister,
         quantity::{self, Quantity},
-        LocalVariableName,
+        RegisterName,
     },
     utility::data_type::Type,
 };
@@ -22,7 +22,7 @@ pub struct Ret {
 }
 
 impl GenerateRegister for Ret {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         None
     }
 }
@@ -57,7 +57,7 @@ mod tests {
         assert_eq!(
             result,
             Ret {
-                value: Some(LocalVariableName("1".to_string()).into())
+                value: Some(RegisterName("1".to_string()).into())
             }
         )
     }

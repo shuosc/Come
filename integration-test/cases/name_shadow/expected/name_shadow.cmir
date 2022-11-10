@@ -1,0 +1,39 @@
+fn test_code(i32 %a, i32 %b) -> i32 {
+    %a_0_addr = alloca i32
+    store i32 %a, address %a_0_addr
+    %b_0_addr = alloca i32
+    store i32 %b, address %b_0_addr
+    %result_0_addr = alloca i32
+    %c_0_addr = alloca i32
+    %1 = load i32 %a_0_addr
+    %2 = load i32 %b_0_addr
+    %0 = add i32 %1, %2
+    store i32 %0, address %c_0_addr
+    %4 = load i32 %a_0_addr
+    %5 = load i32 %b_0_addr
+    %3 = slt i32 %4, %5
+    bne %3, 0, if_0_success, if_0_fail
+  if_0_success:
+    %c_1_addr = alloca i32
+    %7 = load i32 %a_0_addr
+    %8 = load i32 %b_0_addr
+    %6 = add i32 %7, %8
+    store i32 %6, address %c_1_addr
+    %9 = load i32 %c_1_addr
+    store i32 %9, address %result_0_addr
+    j if_0_end
+  if_0_fail:
+    %c_2_addr = alloca i32
+    %11 = load i32 %a_0_addr
+    %12 = load i32 %a_0_addr
+    %10 = add i32 %11, %12
+    store i32 %10, address %c_2_addr
+    %13 = load i32 %c_2_addr
+    store i32 %13, address %result_0_addr
+    j if_0_end
+  if_0_end:
+    %15 = load i32 %result_0_addr
+    %16 = load i32 %c_0_addr
+    %14 = add i32 %15, %16
+    ret %14
+}

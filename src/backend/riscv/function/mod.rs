@@ -12,7 +12,7 @@ pub struct FunctionCompileContext<'a> {
     /// Parent context
     pub parent_context: &'a mut super::Context,
     /// Where a local variable is assigned to.
-    pub local_assign: HashMap<ir::LocalVariableName, RegisterAssign>,
+    pub local_assign: HashMap<ir::RegisterName, RegisterAssign>,
     /// Some times we need to do some cleanup before return (eg, pop the stack frame)
     /// So we can jump to this label instead of return directly.
     pub cleanup_label: Option<String>,

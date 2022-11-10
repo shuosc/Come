@@ -4,27 +4,27 @@
 }
 
 fn f(Foo %foo) -> i32 {
-    %foo_addr = alloca Foo
-    store Foo %foo, address %foo_addr
-    %1 = load Foo %foo_addr
+    %foo_0_addr = alloca Foo
+    store Foo %foo, address %foo_0_addr
+    %1 = load Foo %foo_0_addr
     %2 = load_field i32 %1.[Foo.0]
-    %3 = load Foo %foo_addr
+    %3 = load Foo %foo_0_addr
     %4 = load_field i32 %3.[Foo.1]
     %0 = add i32 %2, %4
-    %5 = load Foo %foo_addr
+    %5 = load Foo %foo_0_addr
     %6 = setfield i32 %5.[Foo.0] %0
-    store Foo %6, address %foo_addr
-    %8 = load Foo %foo_addr
+    store Foo %6, address %foo_0_addr
+    %8 = load Foo %foo_0_addr
     %9 = load_field i32 %8.[Foo.1]
-    %10 = load Foo %foo_addr
+    %10 = load Foo %foo_0_addr
     %11 = load_field i32 %10.[Foo.0]
     %7 = add i32 %9, %11
-    %12 = load Foo %foo_addr
+    %12 = load Foo %foo_0_addr
     %13 = setfield i32 %12.[Foo.1] %7
-    store Foo %13, address %foo_addr
-    %15 = load Foo %foo_addr
+    store Foo %13, address %foo_0_addr
+    %15 = load Foo %foo_0_addr
     %16 = load_field i32 %15.[Foo.0]
-    %17 = load Foo %foo_addr
+    %17 = load Foo %foo_0_addr
     %18 = load_field i32 %17.[Foo.1]
     %14 = add i32 %16, %18
     ret %14

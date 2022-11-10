@@ -23,7 +23,7 @@ pub fn emit_code(branch: &Branch, ctx: &mut FunctionCompileContext) -> String {
         BranchType::NE => "bne",
     };
     let operand1_register = match operand1 {
-        Quantity::LocalVariableName(local) => {
+        Quantity::RegisterName(local) => {
             let logical_register_assign = ctx.local_assign.get(local).unwrap();
             match logical_register_assign {
                 RegisterAssign::Register(register) => register.clone(),
@@ -42,7 +42,7 @@ pub fn emit_code(branch: &Branch, ctx: &mut FunctionCompileContext) -> String {
         }
     };
     let operand2_register = match operand2 {
-        Quantity::LocalVariableName(local) => {
+        Quantity::RegisterName(local) => {
             let logical_register_assign = ctx.local_assign.get(local).unwrap();
             match logical_register_assign {
                 RegisterAssign::Register(register) => register.clone(),

@@ -21,7 +21,7 @@ use nom::{
     branch::alt, character::complete::multispace0, combinator::map, multi::many0,
     sequence::delimited, IResult,
 };
-pub use quantity::LocalVariableName;
+pub use quantity::RegisterName;
 pub use type_definition::TypeDefinition;
 
 /// The root nodes of IR.
@@ -84,10 +84,10 @@ impl IRGeneratingContext {
         }
     }
 
-    pub fn next_register(&mut self) -> LocalVariableName {
+    pub fn next_register(&mut self) -> RegisterName {
         let register_id = self.next_register_id;
         self.next_register_id += 1;
-        LocalVariableName(format!("{}", register_id))
+        RegisterName(format!("{}", register_id))
     }
 }
 

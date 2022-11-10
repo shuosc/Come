@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     ir::{
         function::GenerateRegister,
-        quantity::{self, local, LocalVariableName, Quantity},
+        quantity::{self, local, Quantity, RegisterName},
     },
     utility::{data_type, data_type::Type},
 };
@@ -18,13 +18,13 @@ use nom::{
 /// [`Load`] instruction.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Load {
-    pub to: LocalVariableName,
+    pub to: RegisterName,
     pub data_type: Type,
     pub from: Quantity,
 }
 
 impl GenerateRegister for Load {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), self.data_type.clone()))
     }
 }
@@ -60,7 +60,6 @@ pub fn parse(code: &str) -> IResult<&str, Load> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utility::data_type::Integer;
 
     #[test]
     fn test_parse() {
@@ -68,12 +67,9 @@ mod tests {
         assert_eq!(
             result,
             Load {
-                to: LocalVariableName("0".to_string()),
-                data_type: Type::Integer(Integer {
-                    width: 32,
-                    signed: true,
-                }),
-                from: LocalVariableName("1".to_string()).into(),
+                to: RegisterName("0".to_string()),
+                data_type: data_type::I32.clone(),
+                from: RegisterName("1".to_string()).into(),
             },
         );
     }

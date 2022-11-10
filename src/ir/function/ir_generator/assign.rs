@@ -1,7 +1,7 @@
 use super::{rvalue_from_ast, IRGeneratingContext};
 use crate::{
     ast::{self, expression::LValue},
-    ir::{function::statement, LocalVariableName},
+    ir::function::statement,
     utility::data_type::Type,
 };
 
@@ -52,9 +52,9 @@ fn to_field_access(
     } else {
         unreachable!()
     };
-    let root_variable_addr = LocalVariableName(format!("{}_addr", root_variable.0));
-    ctx.local_variable_types
-        .insert(root_variable_addr.clone(), Type::Address);
+    let root_variable_addr = ctx
+        .symbol_table
+        .current_variable_address_register(root_variable);
     let root_variable_type = ctx.type_of_variable(root_variable);
     let root_variable_register = ctx.next_register_with_type(&root_variable_type);
     ctx.current_basic_block.append_statement(statement::Load {
@@ -90,10 +90,10 @@ fn to_variable(
     variable_ref: &ast::expression::VariableRef,
     rvalue_register: &crate::ir::quantity::Quantity,
 ) {
-    let data_type = ctx.type_of_variable(variable_ref);
-    let lhs_address_register = LocalVariableName(format!("{}_addr", variable_ref.0));
-    ctx.local_variable_types
-        .insert(lhs_address_register.clone(), Type::Address);
+    let data_type = ctx.symbol_table.type_of_variable(variable_ref);
+    let lhs_address_register = ctx
+        .symbol_table
+        .current_variable_address_register(variable_ref);
     // generate store code
     ctx.current_basic_block.append_statement(statement::Store {
         source: rvalue_register.clone(),
@@ -109,21 +109,19 @@ mod tests {
     use super::*;
     use crate::{
         ast::expression::{FieldAccess, IntegerLiteral, VariableRef},
-        ir::{type_definition::TypeDefinitionMapping, LocalVariableName},
-        utility::data_type::Integer,
+        ir::{type_definition::TypeDefinitionMapping, RegisterName},
+        utility::data_type,
     };
 
     #[test]
     fn test_to_variable() {
         let mut parent_ctx = crate::ir::IRGeneratingContext::new();
         let mut ctx = IRGeneratingContext::new(&mut parent_ctx);
-        ctx.variable_types_stack.last_mut().unwrap().insert(
-            VariableRef("a".to_string()),
-            Type::Integer(Integer {
-                signed: true,
-                width: 64,
-            }),
-        );
+        ctx.symbol_table
+            .variable_types_stack
+            .last_mut()
+            .unwrap()
+            .insert(VariableRef("a".to_string()), (data_type::I64.clone(), 0));
         let ast = ast::statement::Assign {
             lhs: VariableRef("a".to_string()).into(),
             rhs: IntegerLiteral(42).into(),
@@ -135,11 +133,8 @@ mod tests {
             basic_blocks[0].content[0],
             statement::Store {
                 source: 42.into(),
-                target: LocalVariableName("a_addr".to_string()).into(),
-                data_type: Type::Integer(Integer {
-                    signed: true,
-                    width: 64,
-                }),
+                target: RegisterName("a_0_addr".to_string()).into(),
+                data_type: data_type::I64.clone(),
             }
             .into()
         );
@@ -151,16 +146,7 @@ mod tests {
         let mut field_names = HashMap::new();
         field_names.insert("e0".to_string(), 0);
         field_names.insert("e1".to_string(), 1);
-        let field_types = vec![
-            Type::Integer(Integer {
-                signed: true,
-                width: 64,
-            }),
-            Type::Integer(Integer {
-                signed: false,
-                width: 32,
-            }),
-        ];
+        let field_types = vec![data_type::I64.clone(), data_type::U32.clone()];
         parent_ctx.type_definitions.insert(
             "S".to_string(),
             TypeDefinitionMapping {
@@ -171,13 +157,7 @@ mod tests {
         let mut field_names = HashMap::new();
         field_names.insert("e2".to_string(), 0);
         field_names.insert("e3".to_string(), 1);
-        let field_types = vec![
-            Type::StructRef("S".to_string()),
-            Type::Integer(Integer {
-                signed: false,
-                width: 64,
-            }),
-        ];
+        let field_types = vec![Type::StructRef("S".to_string()), data_type::U64.clone()];
         parent_ctx.type_definitions.insert(
             "SS".to_string(),
             TypeDefinitionMapping {
@@ -186,10 +166,14 @@ mod tests {
             },
         );
         let mut ctx = IRGeneratingContext::new(&mut parent_ctx);
-        ctx.variable_types_stack.last_mut().unwrap().insert(
-            VariableRef("s".to_string()),
-            Type::StructRef("S".to_string()),
-        );
+        ctx.symbol_table
+            .variable_types_stack
+            .last_mut()
+            .unwrap()
+            .insert(
+                VariableRef("s".to_string()),
+                (Type::StructRef("S".to_string()), 0),
+            );
         let ast = ast::statement::Assign {
             lhs: LValue::FieldAccess(FieldAccess {
                 from: Box::new(LValue::VariableRef(VariableRef("s".to_string()))),
@@ -203,23 +187,20 @@ mod tests {
         assert_eq!(
             basic_blocks[0].content[0],
             statement::Load {
-                to: LocalVariableName("0".to_string()),
+                to: RegisterName("0".to_string()),
                 data_type: Type::StructRef("S".to_string()),
-                from: LocalVariableName("s_addr".to_string()).into()
+                from: RegisterName("s_0_addr".to_string()).into()
             }
             .into()
         );
         assert_eq!(
             basic_blocks[0].content[1],
             statement::SetField {
-                target: LocalVariableName("1".to_string()),
+                target: RegisterName("1".to_string()),
                 source: 42.into(),
-                origin_root: LocalVariableName("0".to_string()),
+                origin_root: RegisterName("0".to_string()),
                 field_chain: vec![(Type::StructRef("S".to_string()), 1)],
-                final_type: Type::Integer(Integer {
-                    signed: false,
-                    width: 32
-                }),
+                final_type: data_type::U32.clone(),
             }
             .into()
         );
@@ -227,17 +208,21 @@ mod tests {
             basic_blocks[0].content[2],
             statement::Store {
                 data_type: Type::StructRef("S".to_string()),
-                source: LocalVariableName("1".to_string()).into(),
-                target: LocalVariableName("s_addr".to_string()).into(),
+                source: RegisterName("1".to_string()).into(),
+                target: RegisterName("s_0_addr".to_string()).into(),
             }
             .into()
         );
         parent_ctx.next_register_id = 0;
         let mut ctx = IRGeneratingContext::new(&mut parent_ctx);
-        ctx.variable_types_stack.last_mut().unwrap().insert(
-            VariableRef("ss".to_string()),
-            Type::StructRef("SS".to_string()),
-        );
+        ctx.symbol_table
+            .variable_types_stack
+            .last_mut()
+            .unwrap()
+            .insert(
+                VariableRef("ss".to_string()),
+                (Type::StructRef("SS".to_string()), 0),
+            );
         let ast = ast::statement::Assign {
             lhs: LValue::FieldAccess(FieldAccess {
                 from: Box::new(LValue::FieldAccess(FieldAccess {
@@ -254,26 +239,23 @@ mod tests {
         assert_eq!(
             basic_blocks[0].content[0],
             statement::Load {
-                to: LocalVariableName("0".to_string()),
+                to: RegisterName("0".to_string()),
                 data_type: Type::StructRef("SS".to_string()),
-                from: LocalVariableName("ss_addr".to_string()).into()
+                from: RegisterName("ss_0_addr".to_string()).into()
             }
             .into()
         );
         assert_eq!(
             basic_blocks[0].content[1],
             statement::SetField {
-                target: LocalVariableName("1".to_string()),
+                target: RegisterName("1".to_string()),
                 source: 42.into(),
-                origin_root: LocalVariableName("0".to_string()),
+                origin_root: RegisterName("0".to_string()),
                 field_chain: vec![
                     (Type::StructRef("SS".to_string()), 0),
                     (Type::StructRef("S".to_string()), 0),
                 ],
-                final_type: Type::Integer(Integer {
-                    signed: true,
-                    width: 64
-                }),
+                final_type: data_type::I64.clone(),
             }
             .into()
         );
@@ -281,8 +263,8 @@ mod tests {
             basic_blocks[0].content[2],
             statement::Store {
                 data_type: Type::StructRef("SS".to_string()),
-                source: LocalVariableName("1".to_string()).into(),
-                target: LocalVariableName("ss_addr".to_string()).into(),
+                source: RegisterName("1".to_string()).into(),
+                target: RegisterName("ss_0_addr".to_string()).into(),
             }
             .into()
         );

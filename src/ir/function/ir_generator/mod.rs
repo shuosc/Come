@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     ast::{self, expression::VariableRef, statement::Statement},
-    ir::{quantity::Quantity, LocalVariableName},
+    ir::{quantity::Quantity, RegisterName},
     utility::data_type::{Integer, Type},
 };
 use std::{collections::HashMap, mem, vec};
@@ -17,6 +17,72 @@ mod return_statement;
 mod while_statement;
 pub use expression::rvalue_from_ast;
 
+pub struct SymbolTable {
+    /// Types of variables. The latter in the [`Vec`] has higher priority.
+    pub variable_types_stack: Vec<HashMap<VariableRef, (Type, usize)>>,
+    pub next_variable_id: HashMap<VariableRef, usize>,
+    pub register_type: HashMap<RegisterName, Type>,
+}
+
+impl SymbolTable {
+    pub fn start_frame(&mut self) {
+        self.variable_types_stack.push(HashMap::new());
+    }
+
+    pub fn end_frame(&mut self) {
+        self.variable_types_stack.pop();
+    }
+
+    fn variable_id(&self, variable: &VariableRef) -> usize {
+        for frame in self.variable_types_stack.iter().rev() {
+            if let Some(entry) = frame.get(variable) {
+                return entry.1;
+            }
+        }
+        unreachable!()
+    }
+
+    pub fn current_variable_register(&self, variable: &VariableRef) -> RegisterName {
+        RegisterName(format!("{}_{}", variable.0, self.variable_id(variable)))
+    }
+
+    pub fn current_variable_address_register(&self, variable: &VariableRef) -> RegisterName {
+        RegisterName(format!(
+            "{}_{}_addr",
+            variable.0,
+            self.variable_id(variable)
+        ))
+    }
+
+    pub fn create_register_for(
+        &mut self,
+        variable: &VariableRef,
+        data_type: &Type,
+    ) -> RegisterName {
+        let id = *self.next_variable_id.entry(variable.clone()).or_insert(0);
+        self.next_variable_id.insert(variable.clone(), id + 1);
+        let address_register_name = RegisterName(format!("{}_{}_addr", variable.0, id));
+        self.variable_types_stack
+            .last_mut()
+            .unwrap()
+            .insert(variable.clone(), (data_type.clone(), id));
+        self.register_type
+            .insert(address_register_name.clone(), data_type.clone());
+        address_register_name
+    }
+
+    /// Decide a variable's type.
+    pub fn type_of_variable(&self, variable: &VariableRef) -> Type {
+        self.variable_types_stack
+            .iter()
+            .rev()
+            .find_map(|it| it.get(variable))
+            .unwrap()
+            .0
+            .clone()
+    }
+}
+
 /// [`IRGeneratingContext`] is used to collect the basic blocks generated.
 pub struct IRGeneratingContext<'a> {
     /// Parent [`crate::ir::IRGeneratingContext`]
@@ -25,10 +91,7 @@ pub struct IRGeneratingContext<'a> {
     pub done_basic_blocks: Vec<BasicBlock>,
     /// The [`BasicBlock`] that are in construction.
     pub current_basic_block: BasicBlock,
-    /// Types of variables. The latter in the [`Vec`] has higher priority.
-    pub variable_types_stack: Vec<HashMap<VariableRef, Type>>,
-    /// Typed of local variables.
-    pub local_variable_types: HashMap<LocalVariableName, Type>,
+    pub symbol_table: SymbolTable,
 }
 
 impl<'a> IRGeneratingContext<'a> {
@@ -38,8 +101,11 @@ impl<'a> IRGeneratingContext<'a> {
             parent_context,
             done_basic_blocks: Vec::new(),
             current_basic_block: BasicBlock::new(),
-            variable_types_stack: vec![HashMap::new()],
-            local_variable_types: HashMap::new(),
+            symbol_table: SymbolTable {
+                variable_types_stack: vec![HashMap::new()],
+                register_type: HashMap::new(),
+                next_variable_id: HashMap::new(),
+            },
         }
     }
 
@@ -69,12 +135,7 @@ impl<'a> IRGeneratingContext<'a> {
 
     /// Decide a variable's type.
     pub fn type_of_variable(&self, variable: &VariableRef) -> Type {
-        self.variable_types_stack
-            .iter()
-            .rev()
-            .find_map(|it| it.get(variable))
-            .unwrap()
-            .clone()
+        self.symbol_table.type_of_variable(variable)
     }
 
     /// Decide a field's type.
@@ -97,7 +158,7 @@ impl<'a> IRGeneratingContext<'a> {
     /// Decide a local variable's type.
     pub fn type_of_quantity(&self, variable: &Quantity) -> Type {
         match variable {
-            Quantity::LocalVariableName(name) => self.local_variable_types[name].clone(),
+            Quantity::RegisterName(name) => self.symbol_table.register_type[name].clone(),
             Quantity::GlobalVariableName(name) => self.parent_context.global_definitions[&name.0]
                 .data_type
                 .clone(),
@@ -111,10 +172,11 @@ impl<'a> IRGeneratingContext<'a> {
         }
     }
 
-    /// Generate a [`LocalVariableName`] and record its type
-    pub fn next_register_with_type(&mut self, data_type: &Type) -> LocalVariableName {
+    /// Generate a [`RegisterName`] and record its type
+    pub fn next_register_with_type(&mut self, data_type: &Type) -> RegisterName {
         let register = self.parent_context.next_register();
-        self.local_variable_types
+        self.symbol_table
+            .register_type
             .insert(register.clone(), data_type.clone());
         register
     }
@@ -122,6 +184,7 @@ impl<'a> IRGeneratingContext<'a> {
 
 /// Generate IR from [`ast::statement::compound::Compound`].
 pub fn compound_from_ast(ast: &ast::statement::compound::Compound, ctx: &mut IRGeneratingContext) {
+    ctx.symbol_table.start_frame();
     for statement in &ast.0 {
         match statement {
             Statement::Declare(declare) => declare::from_ast(declare, ctx),
@@ -136,4 +199,5 @@ pub fn compound_from_ast(ast: &ast::statement::compound::Compound, ctx: &mut IRG
             Statement::FunctionCall(_) => todo!(),
         }
     }
+    ctx.symbol_table.end_frame();
 }

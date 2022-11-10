@@ -2,7 +2,7 @@ use crate::{
     ir::{
         function::GenerateRegister,
         quantity::{self, Quantity},
-        LocalVariableName,
+        RegisterName,
     },
     utility::{data_type::Type, parsing},
 };
@@ -59,7 +59,7 @@ pub struct Branch {
 }
 
 impl GenerateRegister for Branch {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         None
     }
 }

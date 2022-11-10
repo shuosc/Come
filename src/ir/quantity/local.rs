@@ -9,21 +9,21 @@ use nom::{
 };
 use std::fmt::{self, Display, Formatter};
 
-/// [`LocalVariableName`] represents a local variable's name.
+/// [`RegisterName`] represents a local variable's name.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub struct LocalVariableName(pub String);
+pub struct RegisterName(pub String);
 
-impl Display for LocalVariableName {
+impl Display for RegisterName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "%{}", self.0)
     }
 }
 
-/// Parse source code to get a [`LocalVariableName`].
-pub fn parse(code: &str) -> IResult<&str, LocalVariableName> {
+/// Parse source code to get a [`RegisterName`].
+pub fn parse(code: &str) -> IResult<&str, RegisterName> {
     map(
         pair(tag("%"), alt((digit1, recognize(parsing::ident)))),
-        |(_, name)| LocalVariableName(name.to_string()),
+        |(_, name)| RegisterName(name.to_string()),
     )(code)
 }
 

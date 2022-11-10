@@ -90,7 +90,6 @@ pub fn from_ast(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utility::data_type::Integer;
 
     #[test]
     fn can_parse() {
@@ -100,10 +99,7 @@ mod tests {
             result,
             GlobalDefinition {
                 name: GlobalVariableName("g".to_string()),
-                data_type: Type::Integer(Integer {
-                    width: 32,
-                    signed: true
-                }),
+                data_type: data_type::I32.clone(),
                 initial_value: IntegerLiteral(100),
             }
         );

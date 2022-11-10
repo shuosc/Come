@@ -6,7 +6,7 @@ use crate::{
             GenerateRegister,
         },
         quantity::{self, local, Quantity},
-        LocalVariableName,
+        RegisterName,
     },
     utility::data_type::{self, Integer, Type},
 };
@@ -90,12 +90,12 @@ pub struct BinaryCalculate {
     pub operation: BinaryOperation,
     pub operand1: Quantity,
     pub operand2: Quantity,
-    pub to: LocalVariableName,
+    pub to: RegisterName,
     pub data_type: Type,
 }
 
 impl GenerateRegister for BinaryCalculate {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), self.data_type.clone()))
     }
 }
@@ -142,11 +142,11 @@ pub fn parse(code: &str) -> IResult<&str, BinaryCalculate> {
 
 /// Generate a [`BinaryOperation`] from an [`ast::expression::BinaryOperatorResult`],
 /// and append it to the current basic block.
-/// Return a [`LocalVariableName`] which contains the result.
+/// Return a [`RegisterName`] which contains the result.
 pub fn from_ast(
     ast: &ast::expression::BinaryOperatorResult,
     ctx: &mut IRGeneratingContext,
-) -> LocalVariableName {
+) -> RegisterName {
     let ast::expression::BinaryOperatorResult { operator, lhs, rhs } = ast;
     let result_register = ctx.next_register_with_type(&Type::Integer(Integer {
         signed: true,
@@ -182,11 +182,8 @@ mod tests {
                 operation: BinaryOperation::Add,
                 operand1: 1.into(),
                 operand2: 2.into(),
-                to: LocalVariableName("t0".to_string()),
-                data_type: Type::Integer(Integer {
-                    signed: true,
-                    width: 32
-                }),
+                to: RegisterName("t0".to_string()),
+                data_type: data_type::I32.clone(),
             }
         );
     }
@@ -201,6 +198,6 @@ mod tests {
         let mut parent_ctx = crate::ir::IRGeneratingContext::new();
         let mut ctx = super::IRGeneratingContext::new(&mut parent_ctx);
         let result = from_ast(&ast, &mut ctx);
-        assert_eq!(result, LocalVariableName("0".to_string()));
+        assert_eq!(result, RegisterName("0".to_string()));
     }
 }

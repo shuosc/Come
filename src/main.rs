@@ -1,3 +1,5 @@
+#![feature(once_cell)]
+
 use clap::Parser;
 use ezio::prelude::*;
 use std::{io::Write, path::PathBuf};

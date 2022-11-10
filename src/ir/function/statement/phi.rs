@@ -1,7 +1,7 @@
 use crate::{
     ir::{
         function::GenerateRegister,
-        quantity::{local, LocalVariableName},
+        quantity::{local, RegisterName},
     },
     utility::{
         data_type,
@@ -22,7 +22,7 @@ use std::fmt;
 /// [`Phi`]'s source.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct PhiSource {
-    pub name: LocalVariableName,
+    pub name: RegisterName,
     pub block: String,
 }
 
@@ -41,7 +41,7 @@ fn parse_phi_source(code: &str) -> IResult<&str, PhiSource> {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Phi {
     /// Where to store the result of the phi.
-    pub to: LocalVariableName,
+    pub to: RegisterName,
     /// Type of the phi.
     pub data_type: Type,
     /// Sources of the phi.
@@ -49,7 +49,7 @@ pub struct Phi {
 }
 
 impl GenerateRegister for Phi {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), self.data_type.clone()))
     }
 }
@@ -92,7 +92,6 @@ pub fn parse(code: &str) -> IResult<&str, Phi> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utility::data_type::Integer;
 
     #[test]
     fn test_parse() {
@@ -100,18 +99,15 @@ mod tests {
         assert_eq!(
             result,
             Phi {
-                to: LocalVariableName("1".to_string()),
-                data_type: Type::Integer(Integer {
-                    signed: true,
-                    width: 32
-                }),
+                to: RegisterName("1".to_string()),
+                data_type: data_type::I32.clone(),
                 from: vec![
                     PhiSource {
-                        name: LocalVariableName("2".to_string()),
+                        name: RegisterName("2".to_string()),
                         block: "bb1".to_string(),
                     },
                     PhiSource {
-                        name: LocalVariableName("4".to_string()),
+                        name: RegisterName("4".to_string()),
                         block: "bb2".to_string(),
                     },
                 ],

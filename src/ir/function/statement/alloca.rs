@@ -1,7 +1,7 @@
 use crate::{
     ir::{
         function::GenerateRegister,
-        quantity::{local, LocalVariableName},
+        quantity::{local, RegisterName},
     },
     utility::{data_type, data_type::Type},
 };
@@ -18,13 +18,13 @@ use std::fmt::{self, Display, Formatter};
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Alloca {
     /// Local variable, pointing to the space allocated on the stack.
-    pub to: LocalVariableName,
+    pub to: RegisterName,
     /// Type of the space allocated on the stack.
     pub alloc_type: Type,
 }
 
 impl GenerateRegister for Alloca {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), Type::Address))
     }
 }
@@ -57,7 +57,6 @@ pub fn parse(code: &str) -> IResult<&str, Alloca> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utility::data_type::Integer;
 
     #[test]
     fn test_parse() {
@@ -65,11 +64,8 @@ mod tests {
         assert_eq!(
             result,
             Alloca {
-                to: LocalVariableName("0".to_string()),
-                alloc_type: Type::Integer(Integer {
-                    signed: true,
-                    width: 32
-                })
+                to: RegisterName("0".to_string()),
+                alloc_type: data_type::I32.clone()
             }
         );
     }

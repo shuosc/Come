@@ -17,7 +17,7 @@ pub fn emit_code(
     } = statement;
     let mut result = String::new();
     let operand1_register = match operand1 {
-        ir::quantity::Quantity::LocalVariableName(local) => {
+        ir::quantity::Quantity::RegisterName(local) => {
             let logical_register_assign = ctx.local_assign.get(local).unwrap();
             match logical_register_assign {
                 RegisterAssign::Register(physical_register) => physical_register.clone(),
@@ -36,7 +36,7 @@ pub fn emit_code(
         }
     };
     let operand2_register = match operand2 {
-        ir::quantity::Quantity::LocalVariableName(local) => {
+        ir::quantity::Quantity::RegisterName(local) => {
             let logical_register_assign = ctx.local_assign.get(local).unwrap();
             if let RegisterAssign::Register(physical_register) = logical_register_assign {
                 physical_register.clone()

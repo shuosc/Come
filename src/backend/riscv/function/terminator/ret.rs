@@ -7,7 +7,7 @@ use crate::{
 pub fn emit_code(ret: &Ret, ctx: &mut FunctionCompileContext) -> String {
     let mut result = if let Some(operand) = &ret.value {
         match operand {
-            Quantity::LocalVariableName(local) => {
+            Quantity::RegisterName(local) => {
                 let logical_register_assign = ctx.local_assign.get(local).unwrap();
                 match logical_register_assign {
                     RegisterAssign::Register(register) => format!("    mv a0, {}\n", register),

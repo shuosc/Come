@@ -5,7 +5,6 @@ use crate::{
         function::statement::{calculate, Load},
         quantity::Quantity,
         statement::load_field,
-        LocalVariableName,
     },
 };
 
@@ -15,9 +14,11 @@ pub fn rvalue_from_ast(ast: &RValue, ctx: &mut IRGeneratingContext) -> Quantity 
     match ast {
         RValue::IntegerLiteral(number_literal) => number_literal.0.into(),
         RValue::VariableRef(variable_ref) => {
-            let data_type = ctx.type_of_variable(variable_ref);
+            let data_type = ctx.symbol_table.type_of_variable(variable_ref);
             let target = ctx.next_register_with_type(&data_type);
-            let source = LocalVariableName(format!("{}_addr", variable_ref.0.clone()));
+            let source = ctx
+                .symbol_table
+                .current_variable_address_register(variable_ref);
             ctx.current_basic_block.append_statement(Load {
                 from: source.into(),
                 to: target.clone(),

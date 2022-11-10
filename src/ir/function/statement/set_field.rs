@@ -4,7 +4,7 @@ use crate::{
     ir::{
         function::GenerateRegister,
         quantity::{self, local, Quantity},
-        LocalVariableName,
+        RegisterName,
     },
     utility::{
         data_type,
@@ -25,11 +25,11 @@ use nom::{
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct SetField {
     /// Where to store the result.
-    pub target: LocalVariableName,
+    pub target: RegisterName,
     /// What value to set.
     pub source: Quantity,
     /// Which value to set.
-    pub origin_root: LocalVariableName,
+    pub origin_root: RegisterName,
     /// Access `.0`th field of the struct, which is `.1` type.
     pub field_chain: Vec<(Type, usize)>,
     /// `source`'s type.
@@ -37,7 +37,7 @@ pub struct SetField {
 }
 
 impl GenerateRegister for SetField {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         Some((self.target.clone(), self.field_chain[0].0.clone()))
     }
 }
@@ -116,7 +116,6 @@ pub fn parse(code: &str) -> IResult<&str, SetField> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utility::data_type::Integer;
 
     #[test]
     fn test_parse() {
@@ -125,17 +124,14 @@ mod tests {
         assert_eq!(
             set_field,
             SetField {
-                source: LocalVariableName("0".to_string()).into(),
-                origin_root: LocalVariableName("1".to_string()),
+                source: RegisterName("0".to_string()).into(),
+                origin_root: RegisterName("1".to_string()),
                 field_chain: vec![
                     (Type::StructRef("SS".to_string()), 1),
                     (Type::StructRef("S".to_string()), 0),
                 ],
-                final_type: Type::Integer(Integer {
-                    signed: true,
-                    width: 32
-                }),
-                target: LocalVariableName("2".to_string())
+                final_type: data_type::I32.clone(),
+                target: RegisterName("2".to_string())
             }
         );
     }

@@ -4,7 +4,7 @@ use self::{
 };
 use crate::{
     ast::{self, expression::VariableRef},
-    ir::quantity::{local, LocalVariableName},
+    ir::quantity::{local, RegisterName},
     utility::{data_type, data_type::Type, parsing},
 };
 use enum_dispatch::enum_dispatch;
@@ -30,7 +30,7 @@ pub mod statement;
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Parameter {
     /// Name of the parameter.
-    pub name: LocalVariableName,
+    pub name: RegisterName,
     /// Type of the parameter.
     pub data_type: Type,
 }
@@ -45,7 +45,7 @@ fn parse_parameter(code: &str) -> IResult<&str, Parameter> {
 fn parameter_from_ast(ast: &ast::function_definition::Parameter) -> Parameter {
     let ast::function_definition::Parameter { name, data_type } = ast;
     Parameter {
-        name: LocalVariableName(name.clone()),
+        name: RegisterName(name.clone()),
         data_type: data_type.clone(),
     }
 }
@@ -53,11 +53,11 @@ fn parameter_from_ast(ast: &ast::function_definition::Parameter) -> Parameter {
 /// This trait should be implemented by IR statements that may generate a local variable.
 #[enum_dispatch]
 pub trait GenerateRegister {
-    fn register(&self) -> Option<(LocalVariableName, Type)>;
+    fn register(&self) -> Option<(RegisterName, Type)>;
 }
 
 impl GenerateRegister for Parameter {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         Some((self.name.clone(), self.data_type.clone()))
     }
 }
@@ -134,24 +134,22 @@ pub fn from_ast(
     let mut ctx = IRGeneratingContext::new(ctx);
     let parameters: Vec<_> = parameters.iter().map(parameter_from_ast).collect();
     for param in &parameters {
-        ctx.local_variable_types
-            .insert(param.name.clone(), param.data_type.clone());
-        ctx.variable_types_stack
-            .last_mut()
-            .unwrap()
-            .insert(VariableRef(param.name.0.clone()), param.data_type.clone());
+        let variable = VariableRef(param.name.0.clone());
+        let param_register = RegisterName(variable.0.clone());
+        ctx.symbol_table
+            .register_type
+            .insert(param_register.clone(), param.data_type.clone());
+        let address_register = ctx
+            .symbol_table
+            .create_register_for(&variable, &param.data_type);
         ctx.current_basic_block.append_statement(Alloca {
-            to: LocalVariableName(format!("{}_addr", param.name.0)),
+            to: address_register.clone(),
             alloc_type: param.data_type.clone(),
         });
-        ctx.variable_types_stack
-            .last_mut()
-            .unwrap()
-            .insert(VariableRef(format!("{}_addr", param.name.0)), Type::Address);
         ctx.current_basic_block.append_statement(Store {
             data_type: param.data_type.clone(),
-            source: param.name.clone().into(),
-            target: LocalVariableName(format!("{}_addr", param.name.0)).into(),
+            source: param_register.into(),
+            target: address_register.into(),
         });
     }
     compound_from_ast(content, &mut ctx);

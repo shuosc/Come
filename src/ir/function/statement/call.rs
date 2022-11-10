@@ -2,7 +2,7 @@ use crate::{
     ir::{
         function::GenerateRegister,
         quantity::{self, local, Quantity},
-        LocalVariableName,
+        RegisterName,
     },
     utility::{data_type, data_type::Type, parsing},
 };
@@ -20,7 +20,7 @@ use std::fmt::{self, Display, Formatter};
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Call {
     /// Where to store the result of the call.
-    pub to: Option<LocalVariableName>,
+    pub to: Option<RegisterName>,
     /// Name of the function to call.
     pub name: String,
     /// Result type.
@@ -30,7 +30,7 @@ pub struct Call {
 }
 
 impl GenerateRegister for Call {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         self.to.clone().map(|it| (it, self.data_type.clone()))
     }
 }
@@ -83,7 +83,6 @@ pub fn parse(code: &str) -> IResult<&str, Call> {
 
 #[cfg(test)]
 mod tests {
-    use crate::utility::data_type::Integer;
 
     use super::*;
 
@@ -94,10 +93,7 @@ mod tests {
             result,
             Call {
                 to: None,
-                data_type: Type::Integer(Integer {
-                    signed: true,
-                    width: 32
-                }),
+                data_type: data_type::I32.clone(),
                 name: "foo".to_string(),
                 params: vec![]
             }
@@ -106,13 +102,10 @@ mod tests {
         assert_eq!(
             result,
             Call {
-                to: Some(LocalVariableName("1".to_string())),
-                data_type: Type::Integer(Integer {
-                    signed: true,
-                    width: 32
-                }),
+                to: Some(RegisterName("1".to_string())),
+                data_type: data_type::I32.clone(),
                 name: "foo".to_string(),
-                params: vec![LocalVariableName("0".to_string()).into()]
+                params: vec![RegisterName("0".to_string()).into()]
             }
         );
     }

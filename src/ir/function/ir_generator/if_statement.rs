@@ -1,7 +1,7 @@
 use super::{compound_from_ast, expression, IRGeneratingContext};
 use crate::{
     ast,
-    ir::statement::{Branch, Jump},
+    ir::statement::{branch::BranchType, Branch, Jump},
 };
 
 /// Generates IR for an if statement.
@@ -19,7 +19,7 @@ pub fn from_ast(ast: &ast::statement::If, ctx: &mut IRGeneratingContext) {
     let end_label = format!("if_{}_end", if_id);
     let condition = expression::rvalue_from_ast(condition, ctx);
     ctx.end_current_basic_block_with(Branch {
-        branch_type: crate::ir::statement::branch::BranchType::NE,
+        branch_type: BranchType::NE,
         operand1: condition,
         operand2: 0.into(),
         success_label: success_label.clone(),
@@ -45,42 +45,24 @@ mod tests {
     use super::*;
     use crate::{
         ast::expression::{IntegerLiteral, VariableRef},
-        ir::{statement, LocalVariableName},
-        utility::data_type::{Integer, Type},
+        ir::statement,
+        utility::data_type,
     };
 
     #[test]
     fn test_from_ast() {
         let mut parent_ctx = crate::ir::IRGeneratingContext::new();
         let mut ctx = IRGeneratingContext::new(&mut parent_ctx);
-        ctx.local_variable_types.insert(
-            LocalVariableName("a".to_string()),
-            Type::Integer(Integer {
-                signed: true,
-                width: 32,
-            }),
-        );
-        ctx.local_variable_types.insert(
-            LocalVariableName("b".to_string()),
-            Type::Integer(Integer {
-                signed: true,
-                width: 32,
-            }),
-        );
-        ctx.variable_types_stack.last_mut().unwrap().insert(
-            VariableRef("a".to_string()),
-            Type::Integer(Integer {
-                signed: true,
-                width: 32,
-            }),
-        );
-        ctx.variable_types_stack.last_mut().unwrap().insert(
-            VariableRef("b".to_string()),
-            Type::Integer(Integer {
-                signed: true,
-                width: 32,
-            }),
-        );
+        ctx.symbol_table
+            .variable_types_stack
+            .last_mut()
+            .unwrap()
+            .insert(VariableRef("a".to_string()), (data_type::I32.clone(), 0));
+        ctx.symbol_table
+            .variable_types_stack
+            .last_mut()
+            .unwrap()
+            .insert(VariableRef("b".to_string()), (data_type::I32.clone(), 0));
         let ast = ast::statement::If {
             condition: IntegerLiteral(42).into(),
             content: ast::statement::compound::Compound(vec![ast::statement::Assign {

@@ -116,8 +116,8 @@ mod tests {
 
     use crate::{
         backend::riscv::{register_assign::RegisterAssign, Context},
-        ir::LocalVariableName,
-        utility::data_type::{Integer, Type},
+        ir::RegisterName,
+        utility::data_type::{self, Type},
     };
 
     use super::*;
@@ -131,16 +131,7 @@ mod tests {
             "S1".to_string(),
             ir::TypeDefinition {
                 name: "S1".to_string(),
-                fields: vec![
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
-                ],
+                fields: vec![data_type::I32.clone(), data_type::I32.clone()],
             },
         );
         ctx.struct_definitions.insert(
@@ -148,15 +139,9 @@ mod tests {
             ir::TypeDefinition {
                 name: "S2".to_string(),
                 fields: vec![
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
+                    data_type::I32.clone(),
                     Type::StructRef("S1".to_string()),
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
+                    data_type::I32.clone(),
                 ],
             },
         );
@@ -167,38 +152,32 @@ mod tests {
         };
         // Simple struct
         ctx.local_assign.insert(
-            LocalVariableName("a".to_string()),
+            RegisterName("a".to_string()),
             RegisterAssign::MultipleRegisters(vec!["t2".to_string(), "t3".to_string()]),
         );
         ctx.local_assign.insert(
-            LocalVariableName("b".to_string()),
+            RegisterName("b".to_string()),
             RegisterAssign::Register("t4".to_string()),
         );
         let ir_code = ir::function::statement::LoadField {
-            target: LocalVariableName("b".to_string()),
-            source: LocalVariableName("a".to_string()),
+            target: RegisterName("b".to_string()),
+            source: RegisterName("a".to_string()),
             field_chain: vec![(Type::StructRef("S1".to_string()), 1)],
-            leaf_type: Type::Integer(Integer {
-                signed: true,
-                width: 32,
-            }),
+            leaf_type: data_type::I32.clone(),
         };
         let result = emit_code(&ir_code, &mut ctx);
         assert_eq!(result, "    mv t4, t3\n");
         let ir_code = ir::function::statement::LoadField {
-            target: LocalVariableName("b".to_string()),
-            source: LocalVariableName("a".to_string()),
+            target: RegisterName("b".to_string()),
+            source: RegisterName("a".to_string()),
             field_chain: vec![(Type::StructRef("S1".to_string()), 0)],
-            leaf_type: Type::Integer(Integer {
-                signed: true,
-                width: 32,
-            }),
+            leaf_type: data_type::I32.clone(),
         };
         let result = emit_code(&ir_code, &mut ctx);
         assert_eq!(result, "    mv t4, t2\n");
         // struct in struct
         ctx.local_assign.insert(
-            LocalVariableName("a".to_string()),
+            RegisterName("a".to_string()),
             RegisterAssign::MultipleRegisters(vec![
                 // S2.0
                 "a0".to_string(),
@@ -210,31 +189,25 @@ mod tests {
             ]),
         );
         ctx.local_assign.insert(
-            LocalVariableName("b".to_string()),
+            RegisterName("b".to_string()),
             RegisterAssign::Register("t4".to_string()),
         );
         let ir_code = ir::function::statement::LoadField {
-            target: LocalVariableName("b".to_string()),
-            source: LocalVariableName("a".to_string()),
+            target: RegisterName("b".to_string()),
+            source: RegisterName("a".to_string()),
             field_chain: vec![
                 (Type::StructRef("S2".to_string()), 1),
                 (Type::StructRef("S1".to_string()), 1),
             ],
-            leaf_type: Type::Integer(Integer {
-                signed: true,
-                width: 32,
-            }),
+            leaf_type: data_type::I32.clone(),
         };
         let result = emit_code(&ir_code, &mut ctx);
         assert_eq!(result, "    mv t4, a2\n");
         let ir_code = ir::function::statement::LoadField {
-            target: LocalVariableName("b".to_string()),
-            source: LocalVariableName("a".to_string()),
+            target: RegisterName("b".to_string()),
+            source: RegisterName("a".to_string()),
             field_chain: vec![(Type::StructRef("S2".to_string()), 2)],
-            leaf_type: Type::Integer(Integer {
-                signed: true,
-                width: 32,
-            }),
+            leaf_type: data_type::I32.clone(),
         };
         let result = emit_code(&ir_code, &mut ctx);
         assert_eq!(result, "    mv t4, a3\n");
@@ -249,16 +222,7 @@ mod tests {
             "S1".to_string(),
             ir::TypeDefinition {
                 name: "S1".to_string(),
-                fields: vec![
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
-                ],
+                fields: vec![data_type::I32.clone(), data_type::I32.clone()],
             },
         );
         ctx.struct_definitions.insert(
@@ -266,15 +230,9 @@ mod tests {
             ir::TypeDefinition {
                 name: "S2".to_string(),
                 fields: vec![
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
+                    data_type::I32.clone(),
                     Type::StructRef("S1".to_string()),
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
+                    data_type::I32.clone(),
                 ],
             },
         );
@@ -284,7 +242,7 @@ mod tests {
             cleanup_label: None,
         };
         ctx.local_assign.insert(
-            LocalVariableName("a".to_string()),
+            RegisterName("a".to_string()),
             RegisterAssign::MultipleRegisters(vec![
                 // S2.0
                 "a0".to_string(),
@@ -296,12 +254,12 @@ mod tests {
             ]),
         );
         ctx.local_assign.insert(
-            LocalVariableName("b".to_string()),
+            RegisterName("b".to_string()),
             RegisterAssign::MultipleRegisters(vec!["t2".to_string(), "t3".to_string()]),
         );
         let ir_code = ir::function::statement::LoadField {
-            target: LocalVariableName("b".to_string()),
-            source: LocalVariableName("a".to_string()),
+            target: RegisterName("b".to_string()),
+            source: RegisterName("a".to_string()),
             field_chain: vec![(Type::StructRef("S2".to_string()), 1)],
             leaf_type: Type::StructRef("S1".to_string()),
         };
@@ -318,10 +276,7 @@ mod tests {
             "S0".to_string(),
             ir::TypeDefinition {
                 name: "S0".to_string(),
-                fields: vec![Type::Integer(Integer {
-                    width: 32,
-                    signed: true,
-                })],
+                fields: vec![data_type::I32.clone()],
             },
         );
         let mut ctx = FunctionCompileContext {
@@ -330,21 +285,18 @@ mod tests {
             cleanup_label: None,
         };
         ctx.local_assign.insert(
-            LocalVariableName("a".to_string()),
+            RegisterName("a".to_string()),
             RegisterAssign::Register("a0".to_string()),
         );
         ctx.local_assign.insert(
-            LocalVariableName("b".to_string()),
+            RegisterName("b".to_string()),
             RegisterAssign::StackValue(16),
         );
         let ir_code = ir::function::statement::LoadField {
-            target: LocalVariableName("b".to_string()),
-            source: LocalVariableName("a".to_string()),
+            target: RegisterName("b".to_string()),
+            source: RegisterName("a".to_string()),
             field_chain: vec![(Type::StructRef("S0".to_string()), 0)],
-            leaf_type: Type::Integer(Integer {
-                signed: true,
-                width: 32,
-            }),
+            leaf_type: data_type::I32.clone(),
         };
         let result = emit_code(&ir_code, &mut ctx);
         assert_eq!(result, "    sw a0, 16(sp)\n");
@@ -359,16 +311,7 @@ mod tests {
             "S1".to_string(),
             ir::TypeDefinition {
                 name: "S1".to_string(),
-                fields: vec![
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
-                ],
+                fields: vec![data_type::I32.clone(), data_type::I32.clone()],
             },
         );
         ctx.struct_definitions.insert(
@@ -376,15 +319,9 @@ mod tests {
             ir::TypeDefinition {
                 name: "S2".to_string(),
                 fields: vec![
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
+                    data_type::I32.clone(),
                     Type::StructRef("S1".to_string()),
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
+                    data_type::I32.clone(),
                 ],
             },
         );
@@ -395,55 +332,46 @@ mod tests {
         };
         // Simple struct
         ctx.local_assign.insert(
-            LocalVariableName("a".to_string()),
+            RegisterName("a".to_string()),
             RegisterAssign::StackValue(16),
         );
         ctx.local_assign.insert(
-            LocalVariableName("b".to_string()),
+            RegisterName("b".to_string()),
             RegisterAssign::Register("t2".to_string()),
         );
         let ir_code = ir::function::statement::LoadField {
-            target: LocalVariableName("b".to_string()),
-            source: LocalVariableName("a".to_string()),
+            target: RegisterName("b".to_string()),
+            source: RegisterName("a".to_string()),
             field_chain: vec![(Type::StructRef("S1".to_string()), 1)],
-            leaf_type: Type::Integer(Integer {
-                signed: true,
-                width: 32,
-            }),
+            leaf_type: data_type::I32.clone(),
         };
         let result = emit_code(&ir_code, &mut ctx);
         assert_eq!(result, "    lw t2, 20(sp)\n");
         // Struct of structs
         ctx.local_assign.insert(
-            LocalVariableName("a".to_string()),
+            RegisterName("a".to_string()),
             RegisterAssign::StackValue(16),
         );
         ctx.local_assign.insert(
-            LocalVariableName("b".to_string()),
+            RegisterName("b".to_string()),
             RegisterAssign::Register("t2".to_string()),
         );
         let ir_code = ir::function::statement::LoadField {
-            target: LocalVariableName("b".to_string()),
-            source: LocalVariableName("a".to_string()),
+            target: RegisterName("b".to_string()),
+            source: RegisterName("a".to_string()),
             field_chain: vec![
                 (Type::StructRef("S2".to_string()), 1),
                 (Type::StructRef("S1".to_string()), 1),
             ],
-            leaf_type: Type::Integer(Integer {
-                signed: true,
-                width: 32,
-            }),
+            leaf_type: data_type::I32.clone(),
         };
         let result = emit_code(&ir_code, &mut ctx);
         assert_eq!(result, "    lw t2, 24(sp)\n");
         let ir_code = ir::function::statement::LoadField {
-            target: LocalVariableName("b".to_string()),
-            source: LocalVariableName("a".to_string()),
+            target: RegisterName("b".to_string()),
+            source: RegisterName("a".to_string()),
             field_chain: vec![(Type::StructRef("S2".to_string()), 2)],
-            leaf_type: Type::Integer(Integer {
-                signed: true,
-                width: 32,
-            }),
+            leaf_type: data_type::I32.clone(),
         };
         let result = emit_code(&ir_code, &mut ctx);
         assert_eq!(result, "    lw t2, 28(sp)\n");
@@ -458,16 +386,7 @@ mod tests {
             "S1".to_string(),
             ir::TypeDefinition {
                 name: "S1".to_string(),
-                fields: vec![
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
-                ],
+                fields: vec![data_type::I32.clone(), data_type::I32.clone()],
             },
         );
         ctx.struct_definitions.insert(
@@ -475,15 +394,9 @@ mod tests {
             ir::TypeDefinition {
                 name: "S2".to_string(),
                 fields: vec![
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
+                    data_type::I32.clone(),
                     Type::StructRef("S1".to_string()),
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
+                    data_type::I32.clone(),
                 ],
             },
         );
@@ -493,7 +406,7 @@ mod tests {
             cleanup_label: None,
         };
         ctx.local_assign.insert(
-            LocalVariableName("a".to_string()),
+            RegisterName("a".to_string()),
             RegisterAssign::MultipleRegisters(vec![
                 "a0".to_string(),
                 "a1".to_string(),
@@ -502,12 +415,12 @@ mod tests {
             ]),
         );
         ctx.local_assign.insert(
-            LocalVariableName("b".to_string()),
+            RegisterName("b".to_string()),
             RegisterAssign::StackValue(16),
         );
         let ir_code = ir::function::statement::LoadField {
-            target: LocalVariableName("b".to_string()),
-            source: LocalVariableName("a".to_string()),
+            target: RegisterName("b".to_string()),
+            source: RegisterName("a".to_string()),
             field_chain: vec![(Type::StructRef("S2".to_string()), 1)],
             leaf_type: Type::StructRef("S1".to_string()),
         };
@@ -524,16 +437,7 @@ mod tests {
             "S1".to_string(),
             ir::TypeDefinition {
                 name: "S1".to_string(),
-                fields: vec![
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
-                ],
+                fields: vec![data_type::I32.clone(), data_type::I32.clone()],
             },
         );
         ctx.struct_definitions.insert(
@@ -541,15 +445,9 @@ mod tests {
             ir::TypeDefinition {
                 name: "S2".to_string(),
                 fields: vec![
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
+                    data_type::I32.clone(),
                     Type::StructRef("S1".to_string()),
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
+                    data_type::I32.clone(),
                 ],
             },
         );
@@ -559,16 +457,16 @@ mod tests {
             cleanup_label: None,
         };
         ctx.local_assign.insert(
-            LocalVariableName("a".to_string()),
+            RegisterName("a".to_string()),
             RegisterAssign::StackValue(16),
         );
         ctx.local_assign.insert(
-            LocalVariableName("b".to_string()),
+            RegisterName("b".to_string()),
             RegisterAssign::MultipleRegisters(vec!["t2".to_string(), "t3".to_string()]),
         );
         let ir_code = ir::function::statement::LoadField {
-            target: LocalVariableName("b".to_string()),
-            source: LocalVariableName("a".to_string()),
+            target: RegisterName("b".to_string()),
+            source: RegisterName("a".to_string()),
             field_chain: vec![(Type::StructRef("S2".to_string()), 1)],
             leaf_type: Type::StructRef("S1".to_string()),
         };
@@ -585,16 +483,7 @@ mod tests {
             "S1".to_string(),
             ir::TypeDefinition {
                 name: "S1".to_string(),
-                fields: vec![
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
-                ],
+                fields: vec![data_type::I32.clone(), data_type::I32.clone()],
             },
         );
         ctx.struct_definitions.insert(
@@ -602,15 +491,9 @@ mod tests {
             ir::TypeDefinition {
                 name: "S2".to_string(),
                 fields: vec![
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
+                    data_type::I32.clone(),
                     Type::StructRef("S1".to_string()),
-                    Type::Integer(Integer {
-                        width: 32,
-                        signed: true,
-                    }),
+                    data_type::I32.clone(),
                 ],
             },
         );
@@ -620,16 +503,16 @@ mod tests {
             cleanup_label: None,
         };
         ctx.local_assign.insert(
-            LocalVariableName("a".to_string()),
+            RegisterName("a".to_string()),
             RegisterAssign::StackValue(16),
         );
         ctx.local_assign.insert(
-            LocalVariableName("b".to_string()),
+            RegisterName("b".to_string()),
             RegisterAssign::StackValue(32),
         );
         let ir_code = ir::function::statement::LoadField {
-            target: LocalVariableName("b".to_string()),
-            source: LocalVariableName("a".to_string()),
+            target: RegisterName("b".to_string()),
+            source: RegisterName("a".to_string()),
             field_chain: vec![(Type::StructRef("S2".to_string()), 1)],
             leaf_type: Type::StructRef("S1".to_string()),
         };

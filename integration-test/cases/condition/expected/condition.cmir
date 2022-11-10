@@ -1,18 +1,18 @@
 fn test_condition(i32 %a, i32 %b) -> i32 {
-    %a_addr = alloca i32
-    store i32 %a, address %a_addr
-    %b_addr = alloca i32
-    store i32 %b, address %b_addr
-    %1 = load i32 %a_addr
-    %2 = load i32 %b_addr
+    %a_0_addr = alloca i32
+    store i32 %a, address %a_0_addr
+    %b_0_addr = alloca i32
+    store i32 %b, address %b_0_addr
+    %1 = load i32 %a_0_addr
+    %2 = load i32 %b_0_addr
     %0 = slt i32 %1, %2
     bne %0, 0, if_0_success, if_0_fail
   if_0_success:
-    %3 = load i32 %a_addr
+    %3 = load i32 %a_0_addr
     ret %3
     j if_0_end
   if_0_fail:
-    %4 = load i32 %b_addr
+    %4 = load i32 %b_0_addr
     ret %4
     j if_0_end
   if_0_end:

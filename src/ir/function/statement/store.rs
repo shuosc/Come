@@ -2,7 +2,7 @@ use crate::{
     ir::{
         function::GenerateRegister,
         quantity::{self, Quantity},
-        LocalVariableName,
+        RegisterName,
     },
     utility::{data_type, data_type::Type},
 };
@@ -27,7 +27,7 @@ pub struct Store {
 }
 
 impl GenerateRegister for Store {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         None
     }
 }
@@ -69,7 +69,6 @@ pub fn parse(code: &str) -> IResult<&str, Store> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utility::data_type::Integer;
 
     #[test]
     fn test_parse() {
@@ -78,12 +77,9 @@ mod tests {
         assert_eq!(
             store,
             Store {
-                data_type: Type::Integer(Integer {
-                    width: 32,
-                    signed: true,
-                }),
-                source: LocalVariableName("0".to_string()).into(),
-                target: LocalVariableName("1".to_string()).into(),
+                data_type: data_type::I32.clone(),
+                source: RegisterName("0".to_string()).into(),
+                target: RegisterName("1".to_string()).into(),
             }
         );
     }

@@ -15,7 +15,7 @@ pub fn emit_code(
     } = statement;
     let mut result = String::new();
     let source_register = match source {
-        ir::quantity::Quantity::LocalVariableName(local) => {
+        ir::quantity::Quantity::RegisterName(local) => {
             let local = ctx.local_assign.get(local).unwrap();
             match local {
                 RegisterAssign::Register(register) => register.clone(),
@@ -25,7 +25,7 @@ pub fn emit_code(
                 }
                 RegisterAssign::StackRef(_) => unreachable!(),
                 RegisterAssign::MultipleRegisters(registers) => {
-                    if let ir::quantity::Quantity::LocalVariableName(local) = target {
+                    if let ir::quantity::Quantity::RegisterName(local) = target {
                         let local = ctx.local_assign.get(local).unwrap();
                         if let RegisterAssign::StackRef(stack_offset) = local {
                             for (i, register) in registers.iter().enumerate() {
@@ -51,7 +51,7 @@ pub fn emit_code(
             "t0".to_string()
         }
     };
-    let target_stack_offset = if let ir::quantity::Quantity::LocalVariableName(local) = target {
+    let target_stack_offset = if let ir::quantity::Quantity::RegisterName(local) = target {
         let local = ctx.local_assign.get(local).unwrap();
         match local {
             RegisterAssign::StackRef(stack_offset) => stack_offset,

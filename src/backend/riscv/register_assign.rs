@@ -21,7 +21,7 @@ pub enum RegisterAssign {
 pub fn assign_register(
     ir_code: &ir::FunctionDefinition,
     ctx: &Context,
-) -> (HashMap<ir::LocalVariableName, RegisterAssign>, usize) {
+) -> (HashMap<ir::RegisterName, RegisterAssign>, usize) {
     let mut register_assign = HashMap::new();
     let mut argument_register_used = 0;
     for parameter in ir_code.parameters.iter() {

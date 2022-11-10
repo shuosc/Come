@@ -6,7 +6,7 @@ use crate::{
             GenerateRegister,
         },
         quantity::{self, local, Quantity},
-        LocalVariableName,
+        RegisterName,
     },
     utility::data_type::{self, Type},
 };
@@ -55,12 +55,12 @@ impl fmt::Display for UnaryOperation {
 pub struct UnaryCalculate {
     pub operation: UnaryOperation,
     pub operand: Quantity,
-    pub to: LocalVariableName,
+    pub to: RegisterName,
     pub data_type: Type,
 }
 
 impl GenerateRegister for UnaryCalculate {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), self.data_type.clone()))
     }
 }
@@ -112,7 +112,7 @@ pub fn from_ast(
     match operator.as_str() {
         "+" => {
             ctx.parent_context.next_register_id -= 1;
-            ctx.local_variable_types.remove(&result_register);
+            ctx.symbol_table.register_type.remove(&result_register);
             return rvalue_register;
         }
         operator => {

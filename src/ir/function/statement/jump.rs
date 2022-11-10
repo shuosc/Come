@@ -1,5 +1,5 @@
 use crate::{
-    ir::{function::GenerateRegister, LocalVariableName},
+    ir::{function::GenerateRegister, RegisterName},
     utility::{data_type::Type, parsing},
 };
 use nom::{
@@ -17,7 +17,7 @@ pub struct Jump {
 }
 
 impl GenerateRegister for Jump {
-    fn register(&self) -> Option<(LocalVariableName, Type)> {
+    fn register(&self) -> Option<(RegisterName, Type)> {
         None
     }
 }

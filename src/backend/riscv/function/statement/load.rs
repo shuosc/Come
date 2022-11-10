@@ -15,7 +15,7 @@ pub fn emit_code(
     } = statement;
     let mut result = String::new();
     let from_stack_offset = match from {
-        ir::quantity::Quantity::LocalVariableName(local) => {
+        ir::quantity::Quantity::RegisterName(local) => {
             let physical_register = ctx.local_assign.get(local).unwrap();
             match physical_register {
                 RegisterAssign::Register(_register) => {
