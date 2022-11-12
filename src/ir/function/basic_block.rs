@@ -13,18 +13,18 @@ use std::fmt;
 use super::statement::{
     self, parse_terminator,
     phi::{self, Phi},
-    IRStatement, Terminator,
+    ContentStatement, StatementRef, StatementRefMut, Terminator,
 };
 
 /// A basic block.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct BasicBlock {
     /// Name of the basic block.
     pub name: Option<String>,
     /// [`Phi`] statements of the basic block.
     pub phis: Vec<Phi>,
     /// Statements of the basic block.
-    pub content: Vec<IRStatement>,
+    pub content: Vec<ContentStatement>,
     /// Terminator of the basic block.
     pub terminator: Option<Terminator>,
 }
@@ -41,7 +41,7 @@ impl BasicBlock {
     }
 
     /// Append a statement to the basic block.
-    pub fn append_statement(&mut self, statement: impl Into<IRStatement>) {
+    pub fn append_statement(&mut self, statement: impl Into<ContentStatement>) {
         self.content.push(statement.into());
     }
 
@@ -51,6 +51,75 @@ impl BasicBlock {
             && self.phis.is_empty()
             && self.content.is_empty()
             && self.terminator.is_none()
+    }
+
+    // todo: board check
+    pub fn index(&self, n: usize) -> StatementRef<'_> {
+        if n < self.phis.len() {
+            StatementRef::Phi(&self.phis[n])
+        } else if n - self.phis.len() < self.content.len() {
+            StatementRef::Content(&self.content[n])
+        } else {
+            StatementRef::Terminator(&self.terminator.as_ref().unwrap())
+        }
+    }
+
+    pub fn index_mut(&mut self, n: usize) -> StatementRefMut<'_> {
+        if n < self.phis.len() {
+            StatementRefMut::Phi(&mut self.phis[n])
+        } else if n - self.phis.len() < self.content.len() {
+            StatementRefMut::Content(&mut self.content[n])
+        } else {
+            StatementRefMut::Terminator(self.terminator.as_mut().unwrap())
+        }
+    }
+
+    pub fn iter(&self) -> BasicBlockIterator<'_> {
+        BasicBlockIterator {
+            bb: self,
+            index: 0
+        }
+    }
+
+    pub fn remove(&mut self, index: usize) {
+        if index < self.phis.len() {
+            self.phis.remove(index);
+        } else {
+            let index = index - self.phis.len();
+            if index < self.content.len() {
+                self.content.remove(index);
+            } else if index == self.content.len() && self.terminator.is_some() {
+                self.terminator = None;
+            }
+        }
+    }
+}
+
+pub struct BasicBlockIterator<'a> {
+    bb: &'a BasicBlock,
+    index: usize,
+}
+
+impl<'a> Iterator for BasicBlockIterator<'a> {
+    type Item = StatementRef<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.bb.phis.len() {
+            let ret = StatementRef::Phi(&self.bb.phis[self.index]);
+            self.index += 1;
+            Some(ret)
+        } else if self.index - self.bb.phis.len() < self.bb.content.len() {
+            let ret = StatementRef::Content(&self.bb.content[self.index]);
+            self.index += 1;
+            Some(ret)
+        } else if self.index - self.bb.phis.len() == self.bb.content.len() {
+            let terminator = self.bb.terminator.as_ref()?;
+            let ret = StatementRef::Terminator(terminator);
+            self.index += 1;
+            Some(ret)
+        } else {
+            None
+        }
     }
 }
 

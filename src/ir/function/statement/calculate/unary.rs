@@ -3,7 +3,7 @@ use crate::{
     ir::{
         function::{
             ir_generator::{rvalue_from_ast, IRGeneratingContext},
-            GenerateRegister,
+            GenerateRegister, UseRegister,
         },
         quantity::{self, local, Quantity},
         RegisterName,
@@ -22,7 +22,7 @@ use phf::phf_map;
 use std::fmt;
 
 /// [`UnaryOperation`] represents a unary operation operator.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum UnaryOperation {
     Neg,
     Not,
@@ -51,7 +51,7 @@ impl fmt::Display for UnaryOperation {
 }
 
 /// [`UnaryCalculate`] represents the result of a unary operator.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct UnaryCalculate {
     pub operation: UnaryOperation,
     pub operand: Quantity,
@@ -60,8 +60,18 @@ pub struct UnaryCalculate {
 }
 
 impl GenerateRegister for UnaryCalculate {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), self.data_type.clone()))
+    }
+}
+
+impl UseRegister for UnaryCalculate {
+    fn use_register(&self) -> Vec<RegisterName> {
+        let mut result = Vec::new();
+        if let Quantity::RegisterName(register) = &self.operand {
+            result.push(register.clone());
+        }
+        result
     }
 }
 

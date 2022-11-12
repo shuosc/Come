@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::GenerateRegister,
+        function::{GenerateRegister, UseRegister},
         quantity::{self, Quantity},
         RegisterName,
     },
@@ -59,8 +59,21 @@ pub struct Branch {
 }
 
 impl GenerateRegister for Branch {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, Type)> {
         None
+    }
+}
+
+impl UseRegister for Branch {
+    fn use_register(&self) -> Vec<RegisterName> {
+        let mut registers = Vec::new();
+        if let Quantity::RegisterName(register) = &self.operand1 {
+            registers.push(register.clone());
+        }
+        if let Quantity::RegisterName(register) = &self.operand2 {
+            registers.push(register.clone());
+        }
+        registers
     }
 }
 

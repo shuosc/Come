@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     ir::{
-        function::GenerateRegister,
+        function::{GenerateRegister, UseRegister},
         quantity::{self, local, Quantity},
         RegisterName,
     },
@@ -22,7 +22,7 @@ use nom::{
 };
 
 /// [`SetField`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct SetField {
     /// Where to store the result.
     pub target: RegisterName,
@@ -37,8 +37,18 @@ pub struct SetField {
 }
 
 impl GenerateRegister for SetField {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.target.clone(), self.field_chain[0].0.clone()))
+    }
+}
+
+impl UseRegister for SetField {
+    fn use_register(&self) -> Vec<RegisterName> {
+        if let Quantity::RegisterName(register) = &self.source {
+            vec![register.clone()]
+        } else {
+            vec![]
+        }
     }
 }
 

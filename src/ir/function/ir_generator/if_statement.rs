@@ -27,16 +27,21 @@ pub fn from_ast(ast: &ast::statement::If, ctx: &mut IRGeneratingContext) {
     });
     ctx.current_basic_block.name = Some(success_label);
     compound_from_ast(content, ctx);
-    ctx.end_current_basic_block_with(Jump {
-        label: end_label.clone(),
-    });
+    // it is possible that last BasicBlock has already end
+    if !ctx.current_basic_block.empty() {
+        ctx.end_current_basic_block_with(Jump {
+            label: end_label.clone(),
+        });
+    }
     ctx.current_basic_block.name = Some(fail_label);
     if let Some(else_content) = else_content {
         compound_from_ast(else_content, ctx);
     }
-    ctx.end_current_basic_block_with(Jump {
-        label: end_label.clone(),
-    });
+    if !ctx.current_basic_block.empty() {
+        ctx.end_current_basic_block_with(Jump {
+            label: end_label.clone(),
+        });
+    }
     ctx.current_basic_block.name = Some(end_label);
 }
 

@@ -26,9 +26,11 @@ pub fn from_ast(ast: &ast::statement::While, ctx: &mut IRGeneratingContext) {
     });
     ctx.current_basic_block.name = Some(success_label);
     compound_from_ast(content, ctx);
-    ctx.end_current_basic_block_with(Jump {
-        label: condition_label,
-    });
+    if !ctx.current_basic_block.empty() {
+        ctx.end_current_basic_block_with(Jump {
+            label: condition_label,
+        });
+    }
     ctx.current_basic_block.name = Some(fail_label);
 }
 

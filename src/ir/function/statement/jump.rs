@@ -1,5 +1,5 @@
 use crate::{
-    ir::{function::GenerateRegister, RegisterName},
+    ir::{function::{GenerateRegister, UseRegister}, RegisterName},
     utility::{data_type::Type, parsing},
 };
 use nom::{
@@ -17,8 +17,14 @@ pub struct Jump {
 }
 
 impl GenerateRegister for Jump {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, Type)> {
         None
+    }
+}
+
+impl UseRegister for Jump {
+    fn use_register(&self) -> Vec<RegisterName> {
+        vec![]
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::GenerateRegister,
+        function::{GenerateRegister, UseRegister},
         quantity::{local, RegisterName},
     },
     utility::{data_type, data_type::Type},
@@ -15,7 +15,7 @@ use nom::{
 use std::fmt::{self, Display, Formatter};
 
 /// [`Alloca`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Alloca {
     /// Local variable, pointing to the space allocated on the stack.
     pub to: RegisterName,
@@ -24,8 +24,14 @@ pub struct Alloca {
 }
 
 impl GenerateRegister for Alloca {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), Type::Address))
+    }
+}
+
+impl UseRegister for Alloca {
+    fn use_register(&self) -> Vec<RegisterName> {
+        Vec::new()
     }
 }
 

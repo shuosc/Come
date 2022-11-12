@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::GenerateRegister,
+        function::{GenerateRegister, UseRegister},
         quantity::{self, local, Quantity},
         RegisterName,
     },
@@ -30,8 +30,23 @@ pub struct Call {
 }
 
 impl GenerateRegister for Call {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, Type)> {
         self.to.clone().map(|it| (it, self.data_type.clone()))
+    }
+}
+
+impl UseRegister for Call {
+    fn use_register(&self) -> Vec<RegisterName> {
+        self.params
+            .iter()
+            .filter_map(|it| {
+                if let Quantity::RegisterName(register) = it {
+                    Some(register.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 

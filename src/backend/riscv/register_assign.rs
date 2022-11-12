@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ir::{self, function::GenerateRegister, statement::IRStatement};
+use crate::ir::{self, function::GenerateRegister, statement::ContentStatement};
 
 use super::{Context, HasSize};
 
@@ -51,14 +51,14 @@ pub fn assign_register(
     let mut next_temporary_register_id = 2;
     for statement in statements {
         // alloca statement means we do want a variable on the stack
-        if let IRStatement::Alloca(alloca) = statement {
+        if let ContentStatement::Alloca(alloca) = statement {
             register_assign.insert(
                 alloca.to.clone(),
                 RegisterAssign::StackRef(current_used_stack_space),
             );
             current_used_stack_space += (alloca.alloc_type.size(ctx) + 7) / 8;
         } else {
-            let logic_register = statement.register();
+            let logic_register = statement.generated_register();
             if let Some((logic_register, data_type)) = logic_register {
                 let type_bytes = (data_type.size(ctx) + 7) / 8;
                 let need_registers = type_bytes / 4;

@@ -53,11 +53,16 @@ fn parameter_from_ast(ast: &ast::function_definition::Parameter) -> Parameter {
 /// This trait should be implemented by IR statements that may generate a local variable.
 #[enum_dispatch]
 pub trait GenerateRegister {
-    fn register(&self) -> Option<(RegisterName, Type)>;
+    fn generated_register(&self) -> Option<(RegisterName, Type)>;
+}
+
+#[enum_dispatch]
+pub trait UseRegister {
+    fn use_register(&self) -> Vec<RegisterName>;
 }
 
 impl GenerateRegister for Parameter {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.name.clone(), self.data_type.clone()))
     }
 }

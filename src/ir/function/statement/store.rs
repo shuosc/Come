@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::GenerateRegister,
+        function::{GenerateRegister, UseRegister},
         quantity::{self, Quantity},
         RegisterName,
     },
@@ -16,7 +16,7 @@ use nom::{
 use std::fmt;
 
 /// [`Store`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Store {
     /// Type of the value to store.
     pub data_type: Type,
@@ -27,8 +27,21 @@ pub struct Store {
 }
 
 impl GenerateRegister for Store {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, Type)> {
         None
+    }
+}
+
+impl UseRegister for Store {
+    fn use_register(&self) -> Vec<RegisterName> {
+        let mut result = Vec::new();
+        if let Quantity::RegisterName(register) = &self.source {
+            result.push(register.clone());
+        }
+        if let Quantity::RegisterName(register) = &self.target {
+            result.push(register.clone());
+        }
+        result
     }
 }
 

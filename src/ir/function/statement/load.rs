@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     ir::{
-        function::GenerateRegister,
+        function::{GenerateRegister, UseRegister},
         quantity::{self, local, Quantity, RegisterName},
     },
     utility::{data_type, data_type::Type},
@@ -16,7 +16,7 @@ use nom::{
 };
 
 /// [`Load`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Load {
     pub to: RegisterName,
     pub data_type: Type,
@@ -24,8 +24,18 @@ pub struct Load {
 }
 
 impl GenerateRegister for Load {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), self.data_type.clone()))
+    }
+}
+
+impl UseRegister for Load {
+    fn use_register(&self) -> Vec<RegisterName> {
+        if let Quantity::RegisterName(register) = &self.from {
+            vec![register.clone()]
+        } else {
+            Vec::new()
+        }
     }
 }
 

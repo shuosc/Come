@@ -4,7 +4,7 @@ use crate::{
         expression::{FieldAccess, LValue},
     },
     ir::{
-        function::{ir_generator::IRGeneratingContext, GenerateRegister},
+        function::{ir_generator::IRGeneratingContext, GenerateRegister, UseRegister},
         quantity::{local, RegisterName},
     },
     utility::{
@@ -26,7 +26,7 @@ use std::fmt;
 use super::Load;
 
 /// [`LoadField`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct LoadField {
     /// Where to store the result of the load.
     pub target: RegisterName,
@@ -56,8 +56,14 @@ impl fmt::Display for LoadField {
 }
 
 impl GenerateRegister for LoadField {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.target.clone(), self.leaf_type.clone()))
+    }
+}
+
+impl UseRegister for LoadField {
+    fn use_register(&self) -> Vec<RegisterName> {
+        vec![self.source.clone()]
     }
 }
 

@@ -12,7 +12,8 @@ mod integer_literal;
 /// Data structure and parser for variables (global or local) and literals.
 pub mod quantity;
 mod type_definition;
-
+mod analyze;
+mod optimize;
 use self::type_definition::TypeDefinitionMapping;
 use crate::ast::{ASTNode, Ast};
 pub use function::{statement, FunctionDefinition};

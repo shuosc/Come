@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::GenerateRegister,
+        function::{GenerateRegister, UseRegister},
         quantity::{self, Quantity},
         RegisterName,
     },
@@ -16,14 +16,24 @@ use nom::{
 use std::fmt;
 
 /// [`Ret`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Ret {
     pub value: Option<Quantity>,
 }
 
 impl GenerateRegister for Ret {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, Type)> {
         None
+    }
+}
+
+impl UseRegister for Ret {
+    fn use_register(&self) -> Vec<RegisterName> {
+        if let Some(Quantity::RegisterName(register)) = &self.value {
+            vec![register.clone()]
+        } else {
+            Vec::new()
+        }
     }
 }
 

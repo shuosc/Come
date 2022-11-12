@@ -12,12 +12,10 @@ if_0_success:
     lw t5, 0(sp)
     mv a0, t5
     j test_condition_end
-    j if_0_end
 if_0_fail:
     lw t6, 4(sp)
     mv a0, t6
     j test_condition_end
-    j if_0_end
 if_0_end:
     j test_condition_end
 test_condition_end:

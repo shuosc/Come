@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::GenerateRegister,
+        function::{GenerateRegister, UseRegister},
         quantity::{local, RegisterName},
     },
     utility::{
@@ -20,7 +20,7 @@ use nom::{
 use std::fmt;
 
 /// [`Phi`]'s source.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct PhiSource {
     pub name: RegisterName,
     pub block: String,
@@ -38,7 +38,7 @@ fn parse_phi_source(code: &str) -> IResult<&str, PhiSource> {
 }
 
 /// [`Phi`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Phi {
     /// Where to store the result of the phi.
     pub to: RegisterName,
@@ -49,8 +49,16 @@ pub struct Phi {
 }
 
 impl GenerateRegister for Phi {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), self.data_type.clone()))
+    }
+}
+
+impl UseRegister for Phi {
+    fn use_register(&self) -> Vec<RegisterName> {
+        self.from.iter()
+            .map(|PhiSource {name, ..}| name.clone())
+            .collect()
     }
 }
 
