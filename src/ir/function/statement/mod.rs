@@ -26,20 +26,20 @@ pub(crate) mod set_field;
 /// Data structure, parser and ir generator for `store` statement.
 mod store;
 
-pub use phi::Phi;
 pub use alloca::Alloca;
 pub use branch::Branch;
 pub use calculate::{BinaryCalculate, UnaryCalculate};
 pub use jump::Jump;
 pub use load::Load;
 pub use load_field::LoadField;
+pub use phi::Phi;
 pub use ret::Ret;
 pub use set_field::SetField;
 pub use store::Store;
 
 use crate::ir::RegisterName;
 
-use super::{UseRegister, GenerateRegister};
+use super::{GenerateRegister, UseRegister};
 
 /// A statement in a function.
 #[enum_dispatch(GenerateRegister, UseRegister)]
@@ -129,7 +129,7 @@ impl UseRegister for StatementRef<'_> {
 }
 
 impl GenerateRegister for StatementRef<'_> {
-    fn generated_register(&self) -> Option<(RegisterName,crate::utility::data_type::Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, crate::utility::data_type::Type)> {
         match self {
             StatementRef::Phi(x) => x.generated_register(),
             StatementRef::Content(x) => x.generated_register(),
@@ -157,7 +157,7 @@ impl UseRegister for StatementRefMut<'_> {
 }
 
 impl GenerateRegister for StatementRefMut<'_> {
-    fn generated_register(&self) -> Option<(RegisterName,crate::utility::data_type::Type)> {
+    fn generated_register(&self) -> Option<(RegisterName, crate::utility::data_type::Type)> {
         match self {
             StatementRefMut::Phi(x) => x.generated_register(),
             StatementRefMut::Content(x) => x.generated_register(),

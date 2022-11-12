@@ -56,8 +56,9 @@ impl GenerateRegister for Phi {
 
 impl UseRegister for Phi {
     fn use_register(&self) -> Vec<RegisterName> {
-        self.from.iter()
-            .map(|PhiSource {name, ..}| name.clone())
+        self.from
+            .iter()
+            .map(|PhiSource { name, .. }| name.clone())
             .collect()
     }
 }

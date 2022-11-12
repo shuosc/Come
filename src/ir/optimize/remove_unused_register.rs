@@ -1,17 +1,17 @@
-use crate::ir::{analyze, function::GenerateRegister, FunctionDefinition};
+use crate::ir::function::GenerateRegister;
 
 use super::Pass;
 
 pub struct RemoveUnusedRegister;
 
 impl Pass for RemoveUnusedRegister {
-    fn run(&self, ir: &mut FunctionDefinition, analyzer: &analyze::FunctionAnalyzer) {
+    fn run<'a>(&self, optimizer: &mut super::Optimizer) {
         let mut to_remove = Vec::new();
-        for (block_index, block) in ir.content.iter().enumerate() {
+        for (block_index, block) in optimizer.ir.content.iter().enumerate() {
             for (statement_index, statement) in block.iter().enumerate() {
                 let generated_register = statement.generated_register();
                 if let Some((register, _)) = generated_register {
-                    let used_place = analyzer.register_used_at(ir,&register);
+                    let used_place = optimizer.register_used_at(&register);
                     if used_place.is_empty() {
                         to_remove.push((block_index, statement_index));
                     }
@@ -19,7 +19,7 @@ impl Pass for RemoveUnusedRegister {
             }
         }
         for (block_id, statement_id) in to_remove.iter().rev() {
-            ir.content[*block_id].remove(*statement_id)
+            optimizer.ir.content[*block_id].remove(*statement_id)
         }
     }
 }
@@ -30,9 +30,10 @@ mod tests {
     use crate::{
         ir::{
             function::basic_block::BasicBlock,
+            optimize::Optimizer,
             statement::{
                 branch::BranchType, calculate::binary::BinaryOperation, BinaryCalculate, Branch,
-                Jump, Load, Ret, Terminator,
+                Jump, Load, Ret,
             },
             FunctionDefinition, RegisterName,
         },
@@ -41,7 +42,7 @@ mod tests {
 
     #[test]
     fn run() {
-        let mut function = FunctionDefinition {
+        let function = FunctionDefinition {
             name: "f".to_string(),
             parameters: Vec::new(),
             return_type: Type::None,
@@ -123,8 +124,9 @@ mod tests {
             ],
         };
         let pass = RemoveUnusedRegister;
-        let analyzer = analyze::FunctionAnalyzer::new(&function);
-        pass.run(&mut function, &analyzer);
+        let mut optimizer = Optimizer::new(function);
+        optimizer.add_pass(pass.into());
+        let function = optimizer.optimize();
         assert_eq!(function.content[0].content.len(), 2);
     }
 }

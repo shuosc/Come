@@ -38,15 +38,11 @@ where
         if predecessors_len >= 2 {
             for p in predecessors {
                 let mut runner = p;
-
-                match dorminators.immediate_dominator(node) {
-                    Some(dominator) => {
-                        while runner != dominator {
-                            frontiers.entry(runner).or_insert(vec![]).push(node);
-                            runner = dorminators.immediate_dominator(runner).unwrap();
-                        }
+                if let Some(dominator) = dorminators.immediate_dominator(node) {
+                    while runner != dominator {
+                        frontiers.entry(runner).or_insert(vec![]).push(node);
+                        runner = dorminators.immediate_dominator(runner).unwrap();
                     }
-                    None => (),
                 }
             }
             for (_, frontier) in frontiers.iter_mut() {
@@ -61,7 +57,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use petgraph::{Graph, algo::dominators::simple_fast};
+    use petgraph::{algo::dominators::simple_fast, Graph};
 
     #[test]
     fn dominance_frontiers_test() {

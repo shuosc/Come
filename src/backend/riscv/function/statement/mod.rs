@@ -30,7 +30,11 @@ pub fn emit_code(
         }
         ir::statement::ContentStatement::Load(load) => load::emit_code(load, ctx),
         ir::statement::ContentStatement::Store(store) => store::emit_code(store, ctx),
-        ir::statement::ContentStatement::LoadField(load_field) => load_field::emit_code(load_field, ctx),
-        ir::statement::ContentStatement::SetField(set_field) => set_field::emit_code(set_field, ctx),
+        ir::statement::ContentStatement::LoadField(load_field) => {
+            load_field::emit_code(load_field, ctx)
+        }
+        ir::statement::ContentStatement::SetField(set_field) => {
+            set_field::emit_code(set_field, ctx)
+        }
     }
 }

@@ -60,7 +60,7 @@ impl BasicBlock {
         } else if n - self.phis.len() < self.content.len() {
             StatementRef::Content(&self.content[n])
         } else {
-            StatementRef::Terminator(&self.terminator.as_ref().unwrap())
+            StatementRef::Terminator(self.terminator.as_ref().unwrap())
         }
     }
 
@@ -75,10 +75,7 @@ impl BasicBlock {
     }
 
     pub fn iter(&self) -> BasicBlockIterator<'_> {
-        BasicBlockIterator {
-            bb: self,
-            index: 0
-        }
+        BasicBlockIterator { bb: self, index: 0 }
     }
 
     pub fn remove(&mut self, index: usize) {

@@ -1,11 +1,10 @@
-use std::{cell::RefCell, collections::{HashMap, HashSet}};
+use std::collections::HashMap;
 
 use petgraph::{prelude::*, stable_graph::DefaultIx};
 
-use super::{function::{basic_block::BasicBlock, UseRegister}, statement::Terminator, RegisterName};
+use super::{function::UseRegister, statement::Terminator, RegisterName};
 
-pub struct BasicBlockAnalyzer {
-}
+pub struct BasicBlockAnalyzer {}
 
 pub struct FunctionAnalyzer {
     control_flow_diagram: DiGraph<usize, ()>,
@@ -24,16 +23,36 @@ impl<'a> FunctionAnalyzer {
             if let Some(terminator) = &bb.terminator {
                 match terminator {
                     Terminator::Branch(branch) => {
-                        let success_index = ir.content.iter().position(|bb| bb.name == Some(branch.success_label.clone())).unwrap();
+                        let success_index = ir
+                            .content
+                            .iter()
+                            .position(|bb| bb.name == Some(branch.success_label.clone()))
+                            .unwrap();
                         let success_node_index = basic_block_index_to_node_index[&success_index];
-                        let failure_index = ir.content.iter().position(|bb| bb.name == Some(branch.failure_label.clone())).unwrap();
+                        let failure_index = ir
+                            .content
+                            .iter()
+                            .position(|bb| bb.name == Some(branch.failure_label.clone()))
+                            .unwrap();
                         let failure_node_index = basic_block_index_to_node_index[&failure_index];
                         let current_bb_node_index = basic_block_index_to_node_index[&index];
-                        control_flow_diagram.add_edge(current_bb_node_index, success_node_index, ());
-                        control_flow_diagram.add_edge(current_bb_node_index, failure_node_index, ());
+                        control_flow_diagram.add_edge(
+                            current_bb_node_index,
+                            success_node_index,
+                            (),
+                        );
+                        control_flow_diagram.add_edge(
+                            current_bb_node_index,
+                            failure_node_index,
+                            (),
+                        );
                     }
                     Terminator::Jump(jump) => {
-                        let to_index = ir.content.iter().position(|bb| bb.name == Some(jump.label.clone())).unwrap();
+                        let to_index = ir
+                            .content
+                            .iter()
+                            .position(|bb| bb.name == Some(jump.label.clone()))
+                            .unwrap();
                         let to_node_index = basic_block_index_to_node_index[&to_index];
                         let current_bb_node_index = basic_block_index_to_node_index[&index];
                         control_flow_diagram.add_edge(current_bb_node_index, to_node_index, ());
@@ -48,19 +67,22 @@ impl<'a> FunctionAnalyzer {
         }
     }
 
-    pub fn register_used_at(&self, ir: &super::FunctionDefinition, register: &RegisterName) -> Vec<(usize, usize)> {
+    pub fn register_used_at(
+        &self,
+        ir: &super::FunctionDefinition,
+        register: &RegisterName,
+    ) -> Vec<(usize, usize)> {
         let mut result = Vec::new();
         for (bb_id, bb) in ir.content.iter().enumerate() {
             for (statement_id, statement) in bb.iter().enumerate() {
                 if statement.use_register().contains(register) {
-                    result.push((bb_id, statement_id));   
+                    result.push((bb_id, statement_id));
                 }
             }
         }
         result
     }
 }
-
 
 // #[cfg(test)]
 // mod tests {
@@ -155,7 +177,7 @@ impl<'a> FunctionAnalyzer {
 //             content: Vec::new(),
 //             terminator: None
 //         };
-        
+
 //         let function_definition = FunctionDefinition {
 //             name: "f".to_string(),
 //             parameters: Vec::new(),

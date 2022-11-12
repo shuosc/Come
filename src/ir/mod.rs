@@ -5,15 +5,15 @@ use std::{
 
 use enum_dispatch::enum_dispatch;
 
+mod analyze;
 /// Data structure, parser and ir generator for functions.
 pub mod function;
 mod global_definition;
 mod integer_literal;
+mod optimize;
 /// Data structure and parser for variables (global or local) and literals.
 pub mod quantity;
 mod type_definition;
-mod analyze;
-mod optimize;
 use self::type_definition::TypeDefinitionMapping;
 use crate::ast::{ASTNode, Ast};
 pub use function::{statement, FunctionDefinition};

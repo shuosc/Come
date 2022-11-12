@@ -1,5 +1,8 @@
 use crate::{
-    ir::{function::{GenerateRegister, UseRegister}, RegisterName},
+    ir::{
+        function::{GenerateRegister, UseRegister},
+        RegisterName,
+    },
     utility::{data_type::Type, parsing},
 };
 use nom::{
