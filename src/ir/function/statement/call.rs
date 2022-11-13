@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::{GenerateRegister, UseRegister},
+        function::{GenerateRegister, HasRegister, UseRegister},
         quantity::{self, local, Quantity},
         RegisterName,
     },
@@ -27,6 +27,21 @@ pub struct Call {
     pub data_type: Type,
     /// Arguments to pass to the function.
     pub params: Vec<Quantity>,
+}
+
+impl HasRegister for Call {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if let Some(result_to) = &self.to && result_to == from {
+            self.to = Some(to.clone().unwrap_local());
+        }
+        for param in self.params.iter_mut() {
+            if let Quantity::RegisterName(param_val) = param {
+                if param_val == from {
+                    *param_val = to.clone().unwrap_local();
+                }
+            }
+        }
+    }
 }
 
 impl GenerateRegister for Call {

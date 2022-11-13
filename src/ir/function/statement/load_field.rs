@@ -4,8 +4,8 @@ use crate::{
         expression::{FieldAccess, LValue},
     },
     ir::{
-        function::{ir_generator::IRGeneratingContext, GenerateRegister, UseRegister},
-        quantity::{local, RegisterName},
+        function::{ir_generator::IRGeneratingContext, GenerateRegister, HasRegister, UseRegister},
+        quantity::{local, Quantity, RegisterName},
     },
     utility::{
         data_type,
@@ -52,6 +52,17 @@ impl fmt::Display for LoadField {
                 .collect::<Vec<_>>()
                 .join(", "),
         )
+    }
+}
+
+impl HasRegister for LoadField {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if &self.target == from {
+            self.target = to.clone().unwrap_local();
+        }
+        if &self.source == from {
+            self.source = to.clone().unwrap_local();
+        }
     }
 }
 

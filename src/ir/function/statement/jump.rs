@@ -1,6 +1,7 @@
 use crate::{
     ir::{
-        function::{GenerateRegister, UseRegister},
+        function::{GenerateRegister, HasRegister, UseRegister},
+        quantity::Quantity,
         RegisterName,
     },
     utility::{data_type::Type, parsing},
@@ -17,6 +18,12 @@ use std::{
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Jump {
     pub label: String,
+}
+
+impl HasRegister for Jump {
+    fn on_register_change(&mut self, _from: &RegisterName, _to: &Quantity) {
+        // pass;
+    }
 }
 
 impl GenerateRegister for Jump {

@@ -3,7 +3,7 @@ use crate::{
     ir::{
         function::{
             ir_generator::{rvalue_from_ast, IRGeneratingContext},
-            GenerateRegister, UseRegister,
+            GenerateRegister, HasRegister, UseRegister,
         },
         quantity::{self, local, Quantity},
         RegisterName,
@@ -57,6 +57,17 @@ pub struct UnaryCalculate {
     pub operand: Quantity,
     pub to: RegisterName,
     pub data_type: Type,
+}
+
+impl HasRegister for UnaryCalculate {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if let Quantity::RegisterName(operand) = &self.operand && operand == from {
+            self.operand = to.clone();
+        }
+        if &self.to == from {
+            self.to = to.clone().unwrap_local();
+        }
+    }
 }
 
 impl GenerateRegister for UnaryCalculate {

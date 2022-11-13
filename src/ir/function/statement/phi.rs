@@ -1,7 +1,7 @@
 use crate::{
     ir::{
-        function::{GenerateRegister, UseRegister},
-        quantity::{local, RegisterName},
+        function::{GenerateRegister, HasRegister, UseRegister},
+        quantity::{self, local, Quantity, RegisterName},
     },
     utility::{
         data_type,
@@ -22,7 +22,7 @@ use std::fmt;
 /// [`Phi`]'s source.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct PhiSource {
-    pub name: RegisterName,
+    pub name: Quantity,
     pub block: String,
 }
 
@@ -30,7 +30,7 @@ fn parse_phi_source(code: &str) -> IResult<&str, PhiSource> {
     map(
         delimited(
             tag("["),
-            tuple((local::parse, space0, tag(","), space0, parsing::ident)),
+            tuple((quantity::parse, space0, tag(","), space0, parsing::ident)),
             tag("]"),
         ),
         |(name, _, _, _, block)| PhiSource { name, block },
@@ -48,6 +48,21 @@ pub struct Phi {
     pub from: Vec<PhiSource>,
 }
 
+impl HasRegister for Phi {
+    fn on_register_change(&mut self, from: &RegisterName, to: &crate::ir::quantity::Quantity) {
+        if &self.to == from {
+            self.to = to.clone().unwrap_local();
+        }
+        for source in &mut self.from {
+            if let Quantity::RegisterName(local) = &mut source.name {
+                if local == from {
+                    *local = to.clone().unwrap_local();
+                }
+            }
+        }
+    }
+}
+
 impl GenerateRegister for Phi {
     fn generated_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), self.data_type.clone()))
@@ -58,7 +73,7 @@ impl UseRegister for Phi {
     fn use_register(&self) -> Vec<RegisterName> {
         self.from
             .iter()
-            .map(|PhiSource { name, .. }| name.clone())
+            .map(|PhiSource { name, .. }| name.clone().unwrap_local())
             .collect()
     }
 }
@@ -112,11 +127,11 @@ mod tests {
                 data_type: data_type::I32.clone(),
                 from: vec![
                     PhiSource {
-                        name: RegisterName("2".to_string()),
+                        name: RegisterName("2".to_string()).into(),
                         block: "bb1".to_string(),
                     },
                     PhiSource {
-                        name: RegisterName("4".to_string()),
+                        name: RegisterName("4".to_string()).into(),
                         block: "bb2".to_string(),
                     },
                 ],

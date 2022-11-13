@@ -39,7 +39,7 @@ pub use store::Store;
 
 use crate::ir::RegisterName;
 
-use super::{GenerateRegister, UseRegister};
+use super::{GenerateRegister, HasRegister, UseRegister};
 
 /// A statement in a function.
 #[enum_dispatch(GenerateRegister, UseRegister)]
@@ -52,6 +52,21 @@ pub enum ContentStatement {
     Store,
     LoadField,
     SetField,
+    // todo: move, for internel use only?
+}
+
+impl HasRegister for ContentStatement {
+    fn on_register_change(&mut self, from: &RegisterName, to: &crate::ir::quantity::Quantity) {
+        match self {
+            ContentStatement::Alloca(x) => x.on_register_change(from, to),
+            ContentStatement::UnaryCalculate(x) => x.on_register_change(from, to),
+            ContentStatement::BinaryCalculate(x) => x.on_register_change(from, to),
+            ContentStatement::Load(x) => x.on_register_change(from, to),
+            ContentStatement::Store(x) => x.on_register_change(from, to),
+            ContentStatement::LoadField(x) => x.on_register_change(from, to),
+            ContentStatement::SetField(x) => x.on_register_change(from, to),
+        }
+    }
 }
 
 impl fmt::Display for ContentStatement {
@@ -89,6 +104,16 @@ pub enum Terminator {
     Ret,
 }
 
+impl HasRegister for Terminator {
+    fn on_register_change(&mut self, from: &RegisterName, to: &crate::ir::quantity::Quantity) {
+        match self {
+            Terminator::Branch(x) => x.on_register_change(from, to),
+            Terminator::Jump(x) => x.on_register_change(from, to),
+            Terminator::Ret(x) => x.on_register_change(from, to),
+        }
+    }
+}
+
 impl fmt::Display for Terminator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -118,6 +143,12 @@ pub enum StatementRef<'a> {
     Terminator(&'a Terminator),
 }
 
+impl HasRegister for StatementRef<'_> {
+    fn on_register_change(&mut self, _from: &RegisterName, _to: &crate::ir::quantity::Quantity) {
+        panic!()
+    }
+}
+
 impl UseRegister for StatementRef<'_> {
     fn use_register(&self) -> Vec<RegisterName> {
         match self {
@@ -144,6 +175,16 @@ pub enum StatementRefMut<'a> {
     Phi(&'a mut Phi),
     Content(&'a mut ContentStatement),
     Terminator(&'a mut Terminator),
+}
+
+impl HasRegister for StatementRefMut<'_> {
+    fn on_register_change(&mut self, from: &RegisterName, to: &crate::ir::quantity::Quantity) {
+        match self {
+            StatementRefMut::Phi(x) => x.on_register_change(from, to),
+            StatementRefMut::Content(x) => x.on_register_change(from, to),
+            StatementRefMut::Terminator(x) => x.on_register_change(from, to),
+        }
+    }
 }
 
 impl UseRegister for StatementRefMut<'_> {

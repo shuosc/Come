@@ -19,6 +19,8 @@ use nom::{
 use statement::*;
 use std::fmt;
 
+use super::quantity::Quantity;
+
 /// Data structure, parser and ir generator for basic blocks.
 pub mod basic_block;
 /// Functions to generate IR from AST.
@@ -50,15 +52,25 @@ fn parameter_from_ast(ast: &ast::function_definition::Parameter) -> Parameter {
     }
 }
 
+pub trait HasRegister {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity);
+}
+
 /// This trait should be implemented by IR statements that may generate a local variable.
 #[enum_dispatch]
-pub trait GenerateRegister {
+pub trait GenerateRegister: HasRegister {
     fn generated_register(&self) -> Option<(RegisterName, Type)>;
 }
 
 #[enum_dispatch]
-pub trait UseRegister {
+pub trait UseRegister: HasRegister {
     fn use_register(&self) -> Vec<RegisterName>;
+}
+
+impl HasRegister for Parameter {
+    fn on_register_change(&mut self, _from: &RegisterName, _to: &Quantity) {
+        unreachable!()
+    }
 }
 
 impl GenerateRegister for Parameter {

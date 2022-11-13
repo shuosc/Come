@@ -3,7 +3,7 @@ use crate::{
     ir::{
         function::{
             ir_generator::{rvalue_from_ast, IRGeneratingContext},
-            GenerateRegister, UseRegister,
+            GenerateRegister, HasRegister, UseRegister,
         },
         quantity::{self, local, Quantity},
         RegisterName,
@@ -92,6 +92,22 @@ pub struct BinaryCalculate {
     pub operand2: Quantity,
     pub to: RegisterName,
     pub data_type: Type,
+}
+
+impl HasRegister for BinaryCalculate {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if let Quantity::RegisterName(op1) = &self.operand1 && op1 == from {
+            self.operand1 = to.clone();
+        }
+        if let Quantity::RegisterName(op2) = &self.operand2 && op2 == from {
+            self.operand2 = to.clone();
+        }
+        if &self.to == from {
+            // I cannot imaging a case that this is necessary
+            // But I still keep it here, just in case
+            self.to = to.clone().unwrap_local();
+        }
+    }
 }
 
 impl GenerateRegister for BinaryCalculate {

@@ -5,7 +5,6 @@ use std::{
 
 use enum_dispatch::enum_dispatch;
 
-mod analyze;
 /// Data structure, parser and ir generator for functions.
 pub mod function;
 mod global_definition;

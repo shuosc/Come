@@ -53,6 +53,10 @@ impl BasicBlock {
             && self.terminator.is_none()
     }
 
+    pub fn len(&self) -> usize {
+        self.phis.len() + self.content.len() + if self.terminator.is_some() { 1 } else { 0 }
+    }
+
     // todo: board check
     pub fn index(&self, n: usize) -> StatementRef<'_> {
         if n < self.phis.len() {

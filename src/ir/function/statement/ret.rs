@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::{GenerateRegister, UseRegister},
+        function::{GenerateRegister, HasRegister, UseRegister},
         quantity::{self, Quantity},
         RegisterName,
     },
@@ -19,6 +19,16 @@ use std::fmt;
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Ret {
     pub value: Option<Quantity>,
+}
+
+impl HasRegister for Ret {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if let Some(Quantity::RegisterName(local)) = &mut self.value {
+            if local == from {
+                *local = to.clone().unwrap_local();
+            }
+        }
+    }
 }
 
 impl GenerateRegister for Ret {

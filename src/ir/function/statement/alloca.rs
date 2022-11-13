@@ -1,7 +1,7 @@
 use crate::{
     ir::{
-        function::{GenerateRegister, UseRegister},
-        quantity::{local, RegisterName},
+        function::{GenerateRegister, HasRegister, UseRegister},
+        quantity::{local, Quantity, RegisterName},
     },
     utility::{data_type, data_type::Type},
 };
@@ -21,6 +21,14 @@ pub struct Alloca {
     pub to: RegisterName,
     /// Type of the space allocated on the stack.
     pub alloc_type: Type,
+}
+
+impl HasRegister for Alloca {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if &self.to == from {
+            self.to = to.clone().unwrap_local();
+        }
+    }
 }
 
 impl GenerateRegister for Alloca {

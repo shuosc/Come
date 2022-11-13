@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::{GenerateRegister, UseRegister},
+        function::{GenerateRegister, HasRegister, UseRegister},
         quantity::{self, Quantity},
         RegisterName,
     },
@@ -24,6 +24,21 @@ pub struct Store {
     pub source: Quantity,
     /// Where to store the value.
     pub target: Quantity,
+}
+
+impl HasRegister for Store {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if let Quantity::RegisterName(local) = &mut self.source {
+            if local == from {
+                *local = to.clone().unwrap_local();
+            }
+        }
+        if let Quantity::RegisterName(local) = &mut self.target {
+            if local == from {
+                *local = to.clone().unwrap_local();
+            }
+        }
+    }
 }
 
 impl GenerateRegister for Store {
