@@ -5,7 +5,6 @@ use crate::ir;
 
 pub mod basic_block;
 pub mod statement;
-pub mod terminator;
 
 /// Context for compiling a function.
 pub struct FunctionCompileContext<'a> {

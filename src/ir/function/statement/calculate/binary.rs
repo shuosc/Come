@@ -3,7 +3,7 @@ use crate::{
     ir::{
         function::{
             ir_generator::{rvalue_from_ast, IRGeneratingContext},
-            GenerateRegister,
+            IsIRStatement,
         },
         quantity::{self, local, Quantity},
         RegisterName,
@@ -22,7 +22,7 @@ use phf::phf_map;
 use std::fmt;
 
 /// [`BinaryOperation`] represents a binary operation operator.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum BinaryOperation {
     Add,
     LessThan,
@@ -85,7 +85,7 @@ fn binary_operation(code: &str) -> IResult<&str, BinaryOperation> {
 }
 
 /// [`BinaryCalculate`] represents a binary operation statement.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct BinaryCalculate {
     pub operation: BinaryOperation,
     pub operand1: Quantity,
@@ -94,9 +94,34 @@ pub struct BinaryCalculate {
     pub data_type: Type,
 }
 
-impl GenerateRegister for BinaryCalculate {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+impl IsIRStatement for BinaryCalculate {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if let Quantity::RegisterName(op1) = &self.operand1 && op1 == from {
+            self.operand1 = to.clone();
+        }
+        if let Quantity::RegisterName(op2) = &self.operand2 && op2 == from {
+            self.operand2 = to.clone();
+        }
+        if &self.to == from {
+            // I cannot imaging a case that this is necessary
+            // But I still keep it here, just in case
+            self.to = to.clone().unwrap_local();
+        }
+    }
+
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), self.data_type.clone()))
+    }
+
+    fn use_register(&self) -> Vec<RegisterName> {
+        let mut result = Vec::new();
+        if let Quantity::RegisterName(register) = &self.operand1 {
+            result.push(register.clone());
+        }
+        if let Quantity::RegisterName(register) = &self.operand2 {
+            result.push(register.clone());
+        }
+        result
     }
 }
 

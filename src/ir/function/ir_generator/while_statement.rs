@@ -26,9 +26,11 @@ pub fn from_ast(ast: &ast::statement::While, ctx: &mut IRGeneratingContext) {
     });
     ctx.current_basic_block.name = Some(success_label);
     compound_from_ast(content, ctx);
-    ctx.end_current_basic_block_with(Jump {
-        label: condition_label,
-    });
+    if !ctx.current_basic_block.empty() {
+        ctx.end_current_basic_block_with(Jump {
+            label: condition_label,
+        });
+    }
     ctx.current_basic_block.name = Some(fail_label);
 }
 
@@ -70,7 +72,7 @@ mod tests {
         assert_eq!(basic_blocks.len(), 4);
         assert_eq!(basic_blocks[1].name.as_ref().unwrap(), "loop_0_condition");
         assert_eq!(
-            basic_blocks[1].terminator.clone().unwrap(),
+            basic_blocks[1].content.last().unwrap().clone(),
             Branch {
                 branch_type: BranchType::NE,
                 operand1: 42.into(),
@@ -81,9 +83,9 @@ mod tests {
             .into()
         );
         assert_eq!(basic_blocks[2].name.as_ref().unwrap(), "loop_0_success");
-        assert_eq!(basic_blocks[2].content.len(), 1);
+        assert_eq!(basic_blocks[2].content.len(), 2);
         assert_eq!(
-            basic_blocks[2].terminator.clone().unwrap(),
+            basic_blocks[2].content.last().unwrap().clone(),
             Jump {
                 label: "loop_0_condition".to_string(),
             }
@@ -91,7 +93,7 @@ mod tests {
         );
         assert_eq!(basic_blocks[3].name.as_ref().unwrap(), "loop_0_fail");
         assert_eq!(
-            basic_blocks[3].terminator.clone().unwrap(),
+            basic_blocks[3].content.last().unwrap().clone(),
             Ret { value: None }.into()
         );
     }

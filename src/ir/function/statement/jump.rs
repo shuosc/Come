@@ -1,5 +1,5 @@
 use crate::{
-    ir::{function::GenerateRegister, RegisterName},
+    ir::{function::IsIRStatement, quantity::Quantity, RegisterName},
     utility::{data_type::Type, parsing},
 };
 use nom::{
@@ -16,9 +16,15 @@ pub struct Jump {
     pub label: String,
 }
 
-impl GenerateRegister for Jump {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+impl IsIRStatement for Jump {
+    fn on_register_change(&mut self, _from: &RegisterName, _to: &Quantity) {
+        // pass;
+    }
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         None
+    }
+    fn use_register(&self) -> Vec<RegisterName> {
+        vec![]
     }
 }
 

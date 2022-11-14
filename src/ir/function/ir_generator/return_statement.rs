@@ -26,7 +26,7 @@ mod tests {
         from_ast(&ast, &mut ctx);
         let basic_blocks = ctx.done();
         assert_eq!(
-            basic_blocks[0].terminator.clone().unwrap(),
+            basic_blocks[0].content.last().unwrap().clone(),
             statement::Ret {
                 value: Some(42.into())
             }

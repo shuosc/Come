@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::ir::{self, function::GenerateRegister, statement::IRStatement};
+use crate::ir::{
+    self,
+    statement::{IRStatement, IsIRStatement},
+};
 
 use super::{Context, HasSize};
 
@@ -58,7 +61,7 @@ pub fn assign_register(
             );
             current_used_stack_space += (alloca.alloc_type.size(ctx) + 7) / 8;
         } else {
-            let logic_register = statement.register();
+            let logic_register = statement.generate_register();
             if let Some((logic_register, data_type)) = logic_register {
                 let type_bytes = (data_type.size(ctx) + 7) / 8;
                 let need_registers = type_bytes / 4;

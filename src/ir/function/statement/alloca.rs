@@ -1,7 +1,7 @@
 use crate::{
     ir::{
-        function::GenerateRegister,
-        quantity::{local, RegisterName},
+        function::IsIRStatement,
+        quantity::{local, Quantity, RegisterName},
     },
     utility::{data_type, data_type::Type},
 };
@@ -15,7 +15,7 @@ use nom::{
 use std::fmt::{self, Display, Formatter};
 
 /// [`Alloca`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Alloca {
     /// Local variable, pointing to the space allocated on the stack.
     pub to: RegisterName,
@@ -23,9 +23,17 @@ pub struct Alloca {
     pub alloc_type: Type,
 }
 
-impl GenerateRegister for Alloca {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+impl IsIRStatement for Alloca {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if &self.to == from {
+            self.to = to.clone().unwrap_local();
+        }
+    }
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), Type::Address))
+    }
+    fn use_register(&self) -> Vec<RegisterName> {
+        Vec::new()
     }
 }
 

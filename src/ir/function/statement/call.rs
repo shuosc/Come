@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::GenerateRegister,
+        function::IsIRStatement,
         quantity::{self, local, Quantity},
         RegisterName,
     },
@@ -29,9 +29,35 @@ pub struct Call {
     pub params: Vec<Quantity>,
 }
 
-impl GenerateRegister for Call {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+impl IsIRStatement for Call {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if let Some(result_to) = &self.to && result_to == from {
+            self.to = Some(to.clone().unwrap_local());
+        }
+        for param in self.params.iter_mut() {
+            if let Quantity::RegisterName(param_val) = param {
+                if param_val == from {
+                    *param_val = to.clone().unwrap_local();
+                }
+            }
+        }
+    }
+
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         self.to.clone().map(|it| (it, self.data_type.clone()))
+    }
+
+    fn use_register(&self) -> Vec<RegisterName> {
+        self.params
+            .iter()
+            .filter_map(|it| {
+                if let Quantity::RegisterName(register) = it {
+                    Some(register.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 

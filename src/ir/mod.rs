@@ -9,10 +9,10 @@ use enum_dispatch::enum_dispatch;
 pub mod function;
 mod global_definition;
 mod integer_literal;
+mod optimize;
 /// Data structure and parser for variables (global or local) and literals.
 pub mod quantity;
 mod type_definition;
-
 use self::type_definition::TypeDefinitionMapping;
 use crate::ast::{ASTNode, Ast};
 pub use function::{statement, FunctionDefinition};
@@ -60,6 +60,7 @@ pub fn from_source(source: &str) -> IResult<&str, Vec<IR>> {
 }
 
 /// Context for generating IR.
+#[derive(Debug)]
 pub struct IRGeneratingContext {
     /// Known struct types.
     pub type_definitions: HashMap<String, TypeDefinitionMapping>,
@@ -74,6 +75,7 @@ pub struct IRGeneratingContext {
 }
 
 impl IRGeneratingContext {
+    /// Creates a new, empty [`IRGeneratingContext`].
     pub fn new() -> Self {
         Self {
             type_definitions: HashMap::new(),
@@ -84,6 +86,7 @@ impl IRGeneratingContext {
         }
     }
 
+    /// Generate a new local variable name.
     pub fn next_register(&mut self) -> RegisterName {
         let register_id = self.next_register_id;
         self.next_register_id += 1;

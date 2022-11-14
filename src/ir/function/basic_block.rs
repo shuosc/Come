@@ -10,36 +10,18 @@ use nom::{
 };
 use std::fmt;
 
-use super::statement::{
-    self, parse_terminator,
-    phi::{self, Phi},
-    IRStatement, Terminator,
-};
+use super::statement::{self, IRStatement};
 
 /// A basic block.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Default)]
 pub struct BasicBlock {
     /// Name of the basic block.
     pub name: Option<String>,
-    /// [`Phi`] statements of the basic block.
-    pub phis: Vec<Phi>,
     /// Statements of the basic block.
     pub content: Vec<IRStatement>,
-    /// Terminator of the basic block.
-    pub terminator: Option<Terminator>,
 }
 
 impl BasicBlock {
-    /// Create an empty basic block.
-    pub fn new() -> Self {
-        Self {
-            name: None,
-            phis: Vec::new(),
-            content: Vec::new(),
-            terminator: None,
-        }
-    }
-
     /// Append a statement to the basic block.
     pub fn append_statement(&mut self, statement: impl Into<IRStatement>) {
         self.content.push(statement.into());
@@ -47,10 +29,12 @@ impl BasicBlock {
 
     /// Whether the basic block is empty.
     pub fn empty(&self) -> bool {
-        self.name.is_none()
-            && self.phis.is_empty()
-            && self.content.is_empty()
-            && self.terminator.is_none()
+        self.name.is_none() && self.content.is_empty()
+    }
+
+    /// Remove a statement from the basic block.
+    pub fn remove(&mut self, index: usize) {
+        self.content.remove(index);
     }
 }
 
@@ -59,14 +43,8 @@ impl fmt::Display for BasicBlock {
         if let Some(name) = &self.name {
             writeln!(f, "  {}:", name)?;
         }
-        for phi in &self.phis {
-            writeln!(f, "    {}", phi)?;
-        }
         for statement in &self.content {
             writeln!(f, "    {}", statement)?;
-        }
-        if let Some(terminator) = &self.terminator {
-            writeln!(f, "    {}", terminator)?;
         }
         Ok(())
     }
@@ -79,55 +57,29 @@ fn parse_tag(code: &str) -> IResult<&str, String> {
 
 /// Parse the ir code to get a [`BasicBlock`].
 pub fn parse(code: &str) -> IResult<&str, BasicBlock> {
+    // `Basicblock` which
+    //   - Has only a name and no content or
+    //   - Has no name but only content
+    //  are both valid.
+    // However, `(opt(parse_tag), many0(IRStatement::parse))` can match literal nothing, which is not valid.
+    // So we need to construct two parsers which stands for these two cases:
+
+    // There is a tag, but the body can be empty.
     let has_tag = tuple((
         map(parse_tag, Some),
         multispace0,
-        many0(parsing::in_multispace(phi::parse)),
-        multispace0,
-        many0(parsing::in_multispace(statement::parse_ir_statement)),
-        multispace0,
-        opt(parse_terminator),
-        multispace0,
+        many0(parsing::in_multispace(statement::parse)),
     ));
-    let has_phi = tuple((
-        opt(parse_tag),
-        multispace0,
-        many1(parsing::in_multispace(phi::parse)),
-        multispace0,
-        many0(parsing::in_multispace(statement::parse_ir_statement)),
-        multispace0,
-        opt(parse_terminator),
-        multispace0,
-    ));
+    // There is no tag, but there exists at least one statement in the body.
     let has_ir = tuple((
         opt(parse_tag),
         multispace0,
-        many0(parsing::in_multispace(phi::parse)),
-        multispace0,
-        many1(parsing::in_multispace(statement::parse_ir_statement)),
-        multispace0,
-        opt(parse_terminator),
-        multispace0,
+        many1(parsing::in_multispace(statement::parse)),
     ));
-    let has_terminator = tuple((
-        opt(parse_tag),
-        multispace0,
-        many0(parsing::in_multispace(phi::parse)),
-        multispace0,
-        many0(parsing::in_multispace(statement::parse_ir_statement)),
-        multispace0,
-        map(parse_terminator, Some),
-        multispace0,
-    ));
-    map(
-        alt((has_tag, has_phi, has_ir, has_terminator)),
-        |(name, _, phis, _, content, _, terminator, _)| BasicBlock {
-            name,
-            phis,
-            content,
-            terminator,
-        },
-    )(code)
+    map(alt((has_tag, has_ir)), |(name, _, content)| BasicBlock {
+        name,
+        content,
+    })(code)
 }
 
 #[cfg(test)]

@@ -20,6 +20,16 @@ pub enum Quantity {
     NumberLiteral(i64),
 }
 
+impl Quantity {
+    pub fn unwrap_local(self) -> RegisterName {
+        if let Quantity::RegisterName(register_name) = self {
+            register_name
+        } else {
+            panic!("Not local")
+        }
+    }
+}
+
 impl Display for Quantity {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {

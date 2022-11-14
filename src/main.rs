@@ -1,5 +1,5 @@
 #![feature(once_cell)]
-
+#![feature(let_chains)]
 use clap::Parser;
 use ezio::prelude::*;
 use std::{io::Write, path::PathBuf};

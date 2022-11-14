@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::GenerateRegister,
+        function::IsIRStatement,
         quantity::{self, Quantity},
         RegisterName,
     },
@@ -58,9 +58,27 @@ pub struct Branch {
     pub failure_label: String,
 }
 
-impl GenerateRegister for Branch {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+impl IsIRStatement for Branch {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if let Quantity::RegisterName(operand1) = &mut self.operand1 && operand1 == from {
+            self.operand1 = to.clone();
+        }
+        if let Quantity::RegisterName(operand2) = &mut self.operand2 && operand2 == from {
+            self.operand2 = to.clone();
+        }
+    }
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         None
+    }
+    fn use_register(&self) -> Vec<RegisterName> {
+        let mut registers = Vec::new();
+        if let Quantity::RegisterName(register) = &self.operand1 {
+            registers.push(register.clone());
+        }
+        if let Quantity::RegisterName(register) = &self.operand2 {
+            registers.push(register.clone());
+        }
+        registers
     }
 }
 

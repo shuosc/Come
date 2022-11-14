@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::GenerateRegister,
+        function::IsIRStatement,
         quantity::{self, Quantity},
         RegisterName,
     },
@@ -16,7 +16,7 @@ use nom::{
 use std::fmt;
 
 /// [`Store`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Store {
     /// Type of the value to store.
     pub data_type: Type,
@@ -26,9 +26,31 @@ pub struct Store {
     pub target: Quantity,
 }
 
-impl GenerateRegister for Store {
-    fn register(&self) -> Option<(RegisterName, Type)> {
+impl IsIRStatement for Store {
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if let Quantity::RegisterName(local) = &mut self.source {
+            if local == from {
+                *local = to.clone().unwrap_local();
+            }
+        }
+        if let Quantity::RegisterName(local) = &mut self.target {
+            if local == from {
+                *local = to.clone().unwrap_local();
+            }
+        }
+    }
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         None
+    }
+    fn use_register(&self) -> Vec<RegisterName> {
+        let mut result = Vec::new();
+        if let Quantity::RegisterName(register) = &self.source {
+            result.push(register.clone());
+        }
+        if let Quantity::RegisterName(register) = &self.target {
+            result.push(register.clone());
+        }
+        result
     }
 }
 
