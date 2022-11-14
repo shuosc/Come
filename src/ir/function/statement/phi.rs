@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::{GenerateRegister, HasRegister, UseRegister},
+        function::IsIRStatement,
         quantity::{self, local, Quantity, RegisterName},
     },
     utility::{
@@ -48,7 +48,7 @@ pub struct Phi {
     pub from: Vec<PhiSource>,
 }
 
-impl HasRegister for Phi {
+impl IsIRStatement for Phi {
     fn on_register_change(&mut self, from: &RegisterName, to: &crate::ir::quantity::Quantity) {
         if &self.to == from {
             self.to = to.clone().unwrap_local();
@@ -61,15 +61,10 @@ impl HasRegister for Phi {
             }
         }
     }
-}
-
-impl GenerateRegister for Phi {
-    fn generated_register(&self) -> Option<(RegisterName, Type)> {
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), self.data_type.clone()))
     }
-}
 
-impl UseRegister for Phi {
     fn use_register(&self) -> Vec<RegisterName> {
         self.from
             .iter()

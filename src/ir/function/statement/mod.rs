@@ -2,6 +2,7 @@ use std::fmt;
 
 use enum_dispatch::enum_dispatch;
 use nom::{branch::alt, combinator::map, IResult};
+use paste::paste;
 
 /// Data structure, parser and ir generator for `alloca` statement.
 mod alloca;
@@ -37,14 +38,24 @@ pub use ret::Ret;
 pub use set_field::SetField;
 pub use store::Store;
 
-use crate::ir::RegisterName;
+use crate::{
+    ir::{quantity::Quantity, RegisterName},
+    utility::data_type::Type,
+};
 
-use super::{GenerateRegister, HasRegister, UseRegister};
+/// This trait should be implemented for all IRStatements
+#[enum_dispatch]
+pub trait IsIRStatement {
+    fn use_register(&self) -> Vec<RegisterName>;
+    fn generate_register(&self) -> Option<(RegisterName, Type)>;
+    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity);
+}
 
 /// A statement in a function.
-#[enum_dispatch(GenerateRegister, UseRegister)]
+#[enum_dispatch(IsIRStatement)]
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub enum ContentStatement {
+pub enum IRStatement {
+    Phi,
     Alloca,
     UnaryCalculate,
     BinaryCalculate,
@@ -52,159 +63,79 @@ pub enum ContentStatement {
     Store,
     LoadField,
     SetField,
-    // todo: move, for internel use only?
-}
-
-impl HasRegister for ContentStatement {
-    fn on_register_change(&mut self, from: &RegisterName, to: &crate::ir::quantity::Quantity) {
-        match self {
-            ContentStatement::Alloca(x) => x.on_register_change(from, to),
-            ContentStatement::UnaryCalculate(x) => x.on_register_change(from, to),
-            ContentStatement::BinaryCalculate(x) => x.on_register_change(from, to),
-            ContentStatement::Load(x) => x.on_register_change(from, to),
-            ContentStatement::Store(x) => x.on_register_change(from, to),
-            ContentStatement::LoadField(x) => x.on_register_change(from, to),
-            ContentStatement::SetField(x) => x.on_register_change(from, to),
-        }
-    }
-}
-
-impl fmt::Display for ContentStatement {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ContentStatement::Alloca(x) => x.fmt(f),
-            ContentStatement::UnaryCalculate(x) => x.fmt(f),
-            ContentStatement::BinaryCalculate(x) => x.fmt(f),
-            ContentStatement::Load(x) => x.fmt(f),
-            ContentStatement::Store(x) => x.fmt(f),
-            ContentStatement::LoadField(x) => x.fmt(f),
-            ContentStatement::SetField(x) => x.fmt(f),
-        }
-    }
-}
-
-/// Parse ir code to get a [`IRStatement`].
-pub fn parse_ir_statement(code: &str) -> IResult<&str, ContentStatement> {
-    alt((
-        map(alloca::parse, ContentStatement::Alloca),
-        map(calculate::unary::parse, ContentStatement::UnaryCalculate),
-        map(calculate::binary::parse, ContentStatement::BinaryCalculate),
-        map(load_field::parse, ContentStatement::LoadField),
-        map(load::parse, ContentStatement::Load),
-        map(store::parse, ContentStatement::Store),
-    ))(code)
-}
-
-/// A special instruction that must exists at the end of a basic block.
-#[enum_dispatch(GenerateRegister, UseRegister)]
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub enum Terminator {
     Branch,
     Jump,
     Ret,
 }
 
-impl HasRegister for Terminator {
-    fn on_register_change(&mut self, from: &RegisterName, to: &crate::ir::quantity::Quantity) {
-        match self {
-            Terminator::Branch(x) => x.on_register_change(from, to),
-            Terminator::Jump(x) => x.on_register_change(from, to),
-            Terminator::Ret(x) => x.on_register_change(from, to),
+macro_rules! variant {
+    ($name:ident, $variant:ident) => {
+        paste! {
+        impl IRStatement {
+            /// Returns `Some(variant)` if the statement is this variant,
+            /// return `None` if it is not.
+            pub fn [<try_as_ $name>](&self) -> Option<&$variant> {
+                match self {
+                    IRStatement::$variant(inner) => Some(inner),
+                    _ => None,
+                }
+            }
+
+            /// Returns the variant if the statement is this variant,
+            /// panic if it is not.
+            pub fn [<as_ $name>](&self) -> &$variant {
+                match self {
+                    IRStatement::$variant(inner) => inner,
+                    _ => panic!("Expected {} but got {:?}", stringify!($name), self),
+                }
+            }
         }
-    }
+        }
+    };
 }
 
-impl fmt::Display for Terminator {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Terminator::Branch(x) => x.fmt(f),
-            Terminator::Jump(x) => x.fmt(f),
-            Terminator::Ret(x) => x.fmt(f),
-        }
-    }
-}
+variant!(phi, Phi);
+variant!(alloca, Alloca);
+variant!(unary_calculate, UnaryCalculate);
+variant!(binary_calculate, BinaryCalculate);
+variant!(load, Load);
+variant!(store, Store);
+variant!(load_field, LoadField);
+variant!(set_field, SetField);
+variant!(branch, Branch);
+variant!(jump, Jump);
+variant!(ret, Ret);
 
-/// Parse ir code to get a [`Terminator`] instruction.
-pub fn parse_terminator(code: &str) -> IResult<&str, Terminator> {
+/// Parse ir code to get a [`IRStatement`].
+pub fn parse(code: &str) -> IResult<&str, IRStatement> {
     alt((
-        map(branch::parse, Terminator::Branch),
-        map(jump::parse, Terminator::Jump),
-        map(ret::parse, Terminator::Ret),
+        map(phi::parse, IRStatement::Phi),
+        map(alloca::parse, IRStatement::Alloca),
+        map(calculate::unary::parse, IRStatement::UnaryCalculate),
+        map(calculate::binary::parse, IRStatement::BinaryCalculate),
+        map(load_field::parse, IRStatement::LoadField),
+        map(load::parse, IRStatement::Load),
+        map(store::parse, IRStatement::Store),
+        map(branch::parse, IRStatement::Branch),
+        map(jump::parse, IRStatement::Jump),
+        map(ret::parse, IRStatement::Ret),
     ))(code)
 }
 
-trait IsStatement {}
-
-#[enum_dispatch(IsStatement)]
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
-pub enum StatementRef<'a> {
-    Phi(&'a Phi),
-    Content(&'a ContentStatement),
-    Terminator(&'a Terminator),
-}
-
-impl HasRegister for StatementRef<'_> {
-    fn on_register_change(&mut self, _from: &RegisterName, _to: &crate::ir::quantity::Quantity) {
-        panic!()
-    }
-}
-
-impl UseRegister for StatementRef<'_> {
-    fn use_register(&self) -> Vec<RegisterName> {
+impl fmt::Display for IRStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StatementRef::Phi(x) => x.use_register(),
-            StatementRef::Content(x) => x.use_register(),
-            StatementRef::Terminator(x) => x.use_register(),
+            IRStatement::Phi(x) => x.fmt(f),
+            IRStatement::Alloca(x) => x.fmt(f),
+            IRStatement::UnaryCalculate(x) => x.fmt(f),
+            IRStatement::BinaryCalculate(x) => x.fmt(f),
+            IRStatement::Load(x) => x.fmt(f),
+            IRStatement::Store(x) => x.fmt(f),
+            IRStatement::LoadField(x) => x.fmt(f),
+            IRStatement::SetField(x) => x.fmt(f),
+            IRStatement::Branch(x) => x.fmt(f),
+            IRStatement::Jump(x) => x.fmt(f),
+            IRStatement::Ret(x) => x.fmt(f),
         }
     }
 }
-
-impl GenerateRegister for StatementRef<'_> {
-    fn generated_register(&self) -> Option<(RegisterName, crate::utility::data_type::Type)> {
-        match self {
-            StatementRef::Phi(x) => x.generated_register(),
-            StatementRef::Content(x) => x.generated_register(),
-            StatementRef::Terminator(x) => x.generated_register(),
-        }
-    }
-}
-
-#[enum_dispatch(IsStatement)]
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub enum StatementRefMut<'a> {
-    Phi(&'a mut Phi),
-    Content(&'a mut ContentStatement),
-    Terminator(&'a mut Terminator),
-}
-
-impl HasRegister for StatementRefMut<'_> {
-    fn on_register_change(&mut self, from: &RegisterName, to: &crate::ir::quantity::Quantity) {
-        match self {
-            StatementRefMut::Phi(x) => x.on_register_change(from, to),
-            StatementRefMut::Content(x) => x.on_register_change(from, to),
-            StatementRefMut::Terminator(x) => x.on_register_change(from, to),
-        }
-    }
-}
-
-impl UseRegister for StatementRefMut<'_> {
-    fn use_register(&self) -> Vec<RegisterName> {
-        match self {
-            StatementRefMut::Phi(x) => x.use_register(),
-            StatementRefMut::Content(x) => x.use_register(),
-            StatementRefMut::Terminator(x) => x.use_register(),
-        }
-    }
-}
-
-impl GenerateRegister for StatementRefMut<'_> {
-    fn generated_register(&self) -> Option<(RegisterName, crate::utility::data_type::Type)> {
-        match self {
-            StatementRefMut::Phi(x) => x.generated_register(),
-            StatementRefMut::Content(x) => x.generated_register(),
-            StatementRefMut::Terminator(x) => x.generated_register(),
-        }
-    }
-}
-
-// todo: test

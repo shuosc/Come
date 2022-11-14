@@ -4,7 +4,7 @@ use crate::{
         expression::{FieldAccess, LValue},
     },
     ir::{
-        function::{ir_generator::IRGeneratingContext, GenerateRegister, HasRegister, UseRegister},
+        function::{ir_generator::IRGeneratingContext, IsIRStatement},
         quantity::{local, Quantity, RegisterName},
     },
     utility::{
@@ -55,7 +55,7 @@ impl fmt::Display for LoadField {
     }
 }
 
-impl HasRegister for LoadField {
+impl IsIRStatement for LoadField {
     fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
         if &self.target == from {
             self.target = to.clone().unwrap_local();
@@ -64,15 +64,9 @@ impl HasRegister for LoadField {
             self.source = to.clone().unwrap_local();
         }
     }
-}
-
-impl GenerateRegister for LoadField {
-    fn generated_register(&self) -> Option<(RegisterName, Type)> {
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.target.clone(), self.leaf_type.clone()))
     }
-}
-
-impl UseRegister for LoadField {
     fn use_register(&self) -> Vec<RegisterName> {
         vec![self.source.clone()]
     }

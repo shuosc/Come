@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::{GenerateRegister, HasRegister, UseRegister},
+        function::IsIRStatement,
         quantity::{self, Quantity},
         RegisterName,
     },
@@ -21,7 +21,7 @@ pub struct Ret {
     pub value: Option<Quantity>,
 }
 
-impl HasRegister for Ret {
+impl IsIRStatement for Ret {
     fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
         if let Some(Quantity::RegisterName(local)) = &mut self.value {
             if local == from {
@@ -29,15 +29,9 @@ impl HasRegister for Ret {
             }
         }
     }
-}
-
-impl GenerateRegister for Ret {
-    fn generated_register(&self) -> Option<(RegisterName, Type)> {
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         None
     }
-}
-
-impl UseRegister for Ret {
     fn use_register(&self) -> Vec<RegisterName> {
         if let Some(Quantity::RegisterName(register)) = &self.value {
             vec![register.clone()]

@@ -1,13 +1,10 @@
-use self::{
-    basic_block::BasicBlock,
-    ir_generator::{compound_from_ast, IRGeneratingContext},
-};
 use crate::{
     ast::{self, expression::VariableRef},
-    ir::quantity::{local, RegisterName},
+    ir::quantity::RegisterName,
     utility::{data_type, data_type::Type, parsing},
 };
-use enum_dispatch::enum_dispatch;
+use basic_block::BasicBlock;
+use ir_generator::{compound_from_ast, IRGeneratingContext};
 use nom::{
     bytes::complete::tag,
     character::complete::{multispace0, space0},
@@ -16,66 +13,92 @@ use nom::{
     sequence::{delimited, tuple},
     IResult,
 };
+use parameter::Parameter;
 use statement::*;
-use std::fmt;
-
-use super::quantity::Quantity;
+use std::{
+    fmt, mem,
+    ops::{Index, IndexMut},
+};
 
 /// Data structure, parser and ir generator for basic blocks.
 pub mod basic_block;
 /// Functions to generate IR from AST.
 pub mod ir_generator;
+/// Data structure, parser and ir generator for function's parameter.
+pub mod parameter;
 /// Data structure, parser and ir generator for ir statements.
 pub mod statement;
 
-/// [`Parameter`] represents a function's parameter.
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub struct Parameter {
-    /// Name of the parameter.
-    pub name: RegisterName,
-    /// Type of the parameter.
-    pub data_type: Type,
-}
+/// Index to access statements in a function.
+/// (block_index, statement_index)
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FunctionDefinitionIndex(pub usize, pub usize);
 
-fn parse_parameter(code: &str) -> IResult<&str, Parameter> {
-    map(
-        tuple((local::parse, space0, tag(":"), space0, data_type::parse)),
-        |(name, _, _, _, data_type)| Parameter { name, data_type },
-    )(code)
-}
-
-fn parameter_from_ast(ast: &ast::function_definition::Parameter) -> Parameter {
-    let ast::function_definition::Parameter { name, data_type } = ast;
-    Parameter {
-        name: RegisterName(name.clone()),
-        data_type: data_type.clone(),
+impl<U: Into<usize>, V: Into<usize>> From<(U, V)> for FunctionDefinitionIndex {
+    fn from((block_index, statement_index): (U, V)) -> Self {
+        Self(block_index.into(), statement_index.into())
     }
 }
 
-pub trait HasRegister {
-    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity);
+pub struct Iter<'a> {
+    function_definition: &'a FunctionDefinition,
+    index: FunctionDefinitionIndex,
 }
 
-/// This trait should be implemented by IR statements that may generate a local variable.
-#[enum_dispatch]
-pub trait GenerateRegister: HasRegister {
-    fn generated_register(&self) -> Option<(RegisterName, Type)>;
-}
-
-#[enum_dispatch]
-pub trait UseRegister: HasRegister {
-    fn use_register(&self) -> Vec<RegisterName>;
-}
-
-impl HasRegister for Parameter {
-    fn on_register_change(&mut self, _from: &RegisterName, _to: &Quantity) {
-        unreachable!()
+impl<'a> Iter<'a> {
+    fn next_index(&mut self) -> Option<FunctionDefinitionIndex> {
+        let FunctionDefinitionIndex(block_index, statement_index) = self.index;
+        if block_index >= self.function_definition.content.len() {
+            None
+        } else {
+            let current_block = &self.function_definition.content[block_index];
+            if statement_index >= current_block.content.len() {
+                self.index = FunctionDefinitionIndex(block_index + 1, 0);
+                self.next_index()
+            } else {
+                let result = mem::replace(
+                    &mut self.index,
+                    FunctionDefinitionIndex(block_index, statement_index + 1),
+                );
+                Some(result)
+            }
+        }
     }
 }
 
-impl GenerateRegister for Parameter {
-    fn generated_register(&self) -> Option<(RegisterName, Type)> {
-        Some((self.name.clone(), self.data_type.clone()))
+impl<'a> Iterator for Iter<'a> {
+    type Item = &'a IRStatement;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(FunctionDefinitionIndex(block_index, statement_index)) = self.next_index() {
+            Some(&self.function_definition.content[block_index].content[statement_index])
+        } else {
+            None
+        }
+    }
+}
+
+pub struct FunctionDefinitionIndexEnumerate<'a>(Iter<'a>);
+
+impl<'a> Iterator for FunctionDefinitionIndexEnumerate<'a> {
+    type Item = (FunctionDefinitionIndex, &'a IRStatement);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let index = self.0.next_index();
+        if let Some(FunctionDefinitionIndex(block_index, statement_index)) = index {
+            Some((
+                index.unwrap(),
+                &self.0.function_definition.content[block_index].content[statement_index],
+            ))
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> Iter<'a> {
+    pub fn function_definition_index_enumerate(self) -> FunctionDefinitionIndexEnumerate<'a> {
+        FunctionDefinitionIndexEnumerate(self)
     }
 }
 
@@ -109,6 +132,37 @@ impl fmt::Display for FunctionDefinition {
     }
 }
 
+impl Index<FunctionDefinitionIndex> for FunctionDefinition {
+    type Output = IRStatement;
+
+    fn index(&self, index: FunctionDefinitionIndex) -> &Self::Output {
+        &self.content[index.0].content[index.1]
+    }
+}
+
+impl IndexMut<FunctionDefinitionIndex> for FunctionDefinition {
+    fn index_mut(&mut self, index: FunctionDefinitionIndex) -> &mut Self::Output {
+        &mut self.content[index.0].content[index.1]
+    }
+}
+
+impl FunctionDefinition {
+    pub fn iter(&self) -> Iter<'_> {
+        Iter {
+            function_definition: self,
+            index: FunctionDefinitionIndex(0, 0),
+        }
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut IRStatement> {
+        self.content.iter_mut().flat_map(|it| it.content.iter_mut())
+    }
+
+    pub fn remove(&mut self, index: &FunctionDefinitionIndex) {
+        self.content[index.0].remove(index.1);
+    }
+}
+
 /// Parse the ir code to get a [`FunctionDefinition`].
 pub fn parse(code: &str) -> IResult<&str, FunctionDefinition> {
     map(
@@ -118,7 +172,7 @@ pub fn parse(code: &str) -> IResult<&str, FunctionDefinition> {
             parsing::ident,
             delimited(
                 tag("("),
-                separated_list0(parsing::in_multispace(tag(",")), parse_parameter),
+                separated_list0(parsing::in_multispace(tag(",")), parameter::parse),
                 tag(")"),
             ),
             multispace0,
@@ -149,7 +203,7 @@ pub fn from_ast(
         content,
     } = ast;
     let mut ctx = IRGeneratingContext::new(ctx);
-    let parameters: Vec<_> = parameters.iter().map(parameter_from_ast).collect();
+    let parameters: Vec<_> = parameters.iter().map(parameter::from_ast).collect();
     for param in &parameters {
         let variable = VariableRef(param.name.0.clone());
         let param_register = RegisterName(variable.0.clone());

@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::{GenerateRegister, HasRegister, UseRegister},
+        function::IsIRStatement,
         quantity::{self, local, Quantity},
         RegisterName,
     },
@@ -29,7 +29,7 @@ pub struct Call {
     pub params: Vec<Quantity>,
 }
 
-impl HasRegister for Call {
+impl IsIRStatement for Call {
     fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
         if let Some(result_to) = &self.to && result_to == from {
             self.to = Some(to.clone().unwrap_local());
@@ -42,15 +42,11 @@ impl HasRegister for Call {
             }
         }
     }
-}
 
-impl GenerateRegister for Call {
-    fn generated_register(&self) -> Option<(RegisterName, Type)> {
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         self.to.clone().map(|it| (it, self.data_type.clone()))
     }
-}
 
-impl UseRegister for Call {
     fn use_register(&self) -> Vec<RegisterName> {
         self.params
             .iter()

@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     ir::{
-        function::{GenerateRegister, HasRegister, UseRegister},
+        function::IsIRStatement,
         quantity::{self, local, Quantity, RegisterName},
     },
     utility::{data_type, data_type::Type},
@@ -23,21 +23,18 @@ pub struct Load {
     pub from: Quantity,
 }
 
-impl HasRegister for Load {
+impl IsIRStatement for Load {
     fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+        if &self.from.clone().unwrap_local() == from {
+            self.from = to.clone();
+        }
         if &self.to == from {
             self.to = to.clone().unwrap_local();
         }
     }
-}
-
-impl GenerateRegister for Load {
-    fn generated_register(&self) -> Option<(RegisterName, Type)> {
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), self.data_type.clone()))
     }
-}
-
-impl UseRegister for Load {
     fn use_register(&self) -> Vec<RegisterName> {
         if let Quantity::RegisterName(register) = &self.from {
             vec![register.clone()]

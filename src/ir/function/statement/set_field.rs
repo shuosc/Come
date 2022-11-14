@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     ir::{
-        function::{GenerateRegister, HasRegister, UseRegister},
+        function::IsIRStatement,
         quantity::{self, local, Quantity},
         RegisterName,
     },
@@ -36,7 +36,7 @@ pub struct SetField {
     pub final_type: Type,
 }
 
-impl HasRegister for SetField {
+impl IsIRStatement for SetField {
     fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
         if &self.target == from {
             self.target = to.clone().unwrap_local();
@@ -50,15 +50,9 @@ impl HasRegister for SetField {
             self.origin_root = to.clone().unwrap_local();
         }
     }
-}
-
-impl GenerateRegister for SetField {
-    fn generated_register(&self) -> Option<(RegisterName, Type)> {
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.target.clone(), self.field_chain[0].0.clone()))
     }
-}
-
-impl UseRegister for SetField {
     fn use_register(&self) -> Vec<RegisterName> {
         if let Quantity::RegisterName(register) = &self.source {
             vec![register.clone()]

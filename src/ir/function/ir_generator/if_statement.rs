@@ -90,9 +90,9 @@ mod tests {
         from_ast(&ast, &mut ctx);
         let basic_blocks = ctx.done();
         assert_eq!(basic_blocks.len(), 4);
-        assert_eq!(basic_blocks[0].content.len(), 0);
+        assert_eq!(basic_blocks[0].content.len(), 1);
         assert_eq!(
-            basic_blocks[0].terminator.clone().unwrap(),
+            basic_blocks[0].content[0].clone(),
             statement::Branch {
                 branch_type: crate::ir::statement::branch::BranchType::NE,
                 operand1: 42.into(),
@@ -103,18 +103,18 @@ mod tests {
             .into()
         );
         assert_eq!(basic_blocks[1].name.as_ref().unwrap(), "if_0_success");
-        assert_eq!(basic_blocks[1].content.len(), 1);
+        assert_eq!(basic_blocks[1].content.len(), 2);
         assert_eq!(
-            basic_blocks[1].terminator.clone().unwrap(),
+            basic_blocks[1].content[1].clone(),
             statement::Jump {
                 label: "if_0_end".to_string(),
             }
             .into()
         );
         assert_eq!(basic_blocks[2].name.as_ref().unwrap(), "if_0_fail");
-        assert_eq!(basic_blocks[2].content.len(), 1);
+        assert_eq!(basic_blocks[2].content.len(), 2);
         assert_eq!(
-            basic_blocks[2].terminator.clone().unwrap(),
+            basic_blocks[2].content[1].clone(),
             statement::Jump {
                 label: "if_0_end".to_string(),
             }

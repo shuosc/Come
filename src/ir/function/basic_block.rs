@@ -10,117 +10,31 @@ use nom::{
 };
 use std::fmt;
 
-use super::statement::{
-    self, parse_terminator,
-    phi::{self, Phi},
-    ContentStatement, StatementRef, StatementRefMut, Terminator,
-};
+use super::statement::{self, IRStatement};
 
 /// A basic block.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Default)]
 pub struct BasicBlock {
     /// Name of the basic block.
     pub name: Option<String>,
-    /// [`Phi`] statements of the basic block.
-    pub phis: Vec<Phi>,
     /// Statements of the basic block.
-    pub content: Vec<ContentStatement>,
-    /// Terminator of the basic block.
-    pub terminator: Option<Terminator>,
+    pub content: Vec<IRStatement>,
 }
 
 impl BasicBlock {
-    /// Create an empty basic block.
-    pub fn new() -> Self {
-        Self {
-            name: None,
-            phis: Vec::new(),
-            content: Vec::new(),
-            terminator: None,
-        }
-    }
-
     /// Append a statement to the basic block.
-    pub fn append_statement(&mut self, statement: impl Into<ContentStatement>) {
+    pub fn append_statement(&mut self, statement: impl Into<IRStatement>) {
         self.content.push(statement.into());
     }
 
     /// Whether the basic block is empty.
     pub fn empty(&self) -> bool {
-        self.name.is_none()
-            && self.phis.is_empty()
-            && self.content.is_empty()
-            && self.terminator.is_none()
+        self.name.is_none() && self.content.is_empty()
     }
 
-    pub fn len(&self) -> usize {
-        self.phis.len() + self.content.len() + if self.terminator.is_some() { 1 } else { 0 }
-    }
-
-    // todo: board check
-    pub fn index(&self, n: usize) -> StatementRef<'_> {
-        if n < self.phis.len() {
-            StatementRef::Phi(&self.phis[n])
-        } else if n - self.phis.len() < self.content.len() {
-            StatementRef::Content(&self.content[n])
-        } else {
-            StatementRef::Terminator(self.terminator.as_ref().unwrap())
-        }
-    }
-
-    pub fn index_mut(&mut self, n: usize) -> StatementRefMut<'_> {
-        if n < self.phis.len() {
-            StatementRefMut::Phi(&mut self.phis[n])
-        } else if n - self.phis.len() < self.content.len() {
-            StatementRefMut::Content(&mut self.content[n])
-        } else {
-            StatementRefMut::Terminator(self.terminator.as_mut().unwrap())
-        }
-    }
-
-    pub fn iter(&self) -> BasicBlockIterator<'_> {
-        BasicBlockIterator { bb: self, index: 0 }
-    }
-
+    /// Remove a statement from the basic block.
     pub fn remove(&mut self, index: usize) {
-        if index < self.phis.len() {
-            self.phis.remove(index);
-        } else {
-            let index = index - self.phis.len();
-            if index < self.content.len() {
-                self.content.remove(index);
-            } else if index == self.content.len() && self.terminator.is_some() {
-                self.terminator = None;
-            }
-        }
-    }
-}
-
-pub struct BasicBlockIterator<'a> {
-    bb: &'a BasicBlock,
-    index: usize,
-}
-
-impl<'a> Iterator for BasicBlockIterator<'a> {
-    type Item = StatementRef<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.bb.phis.len() {
-            let ret = StatementRef::Phi(&self.bb.phis[self.index]);
-            self.index += 1;
-            Some(ret)
-        } else if self.index - self.bb.phis.len() < self.bb.content.len() {
-            let ret = StatementRef::Content(&self.bb.content[self.index]);
-            self.index += 1;
-            Some(ret)
-        } else if self.index - self.bb.phis.len() == self.bb.content.len() {
-            let terminator = self.bb.terminator.as_ref()?;
-            let ret = StatementRef::Terminator(terminator);
-            self.index += 1;
-            Some(ret)
-        } else {
-            None
-        }
+        self.content.remove(index);
     }
 }
 
@@ -129,14 +43,8 @@ impl fmt::Display for BasicBlock {
         if let Some(name) = &self.name {
             writeln!(f, "  {}:", name)?;
         }
-        for phi in &self.phis {
-            writeln!(f, "    {}", phi)?;
-        }
         for statement in &self.content {
             writeln!(f, "    {}", statement)?;
-        }
-        if let Some(terminator) = &self.terminator {
-            writeln!(f, "    {}", terminator)?;
         }
         Ok(())
     }
@@ -149,55 +57,29 @@ fn parse_tag(code: &str) -> IResult<&str, String> {
 
 /// Parse the ir code to get a [`BasicBlock`].
 pub fn parse(code: &str) -> IResult<&str, BasicBlock> {
+    // `Basicblock` which
+    //   - Has only a name and no content or
+    //   - Has no name but only content
+    //  are both valid.
+    // However, `(opt(parse_tag), many0(IRStatement::parse))` can match literal nothing, which is not valid.
+    // So we need to construct two parsers which stands for these two cases:
+
+    // There is a tag, but the body can be empty.
     let has_tag = tuple((
         map(parse_tag, Some),
         multispace0,
-        many0(parsing::in_multispace(phi::parse)),
-        multispace0,
-        many0(parsing::in_multispace(statement::parse_ir_statement)),
-        multispace0,
-        opt(parse_terminator),
-        multispace0,
+        many0(parsing::in_multispace(statement::parse)),
     ));
-    let has_phi = tuple((
-        opt(parse_tag),
-        multispace0,
-        many1(parsing::in_multispace(phi::parse)),
-        multispace0,
-        many0(parsing::in_multispace(statement::parse_ir_statement)),
-        multispace0,
-        opt(parse_terminator),
-        multispace0,
-    ));
+    // There is no tag, but there exists at least one statement in the body.
     let has_ir = tuple((
         opt(parse_tag),
         multispace0,
-        many0(parsing::in_multispace(phi::parse)),
-        multispace0,
-        many1(parsing::in_multispace(statement::parse_ir_statement)),
-        multispace0,
-        opt(parse_terminator),
-        multispace0,
+        many1(parsing::in_multispace(statement::parse)),
     ));
-    let has_terminator = tuple((
-        opt(parse_tag),
-        multispace0,
-        many0(parsing::in_multispace(phi::parse)),
-        multispace0,
-        many0(parsing::in_multispace(statement::parse_ir_statement)),
-        multispace0,
-        map(parse_terminator, Some),
-        multispace0,
-    ));
-    map(
-        alt((has_tag, has_phi, has_ir, has_terminator)),
-        |(name, _, phis, _, content, _, terminator, _)| BasicBlock {
-            name,
-            phis,
-            content,
-            terminator,
-        },
-    )(code)
+    map(alt((has_tag, has_ir)), |(name, _, content)| BasicBlock {
+        name,
+        content,
+    })(code)
 }
 
 #[cfg(test)]

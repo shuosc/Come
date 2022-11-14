@@ -1,6 +1,6 @@
 use crate::{
     ir::{
-        function::{GenerateRegister, HasRegister, UseRegister},
+        function::IsIRStatement,
         quantity::{local, Quantity, RegisterName},
     },
     utility::{data_type, data_type::Type},
@@ -23,21 +23,15 @@ pub struct Alloca {
     pub alloc_type: Type,
 }
 
-impl HasRegister for Alloca {
+impl IsIRStatement for Alloca {
     fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
         if &self.to == from {
             self.to = to.clone().unwrap_local();
         }
     }
-}
-
-impl GenerateRegister for Alloca {
-    fn generated_register(&self) -> Option<(RegisterName, Type)> {
+    fn generate_register(&self) -> Option<(RegisterName, Type)> {
         Some((self.to.clone(), Type::Address))
     }
-}
-
-impl UseRegister for Alloca {
     fn use_register(&self) -> Vec<RegisterName> {
         Vec::new()
     }

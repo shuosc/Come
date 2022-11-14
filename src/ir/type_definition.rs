@@ -52,6 +52,7 @@ pub fn parse(code: &str) -> IResult<&str, TypeDefinition> {
 }
 
 /// Map field name to its index.
+#[derive(Debug)]
 pub struct TypeDefinitionMapping {
     pub field_names: HashMap<String, usize>,
     pub field_types: Vec<Type>,

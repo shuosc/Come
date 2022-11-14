@@ -1,13 +1,13 @@
 use super::{
     basic_block::BasicBlock,
-    statement::{Ret, Terminator},
+    statement::{IRStatement, Ret},
 };
 use crate::{
     ast::{self, expression::VariableRef, statement::Statement},
     ir::{quantity::Quantity, RegisterName},
     utility::data_type::{Integer, Type},
 };
-use std::{collections::HashMap, mem, vec};
+use std::{collections::HashMap, vec};
 
 mod assign;
 mod declare;
@@ -100,7 +100,7 @@ impl<'a> IRGeneratingContext<'a> {
         Self {
             parent_context,
             done_basic_blocks: Vec::new(),
-            current_basic_block: BasicBlock::new(),
+            current_basic_block: BasicBlock::default(),
             symbol_table: SymbolTable {
                 variable_types_stack: vec![HashMap::new()],
                 register_type: HashMap::new(),
@@ -110,20 +110,30 @@ impl<'a> IRGeneratingContext<'a> {
     }
 
     /// Finish the current [`BasicBlock`] with `terminator` and start a new one.
-    pub fn end_current_basic_block_with(&mut self, terminator: impl Into<Terminator>) {
-        self.current_basic_block.terminator = Some(terminator.into());
-        self.done_basic_blocks.push(mem::replace(
-            &mut self.current_basic_block,
-            BasicBlock::new(),
-        ));
+    pub fn end_current_basic_block_with(&mut self, terminator: impl Into<IRStatement>) {
+        // todo: maybe we should check terminator is really a terminator?
+        self.current_basic_block.content.push(terminator.into());
+        self.done_basic_blocks
+            .push(std::mem::take(&mut self.current_basic_block));
     }
 
     /// Finish generating [`BasicBlock`]s for the current function.
     /// Return the collected [`BasicBlock`]s.
     pub fn done(mut self) -> Vec<BasicBlock> {
         if !self.current_basic_block.empty() {
-            if self.current_basic_block.terminator.is_none() {
-                self.current_basic_block.terminator = Some(Ret { value: None }.into());
+            if !matches!(
+                self.current_basic_block.content.last(),
+                Some(IRStatement::Jump(_))
+            ) && !matches!(
+                self.current_basic_block.content.last(),
+                Some(IRStatement::Ret(_))
+            ) && !matches!(
+                self.current_basic_block.content.last(),
+                Some(IRStatement::Branch(_))
+            ) {
+                self.current_basic_block
+                    .content
+                    .push(Ret { value: None }.into());
             }
             self.done_basic_blocks.push(self.current_basic_block);
         }
