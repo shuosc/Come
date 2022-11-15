@@ -36,15 +36,12 @@ impl IsPass for RemoveOnlyOnceStore {
                 }
             }
         }
-        for (load_result_register, store_source) in to_edit {
-            for statement in editor.analyzer.use_indexes(&load_result_register) {
-                editor.content.borrow_mut()[statement.clone()]
-                    .on_register_change(&load_result_register, &store_source);
-            }
-        }
         to_remove.sort();
         for to_remove_index in to_remove.iter().rev() {
             editor.remove_statement(to_remove_index);
+        }
+        for (load_result_register, store_source) in to_edit {
+            editor.replace_register(&load_result_register, &store_source);
         }
     }
 }
@@ -178,11 +175,9 @@ mod tests {
             ],
         };
         let pass = RemoveOnlyOnceStore;
-        println!("{}", &function);
         let mut editor = IRFunctionEditor::new(function);
         pass.run(&mut editor);
         let function = editor.done();
-        println!("{}", &function);
         // %0 and %2 should be optimized out
         let mut registers = HashSet::new();
         for statement in function.iter() {

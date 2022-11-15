@@ -10,8 +10,47 @@ use crate::ir::{
 #[derive(Debug)]
 pub struct MemoryAccessInfo {
     pub alloca: FunctionDefinitionIndex,
+    // store statements index, in order
     pub store: Vec<FunctionDefinitionIndex>,
+    // load statements index, in order
     pub load: Vec<FunctionDefinitionIndex>,
+}
+
+impl MemoryAccessInfo {
+    // For each store statement, this function will find all load statements in this basic block which
+    // load the value it just stored.
+    pub fn dorminate_in_basic_block(
+        &self,
+    ) -> HashMap<FunctionDefinitionIndex, Vec<FunctionDefinitionIndex>> {
+        let mut result: HashMap<_, Vec<FunctionDefinitionIndex>> = HashMap::new();
+        let mut store_iter = self.store.iter().peekable();
+        let mut load_iter = self.load.iter().peekable();
+        while let Some(store) = store_iter.next() {
+            while let Some(&next_load) = load_iter.peek() && next_load < store {
+                load_iter.next();
+            }
+            let end_index = if let Some(&next_store) = store_iter.peek() {
+                let in_same_bb = store.0 == next_store.0;
+                if in_same_bb {
+                    Some(next_store)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            if let Some(_end_index) = end_index {
+                while let Some(&next_load) = load_iter.peek() && next_load < store {
+                    result.entry(store.clone()).or_default().push(load_iter.next().unwrap().clone());
+                }
+            } else {
+                while let Some(&next_load) = load_iter.peek() && next_load.0 == store.0 {
+                    result.entry(store.clone()).or_default().push(load_iter.next().unwrap().clone());
+                }
+            }
+        }
+        result
+    }
 }
 
 #[derive(Debug)]
