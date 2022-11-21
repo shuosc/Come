@@ -27,7 +27,7 @@ pub struct Store {
 }
 
 impl IsIRStatement for Store {
-    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+    fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
         if let Quantity::RegisterName(local) = &mut self.source {
             if local == from {
                 *local = to.clone().unwrap_local();
@@ -35,7 +35,7 @@ impl IsIRStatement for Store {
         }
         if let Quantity::RegisterName(local) = &mut self.target {
             if local == from {
-                *local = to.clone().unwrap_local();
+                *local = to.unwrap_local();
             }
         }
     }
@@ -90,6 +90,8 @@ pub fn parse(code: &str) -> IResult<&str, Store> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
     use super::*;
 
     #[test]

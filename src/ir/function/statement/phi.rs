@@ -49,7 +49,7 @@ pub struct Phi {
 }
 
 impl IsIRStatement for Phi {
-    fn on_register_change(&mut self, from: &RegisterName, to: &crate::ir::quantity::Quantity) {
+    fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
         if &self.to == from {
             self.to = to.clone().unwrap_local();
         }
@@ -75,12 +75,12 @@ impl IsIRStatement for Phi {
 
 impl fmt::Display for Phi {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} = phi {}", self.to, self.data_type)?;
+        write!(f, "{} = phi {} ", self.to, self.data_type)?;
         for (i, source) in self.from.iter().enumerate() {
             if i != 0 {
                 write!(f, ", ")?;
             }
-            write!(f, "[{}, {}]", source.name, source.block)?;
+            write!(f, "[{}, {}]", source.block, source.name)?;
         }
         Ok(())
     }
@@ -110,6 +110,7 @@ pub fn parse(code: &str) -> IResult<&str, Phi> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
     use super::*;
 
     #[test]

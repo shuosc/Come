@@ -78,6 +78,7 @@ impl fmt::Display for Integer {
 }
 
 #[cfg(test)]
+#[allow(clippy::declare_interior_mutable_const)]
 pub const I32: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
     Type::Integer(Integer {
         signed: true,
@@ -86,6 +87,7 @@ pub const I32: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
 });
 
 #[cfg(test)]
+#[allow(clippy::declare_interior_mutable_const)]
 pub const U32: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
     Type::Integer(Integer {
         signed: false,
@@ -94,6 +96,7 @@ pub const U32: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
 });
 
 #[cfg(test)]
+#[allow(clippy::declare_interior_mutable_const)]
 pub const I64: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
     Type::Integer(Integer {
         signed: true,
@@ -102,6 +105,7 @@ pub const I64: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
 });
 
 #[cfg(test)]
+#[allow(clippy::declare_interior_mutable_const)]
 pub const U64: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
     Type::Integer(Integer {
         signed: false,

@@ -95,7 +95,7 @@ pub struct BinaryCalculate {
 }
 
 impl IsIRStatement for BinaryCalculate {
-    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+    fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
         if let Quantity::RegisterName(op1) = &self.operand1 && op1 == from {
             self.operand1 = to.clone();
         }
@@ -105,7 +105,7 @@ impl IsIRStatement for BinaryCalculate {
         if &self.to == from {
             // I cannot imaging a case that this is necessary
             // But I still keep it here, just in case
-            self.to = to.clone().unwrap_local();
+            self.to = to.unwrap_local();
         }
     }
 
@@ -195,6 +195,7 @@ pub fn from_ast(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
     use super::*;
 
     #[test]

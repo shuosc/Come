@@ -48,7 +48,7 @@ use crate::{
 pub trait IsIRStatement {
     fn use_register(&self) -> Vec<RegisterName>;
     fn generate_register(&self) -> Option<(RegisterName, Type)>;
-    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity);
+    fn on_register_change(&mut self, from: &RegisterName, to: Quantity);
 }
 
 /// A statement in a function.
@@ -74,6 +74,7 @@ macro_rules! variant {
         impl IRStatement {
             /// Returns `Some(variant)` if the statement is this variant,
             /// return `None` if it is not.
+            #[allow(dead_code)]
             pub fn [<try_as_ $name>](&self) -> Option<&$variant> {
                 match self {
                     IRStatement::$variant(inner) => Some(inner),
@@ -83,6 +84,7 @@ macro_rules! variant {
 
             /// Returns the variant if the statement is this variant,
             /// panic if it is not.
+            #[allow(dead_code)]
             pub fn [<as_ $name>](&self) -> &$variant {
                 match self {
                     IRStatement::$variant(inner) => inner,

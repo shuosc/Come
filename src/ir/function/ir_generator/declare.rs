@@ -32,6 +32,7 @@ pub fn from_ast(ast: &ast::statement::declare::Declare, ctx: &mut IRGeneratingCo
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
     use super::*;
     use crate::{
         ast::expression::IntegerLiteral,

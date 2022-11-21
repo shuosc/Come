@@ -1,20 +1,29 @@
+use itertools::Itertools;
+
 use crate::ir::optimize::editor::IRFunctionEditor;
 
 use super::IsPass;
 pub struct RemoveLoadDirectlyAfterStore;
 
 impl IsPass for RemoveLoadDirectlyAfterStore {
-    fn run<'a>(&self, editor: &mut IRFunctionEditor) {
+    fn run(&self, editor: &mut IRFunctionEditor) {
         let mut to_remove = Vec::new();
         let mut to_replace = Vec::new();
-        for memory_access_info in editor.analyzer.memory_access_info().values() {
+        let memory_access_infos = editor
+            .analyzer
+            .memory_access_info()
+            .values()
+            .cloned()
+            .collect_vec();
+        for memory_access_info in memory_access_infos {
             let dorminate = memory_access_info.dorminate_in_basic_block();
             for (store, loads) in dorminate {
-                let content = editor.content.borrow();
-                let store_statement = content[store].as_store();
+                let store_statement = editor.index_statement(store);
+                let store_statement = store_statement.as_store();
                 let stored_value = store_statement.source.clone();
                 for load in loads {
-                    let load_statement = content[load.clone()].as_load();
+                    let load_statement = editor.index_statement(load.clone());
+                    let load_statement = load_statement.as_load();
                     to_replace.push((load_statement.to.clone(), stored_value.clone()));
                     to_remove.push(load);
                 }
@@ -25,13 +34,15 @@ impl IsPass for RemoveLoadDirectlyAfterStore {
             editor.remove_statement(&to_remove_index);
         }
         for (register, value) in to_replace {
-            editor.replace_register(&register, &value);
+            editor.replace_register(&register, value);
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
     use crate::{
         ir::{
             function::basic_block::BasicBlock,
@@ -133,7 +144,6 @@ mod tests {
         let mut editor = IRFunctionEditor::new(function);
         pass.run(&mut editor);
         let function = editor.done();
-        println!("{}", function);
         assert_eq!(function.content[0].content.len(), 6);
         assert_eq!(
             function.content[0]

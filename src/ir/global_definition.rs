@@ -89,6 +89,7 @@ pub fn from_ast(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
     use super::*;
 
     #[test]

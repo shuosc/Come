@@ -112,6 +112,8 @@ pub fn emit_code(statement: &ir::statement::LoadField, ctx: &mut FunctionCompile
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
     use std::collections::HashMap;
 
     use crate::{

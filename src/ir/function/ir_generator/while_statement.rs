@@ -36,6 +36,7 @@ pub fn from_ast(ast: &ast::statement::While, ctx: &mut IRGeneratingContext) {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
     use super::*;
     use crate::{
         ast::expression::{IntegerLiteral, VariableRef},

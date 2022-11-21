@@ -60,12 +60,12 @@ pub struct UnaryCalculate {
 }
 
 impl IsIRStatement for UnaryCalculate {
-    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+    fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
         if let Quantity::RegisterName(operand) = &self.operand && operand == from {
             self.operand = to.clone();
         }
         if &self.to == from {
-            self.to = to.clone().unwrap_local();
+            self.to = to.unwrap_local();
         }
     }
 

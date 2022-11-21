@@ -395,6 +395,8 @@ pub fn emit_code(set_field: &ir::statement::SetField, ctx: &mut FunctionCompileC
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
     use super::*;
     use std::collections::HashMap;
 

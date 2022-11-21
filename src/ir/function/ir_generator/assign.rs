@@ -104,6 +104,8 @@ fn to_variable(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
     use std::collections::HashMap;
 
     use super::*;

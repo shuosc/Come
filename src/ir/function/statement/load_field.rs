@@ -56,12 +56,12 @@ impl fmt::Display for LoadField {
 }
 
 impl IsIRStatement for LoadField {
-    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+    fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
         if &self.target == from {
             self.target = to.clone().unwrap_local();
         }
         if &self.source == from {
-            self.source = to.clone().unwrap_local();
+            self.source = to.unwrap_local();
         }
     }
     fn generate_register(&self) -> Option<(RegisterName, Type)> {
@@ -162,6 +162,7 @@ pub fn from_ast(ast: &ast::expression::FieldAccess, ctx: &mut IRGeneratingContex
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
     use super::*;
 
     #[test]

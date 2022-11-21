@@ -37,7 +37,7 @@ pub struct SetField {
 }
 
 impl IsIRStatement for SetField {
-    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+    fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
         if &self.target == from {
             self.target = to.clone().unwrap_local();
         }
@@ -47,7 +47,7 @@ impl IsIRStatement for SetField {
             }
         }
         if &self.origin_root == from {
-            self.origin_root = to.clone().unwrap_local();
+            self.origin_root = to.unwrap_local();
         }
     }
     fn generate_register(&self) -> Option<(RegisterName, Type)> {
@@ -135,6 +135,8 @@ pub fn parse(code: &str) -> IResult<&str, SetField> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
     use super::*;
 
     #[test]

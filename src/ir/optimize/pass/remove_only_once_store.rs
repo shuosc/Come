@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::ir::{optimize::analyzer::MemoryAccessInfo, statement::IsIRStatement};
 
 use super::IsPass;
@@ -8,30 +10,37 @@ impl IsPass for RemoveOnlyOnceStore {
     fn run<'a>(&self, editor: &mut super::IRFunctionEditor) {
         let mut to_remove = Vec::new();
         let mut to_edit = Vec::new();
+        let memory_access_infos = editor
+            .analyzer
+            .memory_access_info()
+            .values()
+            .cloned()
+            .collect_vec();
         for MemoryAccessInfo {
             alloca,
             store,
             load,
-        } in editor.analyzer.memory_access_info().values()
+        } in memory_access_infos
         {
+            // todo: it is possible that the basic block the store statement in
+            // cannot dorminate the block a load is in, in such cases, an error should
+            // be raised instead of do this optimize work
             if store.len() == 1 {
-                // we are going to replace all useage of this memory address with the value
+                // we are going to replace all usage of this memory address with the value
                 // stored in, so we can remove the allocation and this store
                 to_remove.push(alloca.clone());
                 to_remove.push(store[0].clone());
-                let value_stored_in = editor.content.borrow()[store[0].clone()]
-                    .clone()
-                    .as_store()
-                    .source
-                    .clone();
+                let the_store_statement = editor.index_statement(store[0].clone());
+                let the_store_statement = the_store_statement.as_store();
+                let value_stored_in = the_store_statement.source.clone();
                 // replace each load target with the value stored in
                 for load_statement_index in load {
                     to_remove.push(load_statement_index.clone());
-                    let load_result_register = editor.content.borrow()
-                        [load_statement_index.clone()]
-                    .generate_register()
-                    .unwrap()
-                    .0;
+                    let load_result_register = editor
+                        .index_statement(load_statement_index.clone())
+                        .generate_register()
+                        .unwrap()
+                        .0;
                     to_edit.push((load_result_register, value_stored_in.clone()));
                 }
             }
@@ -41,13 +50,15 @@ impl IsPass for RemoveOnlyOnceStore {
             editor.remove_statement(to_remove_index);
         }
         for (load_result_register, store_source) in to_edit {
-            editor.replace_register(&load_result_register, &store_source);
+            editor.replace_register(&load_result_register, store_source);
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
     use std::collections::HashSet;
 
     use crate::{

@@ -17,9 +17,7 @@ pub struct Jump {
 }
 
 impl IsIRStatement for Jump {
-    fn on_register_change(&mut self, _from: &RegisterName, _to: &Quantity) {
-        // pass;
-    }
+    fn on_register_change(&mut self, _from: &RegisterName, _to: Quantity) {}
     fn generate_register(&self) -> Option<(RegisterName, Type)> {
         None
     }

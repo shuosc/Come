@@ -7,8 +7,8 @@ use super::IsPass;
 pub struct RemoveUnusedRegister;
 
 impl IsPass for RemoveUnusedRegister {
-    fn run<'a>(&self, editor: &mut super::IRFunctionEditor) {
-        let content = editor.content.borrow();
+    fn run(&self, editor: &mut super::IRFunctionEditor) {
+        let content = editor.content();
         let mut registers: HashMap<_, _> = content
             .iter()
             .function_definition_index_enumerate()
@@ -33,6 +33,8 @@ impl IsPass for RemoveUnusedRegister {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
     use super::*;
     use crate::{
         ir::{

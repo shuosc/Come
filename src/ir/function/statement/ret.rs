@@ -22,10 +22,10 @@ pub struct Ret {
 }
 
 impl IsIRStatement for Ret {
-    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+    fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
         if let Some(Quantity::RegisterName(local)) = &mut self.value {
             if local == from {
-                *local = to.clone().unwrap_local();
+                *local = to.unwrap_local();
             }
         }
     }

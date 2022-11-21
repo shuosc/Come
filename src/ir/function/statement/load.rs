@@ -24,12 +24,12 @@ pub struct Load {
 }
 
 impl IsIRStatement for Load {
-    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+    fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
         if &self.from.clone().unwrap_local() == from {
             self.from = to.clone();
         }
         if &self.to == from {
-            self.to = to.clone().unwrap_local();
+            self.to = to.unwrap_local();
         }
     }
     fn generate_register(&self) -> Option<(RegisterName, Type)> {
@@ -74,6 +74,7 @@ pub fn parse(code: &str) -> IResult<&str, Load> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::borrow_interior_mutable_const)]
     use super::*;
 
     #[test]

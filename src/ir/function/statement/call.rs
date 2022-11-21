@@ -30,7 +30,7 @@ pub struct Call {
 }
 
 impl IsIRStatement for Call {
-    fn on_register_change(&mut self, from: &RegisterName, to: &Quantity) {
+    fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
         if let Some(result_to) = &self.to && result_to == from {
             self.to = Some(to.clone().unwrap_local());
         }
@@ -109,7 +109,7 @@ pub fn parse(code: &str) -> IResult<&str, Call> {
 
 #[cfg(test)]
 mod tests {
-
+    #![allow(clippy::borrow_interior_mutable_const)]
     use super::*;
 
     #[test]
