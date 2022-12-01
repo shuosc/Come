@@ -41,6 +41,19 @@ pub fn parse(code: &str) -> IResult<&str, Jump> {
 }
 
 #[cfg(test)]
+pub mod test_util {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
+    use super::*;
+
+    pub fn new(target: &str) -> Jump {
+        Jump {
+            label: target.to_string(),
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

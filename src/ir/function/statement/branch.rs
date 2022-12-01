@@ -141,6 +141,23 @@ pub fn parse(code: &str) -> IResult<&str, Branch> {
 }
 
 #[cfg(test)]
+pub mod test_util {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
+    use super::*;
+
+    pub fn new(target1: &str, target2: &str) -> Branch {
+        Branch {
+            branch_type: BranchType::EQ,
+            operand1: 0.into(),
+            operand2: 1.into(),
+            success_label: target1.to_string(),
+            failure_label: target2.to_string(),
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

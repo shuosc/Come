@@ -1,57 +1,31 @@
-use itertools::Itertools;
-
-use crate::ir::{optimize::analyzer::MemoryAccessInfo, statement::IsIRStatement};
+use crate::ir::optimize::{action::EditActionBatch, analyzer::Analyzer};
 
 use super::IsPass;
 
 pub struct RemoveOnlyOnceStore;
 
 impl IsPass for RemoveOnlyOnceStore {
-    fn run<'a>(&self, editor: &mut super::IRFunctionEditor) {
-        let mut to_remove = Vec::new();
-        let mut to_edit = Vec::new();
-        let memory_access_infos = editor
-            .analyzer
-            .memory_access_info()
-            .values()
-            .cloned()
-            .collect_vec();
-        for MemoryAccessInfo {
-            alloca,
-            store,
-            load,
-        } in memory_access_infos
-        {
+    fn run(&self, analyzer: &Analyzer) -> EditActionBatch {
+        let mut result = EditActionBatch::default();
+        for variable in analyzer.memory_usage.variables() {
+            let memory_access_info = analyzer.memory_usage.memory_access_info(variable);
             // todo: it is possible that the basic block the store statement in
             // cannot dorminate the block a load is in, in such cases, an error should
             // be raised instead of do this optimize work
-            if store.len() == 1 {
-                // we are going to replace all usage of this memory address with the value
-                // stored in, so we can remove the allocation and this store
-                to_remove.push(alloca.clone());
-                to_remove.push(store[0].clone());
-                let the_store_statement = editor.index_statement(store[0].clone());
-                let the_store_statement = the_store_statement.as_store();
-                let value_stored_in = the_store_statement.source.clone();
-                // replace each load target with the value stored in
-                for load_statement_index in load {
-                    to_remove.push(load_statement_index.clone());
-                    let load_result_register = editor
-                        .index_statement(load_statement_index.clone())
-                        .generate_register()
-                        .unwrap()
-                        .0;
-                    to_edit.push((load_result_register, value_stored_in.clone()));
+            if memory_access_info.store.len() == 1 {
+                let store_statement_index = memory_access_info.store[0].clone();
+                let store_statement = analyzer.content[store_statement_index.clone()].as_store();
+                let stored_value = store_statement.source.clone();
+                for load_statement_index in &memory_access_info.load {
+                    let load_statement = analyzer.content[load_statement_index.clone()].as_load();
+                    result.replace(load_statement.to.clone(), stored_value.clone());
+                    result.remove(load_statement_index.clone());
                 }
+                result.remove(store_statement_index.clone());
+                result.remove(memory_access_info.alloca.clone());
             }
         }
-        to_remove.sort();
-        for to_remove_index in to_remove.iter().rev() {
-            editor.remove_statement(to_remove_index);
-        }
-        for (load_result_register, store_source) in to_edit {
-            editor.replace_register(&load_result_register, store_source);
-        }
+        result
     }
 }
 
@@ -64,7 +38,7 @@ mod tests {
     use crate::{
         ir::{
             function::basic_block::BasicBlock,
-            optimize::{pass::IsPass, IRFunctionEditor},
+            optimize::test_util::execute_pass,
             statement::{
                 calculate::binary::BinaryOperation, Alloca, BinaryCalculate, IsIRStatement, Jump,
                 Load, Ret, Store,
@@ -174,6 +148,10 @@ mod tests {
                             data_type: data_type::I32.clone(),
                         }
                         .into(),
+                        Jump {
+                            label: "bb3".to_string(),
+                        }
+                        .into(),
                     ],
                 },
                 BasicBlock {
@@ -186,9 +164,7 @@ mod tests {
             ],
         };
         let pass = RemoveOnlyOnceStore;
-        let mut editor = IRFunctionEditor::new(function);
-        pass.run(&mut editor);
-        let function = editor.done();
+        let function = execute_pass(function, pass.into());
         // %0 and %2 should be optimized out
         let mut registers = HashSet::new();
         for statement in function.iter() {

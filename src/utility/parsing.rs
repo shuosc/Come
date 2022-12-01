@@ -8,6 +8,7 @@ use nom::{
     IResult,
 };
 
+/// Parse source code to get an ident.
 pub fn ident(code: &str) -> IResult<&str, String> {
     map(
         recognize(pair(
@@ -18,6 +19,7 @@ pub fn ident(code: &str) -> IResult<&str, String> {
     )(code)
 }
 
+/// Wrap parser `f`, so we can ignore the multispaces around the content we want to parse.
 pub fn in_multispace<F, I, O>(f: F) -> impl FnMut(I) -> IResult<I, O>
 where
     I: nom::InputTakeAtPosition + Clone,
@@ -27,6 +29,8 @@ where
     map(tuple((multispace0, f, multispace0)), |(_, x, _)| x)
 }
 
+/// Parse source code to get an integer literal.
+/// Supports hex (startes with 0x) or dec.
 pub fn integer(code: &str) -> IResult<&str, i64> {
     map(
         pair(

@@ -73,6 +73,20 @@ pub fn parse(code: &str) -> IResult<&str, Load> {
 }
 
 #[cfg(test)]
+pub mod test_util {
+    #![allow(clippy::borrow_interior_mutable_const)]
+    use super::*;
+
+    pub fn new(variable_name: &str, to_id: usize) -> Load {
+        Load {
+            to: RegisterName(format!("{}_{}", variable_name, to_id)),
+            data_type: data_type::I32.clone(),
+            from: RegisterName(format!("{}_addr", variable_name)).into(),
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     #![allow(clippy::borrow_interior_mutable_const)]
     use super::*;

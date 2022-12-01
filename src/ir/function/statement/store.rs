@@ -89,6 +89,28 @@ pub fn parse(code: &str) -> IResult<&str, Store> {
 }
 
 #[cfg(test)]
+pub mod test_util {
+    #![allow(clippy::borrow_interior_mutable_const)]
+    use super::*;
+
+    pub fn new(variable_name: &str) -> Store {
+        Store {
+            data_type: data_type::I32.clone(),
+            source: 1.into(),
+            target: RegisterName(format!("{}_addr", variable_name)).into(),
+        }
+    }
+
+    pub fn with_reg_value(variable_name: &str, reg: &str) -> Store {
+        Store {
+            data_type: data_type::I32.clone(),
+            source: RegisterName(reg.to_string()).into(),
+            target: RegisterName(format!("{}_addr", variable_name)).into(),
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     #![allow(clippy::borrow_interior_mutable_const)]
 

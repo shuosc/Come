@@ -1,33 +1,18 @@
-use std::collections::HashMap;
-
-use crate::ir::statement::IsIRStatement;
+use crate::ir::optimize::{action::EditActionBatch, analyzer::Analyzer};
 
 use super::IsPass;
 
 pub struct RemoveUnusedRegister;
 
 impl IsPass for RemoveUnusedRegister {
-    fn run(&self, editor: &mut super::IRFunctionEditor) {
-        let content = editor.content();
-        let mut registers: HashMap<_, _> = content
-            .iter()
-            .function_definition_index_enumerate()
-            .filter_map(|(index, it)| {
-                it.generate_register()
-                    .map(|(register_name, _)| (register_name, index))
-            })
-            .collect();
-        for statement in content.iter() {
-            for register in statement.use_register() {
-                registers.remove(&register);
+    fn run(&self, analyzer: &Analyzer) -> EditActionBatch {
+        let mut result = EditActionBatch::default();
+        for usage in analyzer.register_usage.register_usages().values() {
+            if usage.use_indexes.is_empty() {
+                result.remove(usage.define_index.clone());
             }
         }
-        let mut to_remove: Vec<_> = registers.values().into_iter().collect();
-        to_remove.sort();
-        drop(content);
-        for to_remove in to_remove.into_iter().rev() {
-            editor.remove_statement(to_remove);
-        }
+        result
     }
 }
 
@@ -39,7 +24,7 @@ mod tests {
     use crate::{
         ir::{
             function::basic_block::BasicBlock,
-            optimize::IRFunctionEditor,
+            optimize::test_util::execute_pass,
             statement::{
                 branch::BranchType, calculate::binary::BinaryOperation, BinaryCalculate, Branch,
                 Jump, Load, Ret,
@@ -121,9 +106,7 @@ mod tests {
             ],
         };
         let pass = RemoveUnusedRegister;
-        let mut editor = IRFunctionEditor::new(function);
-        pass.run(&mut editor);
-        let function = editor.done();
+        let function = execute_pass(function, pass.into());
         assert_eq!(function.content[0].content.len(), 3);
     }
 }

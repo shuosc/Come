@@ -9,6 +9,20 @@ use petgraph::{
 };
 use std::hash::Hash;
 
+/// Initially implemented bu @m4b in [petgraph#178](https://github.com/petgraph/petgraph/pull/178).
+///
+/// This function will return dominance frontiers of a graph,
+/// which represent join points in a control flow graph,
+/// and have many applications like generating static single assignment form in a compiler.
+///
+/// The algorithm is mentioned in ["Simple, Fast Dominance Algorithm"][0] discovered by Cooper et al.
+///
+/// The algorithm is **O(|V|²)** in the worst case,
+/// but in most real world cases it has almost linear complexity.
+///
+/// `graph` must be the same, un-mutated graph that the `dominators` was constructed from.
+///
+/// [0]: http://www.cs.rice.edu/~keith/EMBED/dom.pdf
 pub fn dominance_frontiers<N, G>(
     dorminators: &Dominators<N>,
     graph: G,

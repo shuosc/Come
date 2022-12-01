@@ -141,3 +141,38 @@ impl fmt::Display for IRStatement {
         }
     }
 }
+
+#[cfg(test)]
+pub mod test_util {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
+    use super::*;
+
+    pub fn binop(target: &str, source1: &str, source2: &str) -> IRStatement {
+        calculate::binary::test_util::new(target, source1, source2).into()
+    }
+
+    pub fn alloca(variable_name: &str) -> IRStatement {
+        alloca::test_util::new(variable_name).into()
+    }
+
+    pub fn branch(target1: &str, target2: &str) -> IRStatement {
+        branch::test_util::new(target1, target2).into()
+    }
+
+    pub fn jump(target: &str) -> IRStatement {
+        jump::test_util::new(target).into()
+    }
+
+    pub fn load(variable_name: &str, to_id: usize) -> IRStatement {
+        load::test_util::new(variable_name, to_id).into()
+    }
+
+    pub fn store(variable_name: &str) -> IRStatement {
+        store::test_util::new(variable_name).into()
+    }
+
+    pub fn store_with_reg(variable_name: &str, reg: &str) -> IRStatement {
+        store::test_util::with_reg_value(variable_name, reg).into()
+    }
+}

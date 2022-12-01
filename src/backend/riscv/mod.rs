@@ -11,7 +11,7 @@ pub struct Context {
     pub struct_definitions: HashMap<String, ir::TypeDefinition>,
 }
 
-/// Implement the [`data_type::Type`] struct for calculating the size of a type.
+/// Implement by the [`data_type::Type`] struct for calculating the size of a type.
 pub trait HasSize {
     fn size(&self, ctx: &Context) -> usize;
 }

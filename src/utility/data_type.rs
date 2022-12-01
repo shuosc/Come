@@ -8,9 +8,13 @@ use nom::{
     IResult,
 };
 use std::fmt;
+
+/// An integer type
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Integer {
+    /// Whether the integer is signed.
     pub signed: bool,
+    /// Bit width of this type.
     pub width: usize,
 }
 
