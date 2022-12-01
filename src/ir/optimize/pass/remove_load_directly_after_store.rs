@@ -1,41 +1,27 @@
-use itertools::Itertools;
-
-use crate::ir::optimize::editor::IRFunctionEditor;
+use crate::ir::optimize::{action::EditActionBatch, analyzer::Analyzer};
 
 use super::IsPass;
 pub struct RemoveLoadDirectlyAfterStore;
 
 impl IsPass for RemoveLoadDirectlyAfterStore {
-    fn run(&self, editor: &mut IRFunctionEditor) {
-        let mut to_remove = Vec::new();
-        let mut to_replace = Vec::new();
-        let memory_access_infos = editor
-            .analyzer
-            .memory_access_info()
-            .values()
-            .cloned()
-            .collect_vec();
-        for memory_access_info in memory_access_infos {
-            let dorminate = memory_access_info.dorminate_in_basic_block();
-            for (store, loads) in dorminate {
-                let store_statement = editor.index_statement(store);
-                let store_statement = store_statement.as_store();
+    fn run(&self, analyzer: &Analyzer) -> EditActionBatch {
+        let mut result = EditActionBatch::default();
+        let variables = analyzer.memory_usage.variables();
+        for variable in variables {
+            let memory_access_info = analyzer.memory_usage.memory_access_info(variable);
+            for store_statement_index in &memory_access_info.store {
+                let store_statement = analyzer.content[store_statement_index.clone()].as_store();
                 let stored_value = store_statement.source.clone();
-                for load in loads {
-                    let load_statement = editor.index_statement(load.clone());
-                    let load_statement = load_statement.as_load();
-                    to_replace.push((load_statement.to.clone(), stored_value.clone()));
-                    to_remove.push(load);
+                for load_statement_index in
+                    memory_access_info.loads_dorminated_by_store(store_statement_index)
+                {
+                    let load_statement = analyzer.content[load_statement_index.clone()].as_load();
+                    result.replace(load_statement.to.clone(), stored_value.clone());
+                    result.remove(load_statement_index);
                 }
             }
         }
-        to_remove.sort();
-        for to_remove_index in to_remove.into_iter().rev() {
-            editor.remove_statement(&to_remove_index);
-        }
-        for (register, value) in to_replace {
-            editor.replace_register(&register, value);
-        }
+        result
     }
 }
 
@@ -46,9 +32,10 @@ mod tests {
     use crate::{
         ir::{
             function::basic_block::BasicBlock,
+            optimize::test_util::execute_pass,
             statement::{
-                calculate::binary::BinaryOperation, Alloca, BinaryCalculate, IRStatement, Load,
-                Store,
+                calculate::binary::BinaryOperation, Alloca, BinaryCalculate, IRStatement, Jump,
+                Load, Ret, Store,
             },
             FunctionDefinition, RegisterName,
         },
@@ -117,6 +104,10 @@ mod tests {
                             data_type: data_type::I32.clone(),
                         }
                         .into(),
+                        Jump {
+                            label: "bb1".to_string(),
+                        }
+                        .into(),
                     ],
                 },
                 BasicBlock {
@@ -136,15 +127,14 @@ mod tests {
                             data_type: data_type::I32.clone(),
                         }
                         .into(),
+                        Ret { value: None }.into(),
                     ],
                 },
             ],
         };
         let pass = RemoveLoadDirectlyAfterStore;
-        let mut editor = IRFunctionEditor::new(function);
-        pass.run(&mut editor);
-        let function = editor.done();
-        assert_eq!(function.content[0].content.len(), 6);
+        let function = execute_pass(function, pass.into());
+        assert_eq!(function.content[0].content.len(), 7);
         assert_eq!(
             function.content[0]
                 .content
@@ -153,6 +143,6 @@ mod tests {
                 .count(),
             0
         );
-        assert_eq!(function.content[1].content.len(), 2);
+        assert_eq!(function.content[1].content.len(), 3);
     }
 }

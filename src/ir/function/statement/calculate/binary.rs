@@ -194,6 +194,23 @@ pub fn from_ast(
 }
 
 #[cfg(test)]
+pub mod test_util {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
+    use super::*;
+
+    pub fn new(target: &str, source1: &str, source2: &str) -> BinaryCalculate {
+        BinaryCalculate {
+            operation: BinaryOperation::Add,
+            operand1: RegisterName(source1.to_string()).into(),
+            operand2: RegisterName(source2.to_string()).into(),
+            to: RegisterName(target.to_string()),
+            data_type: data_type::I32.clone(),
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     #![allow(clippy::borrow_interior_mutable_const)]
     use super::*;

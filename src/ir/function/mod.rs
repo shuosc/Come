@@ -29,6 +29,9 @@ pub mod parameter;
 /// Data structure, parser and ir generator for ir statements.
 pub mod statement;
 
+#[cfg(test)]
+pub use statement::test_util;
+
 /// Index to access statements in a function.
 /// (block_index, statement_index)
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -129,6 +132,20 @@ impl fmt::Display for FunctionDefinition {
             write!(f, "{}", basic_block)?;
         }
         write!(f, "}}")
+    }
+}
+
+impl Index<usize> for FunctionDefinition {
+    type Output = BasicBlock;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.content[index]
+    }
+}
+
+impl IndexMut<usize> for FunctionDefinition {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.content[index]
     }
 }
 

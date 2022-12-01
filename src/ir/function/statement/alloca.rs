@@ -63,6 +63,20 @@ pub fn parse(code: &str) -> IResult<&str, Alloca> {
 }
 
 #[cfg(test)]
+pub mod test_util {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
+    use super::*;
+
+    pub fn new(variable_name: &str) -> Alloca {
+        Alloca {
+            to: RegisterName(format!("{}_addr", variable_name)),
+            alloc_type: data_type::I32.clone(),
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     #![allow(clippy::borrow_interior_mutable_const)]
     use super::*;

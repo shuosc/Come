@@ -26,6 +26,18 @@ pub struct PhiSource {
     pub block: String,
 }
 
+impl PartialOrd for PhiSource {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.block.partial_cmp(&other.block)
+    }
+}
+
+impl Ord for PhiSource {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.block.cmp(&other.block)
+    }
+}
+
 fn parse_phi_source(code: &str) -> IResult<&str, PhiSource> {
     map(
         delimited(
