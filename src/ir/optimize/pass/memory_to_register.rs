@@ -12,8 +12,11 @@ use crate::ir::{
 
 use super::IsPass;
 
+/// [`MemoryToRegister`] is a pass that convert memory access to register access.
+/// It is similar to LLVM's [`mem2reg`](https://llvm.org/docs/Passes.html#mem2reg-promote-memory-to-register).
 pub struct MemoryToRegister;
 
+/// Find out where should we insert phi positions.
 fn insert_phi_positions(
     memory_usage: &MemoryUsageAnalyzer,
     control_flow_graph: &ControlFlowGraph,
@@ -28,7 +31,7 @@ fn insert_phi_positions(
             let considering_bb_index = pending_bb_indexes.pop().unwrap();
             done_bb_index.push(considering_bb_index);
             let dominator_frontier_bb_indexes =
-                control_flow_graph.dorminate_frontier(considering_bb_index);
+                control_flow_graph.dominance_frontier(considering_bb_index);
             for &to_bb_index in dominator_frontier_bb_indexes {
                 result.push((variable_name.0.clone(), to_bb_index));
                 // it's possible we put a phi node to a new block which contains no
@@ -50,6 +53,7 @@ fn insert_phi_positions(
     result
 }
 
+/// Decide which value should be used for the phi nodes for variable which name is `variable_name`.
 fn decide_variable_value(
     variable_name: &str,
     current_variable_value: &[HashMap<String, (usize, Quantity)>],

@@ -10,12 +10,17 @@ use crate::{
 
 use super::control_flow::ControlFlowGraph;
 
+/// [`RegisterDefinePosition`] is the position where a register is defined.
 pub enum RegisterDefinePosition {
+    /// The register is defined in the body of the function.
     Body(FunctionDefinitionIndex),
+    /// The register is defined as the function's parameter.
     Parameter(usize),
 }
 
 impl RegisterDefinePosition {
+    /// Get the index of the statement where the register is defined.
+    /// Panics if the register is not defined in the function body.
     pub fn unwrap_body(&self) -> &FunctionDefinitionIndex {
         if let Self::Body(index) = self {
             index
@@ -24,6 +29,8 @@ impl RegisterDefinePosition {
         }
     }
 
+    /// Get the index of the statement where the register is defined.
+    /// Return `None` if the register is not defined in the function body.
     pub fn body(&self) -> Option<&FunctionDefinitionIndex> {
         if let Self::Body(index) = self {
             Some(index)
@@ -33,23 +40,28 @@ impl RegisterDefinePosition {
     }
 }
 
+/// [`RegisterUsage`] is about how a register is used.
 pub struct RegisterUsage<'a> {
     content: &'a FunctionDefinition,
-    // define statementindex or parameter id
-    pub define_index: RegisterDefinePosition,
+    /// Where the register is defined.
+    pub define_position: RegisterDefinePosition,
+    ///  Where the register is used, in order
     pub use_indexes: Vec<FunctionDefinitionIndex>,
 }
 
 impl<'a> RegisterUsage<'a> {
+    /// If the register is defined by an alloca, return the type of the alloca.
+    /// Panics if the register is not defined by an alloca.
     pub fn alloca_type(&self) -> data_type::Type {
-        self.content[self.define_index.unwrap_body().clone()]
+        self.content[self.define_position.unwrap_body().clone()]
             .as_alloca()
             .alloc_type
             .clone()
     }
 
+    /// Type of the register.
     pub fn data_type(&self) -> data_type::Type {
-        match &self.define_index {
+        match &self.define_position {
             RegisterDefinePosition::Body(define_index) => {
                 self.content[define_index.clone()]
                     .generate_register()
@@ -63,12 +75,14 @@ impl<'a> RegisterUsage<'a> {
     }
 }
 
+/// [`RegisterUsageAnalyzer`] is for analyzing how registers are used in a function.
 pub struct RegisterUsageAnalyzer<'a> {
     content: &'a FunctionDefinition,
     register_usages: OnceCell<HashMap<RegisterName, RegisterUsage<'a>>>,
 }
 
 impl<'a> RegisterUsageAnalyzer<'a> {
+    /// Create a new [`RegisterUsageAnalyzer`].
     pub fn new(content: &'a FunctionDefinition) -> Self {
         Self {
             content,
@@ -76,6 +90,7 @@ impl<'a> RegisterUsageAnalyzer<'a> {
         }
     }
 
+    /// All registers which are used in the function.
     pub fn registers(&self) -> Vec<&RegisterName> {
         // we want the result in order, so that we can make unit tests easier
         // Maybe use IndexMap for register_usages in the future
@@ -84,10 +99,12 @@ impl<'a> RegisterUsageAnalyzer<'a> {
         registers
     }
 
+    /// Get the [`RegisterUsage`] of `register`.
     pub fn get(&self, register: &RegisterName) -> &RegisterUsage {
         self.register_usages().get(register).unwrap()
     }
 
+    /// Get all [`RegisterUsage`]s.    
     pub fn register_usages(&self) -> &HashMap<RegisterName, RegisterUsage> {
         self.register_usages.get_or_init(|| {
             let mut register_usages = HashMap::new();
@@ -96,7 +113,7 @@ impl<'a> RegisterUsageAnalyzer<'a> {
                     param.name.clone(),
                     RegisterUsage {
                         content: self.content,
-                        define_index: RegisterDefinePosition::Parameter(index),
+                        define_position: RegisterDefinePosition::Parameter(index),
                         use_indexes: Vec::new(),
                     },
                 );
@@ -107,17 +124,17 @@ impl<'a> RegisterUsageAnalyzer<'a> {
                         .entry(define_register_name)
                         .or_insert_with(|| RegisterUsage {
                             content: self.content,
-                            define_index: RegisterDefinePosition::Body(index.clone()),
+                            define_position: RegisterDefinePosition::Body(index.clone()),
                             use_indexes: Vec::new(),
                         })
-                        .define_index = RegisterDefinePosition::Body(index.clone());
+                        .define_position = RegisterDefinePosition::Body(index.clone());
                 }
                 for use_register_name in statement.use_register() {
                     register_usages
                         .entry(use_register_name)
                         .or_insert_with(|| RegisterUsage {
                             content: self.content,
-                            define_index: RegisterDefinePosition::Body(index.clone()),
+                            define_position: RegisterDefinePosition::Body(index.clone()),
                             use_indexes: Vec::new(),
                         })
                         .use_indexes
@@ -128,6 +145,7 @@ impl<'a> RegisterUsageAnalyzer<'a> {
         })
     }
 
+    /// Get the blocks `register` is active in.
     pub fn register_active_blocks(
         &self,
         register: &RegisterName,
@@ -142,7 +160,7 @@ impl<'a> RegisterUsageAnalyzer<'a> {
         use_blocks.sort();
         use_blocks.dedup();
         let mut result = Vec::new();
-        if let Some(define_block) = register_usages.define_index.body().map(|it| it.0) {
+        if let Some(define_block) = register_usages.define_position.body().map(|it| it.0) {
             if use_blocks.len() == 1 && use_blocks[0] == define_block {
                 return vec![define_block];
             }

@@ -12,11 +12,13 @@ use remove_load_directly_after_store::RemoveLoadDirectlyAfterStore;
 use remove_only_once_store::RemoveOnlyOnceStore;
 use remove_unused_register::RemoveUnusedRegister;
 
+/// This trait should be implemented by all passes which can do optimizing on ir function.
 #[enum_dispatch]
 pub trait IsPass {
     fn run(&self, analyzer: &Analyzer) -> EditActionBatch;
 }
 
+/// All passes which can do optimizing on ir function.
 #[enum_dispatch(IsPass)]
 pub enum Pass {
     RemoveUnusedRegister,

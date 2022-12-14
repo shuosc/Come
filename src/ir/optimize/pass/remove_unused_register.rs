@@ -5,6 +5,7 @@ use crate::ir::{
 
 use super::IsPass;
 
+/// This pass will remove the register which are defined but not used.
 pub struct RemoveUnusedRegister;
 
 impl IsPass for RemoveUnusedRegister {
@@ -12,7 +13,7 @@ impl IsPass for RemoveUnusedRegister {
         let mut result = EditActionBatch::default();
         for usage in analyzer.register_usage.register_usages().values() {
             if usage.use_indexes.is_empty() {
-                if let RegisterDefinePosition::Body(define_index) = &usage.define_index {
+                if let RegisterDefinePosition::Body(define_index) = &usage.define_position {
                     result.remove(define_index.clone());
                 }
             }

@@ -15,6 +15,7 @@ use crate::{
     utility,
 };
 
+/// [`ControlFlowGraph`] is the control flow graph and related infomation of a function.
 #[derive(Debug)]
 pub struct ControlFlowGraph {
     graph: DiGraph<(), (), usize>,
@@ -24,6 +25,7 @@ pub struct ControlFlowGraph {
 }
 
 impl ControlFlowGraph {
+    /// Create a [`ControlFlowGraph`] from a [`FunctionDefinition`].
     pub fn new(function_definition: &FunctionDefinition) -> Self {
         let mut graph = DiGraph::<(), (), usize>::default();
         let bb_name_index_map: BiMap<_, _> = function_definition
@@ -71,18 +73,22 @@ impl ControlFlowGraph {
         }
     }
 
-    pub fn dorminate_frontier(&self, bb_index: usize) -> &[usize] {
+    /// [Dorminance Frontier](https://en.wikipedia.org/wiki/Dominator_(graph_theory)) of basic block indexed by `bb_index`.
+    pub fn dominance_frontier(&self, bb_index: usize) -> &[usize] {
         self.frontiers.get(&bb_index).unwrap()
     }
 
+    /// Get the index of basic block named `name`.
     pub fn basic_block_index_by_name(&self, name: &str) -> usize {
         *self.bb_name_index_map.get_by_right(name).unwrap()
     }
 
+    /// Get the name of basic block indexed by `index`.
     pub fn basic_block_name_by_index(&self, index: usize) -> &str {
         self.bb_name_index_map.get_by_left(&index).unwrap()
     }
 
+    /// Get all blocks that the control flow may pass from `from` to `to`.
     pub fn may_pass_blocks(&self, from: usize, to: usize) -> Ref<Vec<usize>> {
         let mut from_to_passed_blocks = self.from_to_may_pass_blocks.borrow_mut();
         from_to_passed_blocks.entry((from, to)).or_insert_with(|| {
@@ -102,8 +108,10 @@ impl ControlFlowGraph {
     }
 }
 
+/// Remove unreachable nodes from a graph.
 fn remove_unreachable_nodes(mut graph: DiGraph<(), (), usize>) -> DiGraph<(), (), usize> {
     let mut reachable_nodes = vec![];
+    // We start from the node indexed by 0, which represents the entry node for functions.
     let mut dfs = Dfs::new(&graph, 0.into());
     while let Some(node) = dfs.next(&graph) {
         reachable_nodes.push(node);

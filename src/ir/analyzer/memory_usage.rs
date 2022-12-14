@@ -12,8 +12,10 @@ use crate::{
     utility::data_type::Type,
 };
 
+/// [`MemoryAccessInfo`] is about how a range of memory space is accessed.
 #[derive(Debug, Clone)]
 pub struct MemoryAccessInfo {
+    /// alloca statement index
     pub alloca: FunctionDefinitionIndex,
     // store statements index, in order
     pub store: Vec<FunctionDefinitionIndex>,
@@ -24,6 +26,7 @@ pub struct MemoryAccessInfo {
 }
 
 impl MemoryAccessInfo {
+    /// Group store statements by basic block.
     fn store_group_by_basic_block(&self) -> &HashMap<usize, Vec<usize>> {
         self.store_group_by_basic_block.get_or_init(|| {
             self.store
@@ -37,6 +40,7 @@ impl MemoryAccessInfo {
         })
     }
 
+    /// Group load statements by basic block.
     fn load_group_by_basic_block(&self) -> &HashMap<usize, Vec<usize>> {
         self.load_group_by_basic_block.get_or_init(|| {
             self.load
@@ -50,6 +54,9 @@ impl MemoryAccessInfo {
         })
     }
 
+    /// Find all loades which are
+    /// - in the same basic block as the given store
+    /// - appear after the given store
     pub fn loads_dorminated_by_store_in_block(
         &self,
         store: &FunctionDefinitionIndex,
@@ -70,12 +77,14 @@ impl MemoryAccessInfo {
     }
 }
 
+/// [`MemoryUsageAnalyzer`] is for analyzing how a function uses stack memory.
 pub struct MemoryUsageAnalyzer<'a> {
     content: &'a FunctionDefinition,
     memory_access: OnceCell<HashMap<RegisterName, MemoryAccessInfo>>,
 }
 
 impl<'a> MemoryUsageAnalyzer<'a> {
+    /// Create a new [`MemoryUsageAnalyzer`] from a [`FunctionDefinition`].
     pub fn new(content: &'a FunctionDefinition) -> Self {
         Self {
             content,
@@ -83,14 +92,17 @@ impl<'a> MemoryUsageAnalyzer<'a> {
         }
     }
 
+    /// Get the [`MemoryAccessInfo`] of the given variable.
     pub fn memory_access_info(&self, variable_name: &RegisterName) -> &MemoryAccessInfo {
         self.memory_access().get(variable_name).unwrap()
     }
 
+    /// All variables which are allocated on stack.
     pub fn memory_access_variables(&self) -> impl Iterator<Item = &RegisterName> {
         self.memory_access().keys()
     }
 
+    /// All variables and their type which are allocated on stack.
     pub fn memory_access_variables_and_types(&self) -> HashMap<RegisterName, Type> {
         self.memory_access()
             .iter()

@@ -1,6 +1,10 @@
 use crate::ir::{analyzer::Analyzer, optimize::action::EditActionBatch};
 
 use super::IsPass;
+
+/// This pass will remove all load instructions which are
+/// - in same block with a store instruction
+/// - after the store instruction.
 pub struct RemoveLoadDirectlyAfterStore;
 
 impl IsPass for RemoveLoadDirectlyAfterStore {

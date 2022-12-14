@@ -2,19 +2,24 @@ use pass::{IsPass, Pass};
 
 use super::analyzer::Analyzer;
 
+/// Actions and action batch to edit ir function.
 mod action;
+/// Optimizing passes to be executed on a function.
 mod pass;
 
+/// [`Optimizer`] can manage passes and optimize the ir function.
 #[derive(Default)]
 pub struct Optimizor {
     passes: Vec<Pass>,
 }
 
 impl Optimizor {
+    /// Add a [`Pass`] to [`Optimizer`].
     pub fn add_pass(&mut self, pass: Pass) {
         self.passes.push(pass);
     }
 
+    /// Run all passes on the ir function.
     pub fn optimize(self, mut ir: super::FunctionDefinition) -> super::FunctionDefinition {
         // todo: make it a special `formalize` function
         //       except fill name for the first block,
