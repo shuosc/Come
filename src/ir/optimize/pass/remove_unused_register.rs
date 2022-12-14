@@ -1,4 +1,4 @@
-use crate::ir::optimize::{action::EditActionBatch, analyzer::Analyzer};
+use crate::ir::{optimize::{action::EditActionBatch}, analyzer::Analyzer};
 
 use super::IsPass;
 

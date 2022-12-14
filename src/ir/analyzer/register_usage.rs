@@ -29,6 +29,14 @@ impl<'a> RegisterUsage<'a> {
             .clone()
     }
 
+    pub fn data_type(&self) -> data_type::Type {
+        self.content[self.define_index.clone()]
+            .generate_register()
+            .unwrap()
+            .1
+            .clone()
+    }
+
     pub fn define_statement(&self) -> &IRStatement {
         &self.content[self.define_index.clone()]
     }

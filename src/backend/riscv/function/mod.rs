@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use super::register_assign::{self, RegisterAssign};
-use crate::ir;
+use crate::ir::{self, analyzer::{control_flow::ControlFlowGraph, register_usage::RegisterUsageAnalyzer}};
 
 pub mod basic_block;
 pub mod statement;
@@ -19,7 +19,10 @@ pub struct FunctionCompileContext<'a> {
 
 /// Emit assembly code for a [`ir::FunctionDefinition`].
 pub fn emit_code(function: &ir::FunctionDefinition, ctx: &mut super::Context) -> String {
-    let (register_assign, stack_space) = register_assign::assign_register(function, ctx);
+    let control_flow_graph = ControlFlowGraph::new(function);
+    let register_usage = RegisterUsageAnalyzer::new(function);
+    let (register_assign, stack_space) = 
+        register_assign::assign_register(function, ctx, control_flow_graph, register_usage);
     let mut result = format!("{}:\n", function.name);
     let mut context = FunctionCompileContext {
         parent_context: ctx,

@@ -1,4 +1,4 @@
-use crate::{ir, utility::data_type};
+use crate::{ir::{self, analyzer::{control_flow::ControlFlowGraph, register_usage::RegisterUsageAnalyzer}}, utility::data_type};
 use std::{collections::HashMap, str};
 /// Compiling a function.
 mod function;
@@ -10,7 +10,6 @@ pub struct Context {
     /// Struct type definitions
     pub struct_definitions: HashMap<String, ir::TypeDefinition>,
 }
-
 /// Implement by the [`data_type::Type`] struct for calculating the size of a type.
 pub trait HasSize {
     fn size(&self, ctx: &Context) -> usize;

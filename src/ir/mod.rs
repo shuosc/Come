@@ -10,6 +10,7 @@ pub mod function;
 mod global_definition;
 mod integer_literal;
 mod optimize;
+pub mod analyzer;
 /// Data structure and parser for variables (global or local) and literals.
 pub mod quantity;
 mod type_definition;

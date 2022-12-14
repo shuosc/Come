@@ -5,8 +5,8 @@ use itertools::Itertools;
 use crate::ir::{
     optimize::{
         action::EditActionBatch,
-        analyzer::{control_flow::ControlFlowGraph, memory_usage::MemoryUsageAnalyzer, Analyzer},
     },
+    analyzer::{control_flow::ControlFlowGraph, memory_usage::MemoryUsageAnalyzer, Analyzer},
     quantity::Quantity,
     statement::{IRStatement, Load, Store},
     FunctionDefinition, RegisterName,

@@ -1,10 +1,8 @@
-use self::{
-    analyzer::Analyzer,
-    pass::{IsPass, Pass},
-};
+use pass::{IsPass, Pass};
+
+use super::analyzer::Analyzer;
 
 mod action;
-mod analyzer;
 mod pass;
 
 #[derive(Default)]
