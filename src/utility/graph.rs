@@ -22,6 +22,8 @@ use std::hash::Hash;
 ///
 /// `graph` must be the same, un-mutated graph that the `dominators` was constructed from.
 ///
+/// Panic when there are nodes unreachable from the root node `dominators` constructed with.
+///
 /// [0]: http://www.cs.rice.edu/~keith/EMBED/dom.pdf
 pub fn dominance_frontiers<N, G>(
     dorminators: &Dominators<N>,

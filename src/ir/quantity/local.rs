@@ -10,7 +10,7 @@ use nom::{
 use std::fmt::{self, Display, Formatter};
 
 /// [`RegisterName`] represents a local variable's name.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, PartialOrd, Ord)]
 pub struct RegisterName(pub String);
 
 impl Display for RegisterName {

@@ -1,19 +1,23 @@
-use crate::ir::optimize::{action::EditActionBatch, analyzer::Analyzer};
+use crate::ir::{analyzer::Analyzer, optimize::action::EditActionBatch};
 
 use super::IsPass;
+
+/// This pass will remove all load instructions which are
+/// - in same block with a store instruction
+/// - after the store instruction.
 pub struct RemoveLoadDirectlyAfterStore;
 
 impl IsPass for RemoveLoadDirectlyAfterStore {
     fn run(&self, analyzer: &Analyzer) -> EditActionBatch {
         let mut result = EditActionBatch::default();
-        let variables = analyzer.memory_usage.variables();
+        let variables = analyzer.memory_usage.memory_access_variables();
         for variable in variables {
             let memory_access_info = analyzer.memory_usage.memory_access_info(variable);
             for store_statement_index in &memory_access_info.store {
                 let store_statement = analyzer.content[store_statement_index.clone()].as_store();
                 let stored_value = store_statement.source.clone();
                 for load_statement_index in
-                    memory_access_info.loads_dorminated_by_store(store_statement_index)
+                    memory_access_info.loads_dorminated_by_store_in_block(store_statement_index)
                 {
                     let load_statement = analyzer.content[load_statement_index.clone()].as_load();
                     result.replace(load_statement.to.clone(), stored_value.clone());

@@ -1,7 +1,11 @@
-use crate::ir::optimize::{action::EditActionBatch, analyzer::Analyzer};
+use crate::ir::{
+    analyzer::{register_usage::RegisterDefinePosition, Analyzer},
+    optimize::action::EditActionBatch,
+};
 
 use super::IsPass;
 
+/// This pass will remove the register which are defined but not used.
 pub struct RemoveUnusedRegister;
 
 impl IsPass for RemoveUnusedRegister {
@@ -9,7 +13,9 @@ impl IsPass for RemoveUnusedRegister {
         let mut result = EditActionBatch::default();
         for usage in analyzer.register_usage.register_usages().values() {
             if usage.use_indexes.is_empty() {
-                result.remove(usage.define_index.clone());
+                if let RegisterDefinePosition::Body(define_index) = &usage.define_position {
+                    result.remove(define_index.clone());
+                }
             }
         }
         result

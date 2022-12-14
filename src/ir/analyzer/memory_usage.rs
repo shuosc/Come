@@ -12,8 +12,10 @@ use crate::{
     utility::data_type::Type,
 };
 
+/// [`MemoryAccessInfo`] is about how a range of memory space is accessed.
 #[derive(Debug, Clone)]
 pub struct MemoryAccessInfo {
+    /// alloca statement index
     pub alloca: FunctionDefinitionIndex,
     // store statements index, in order
     pub store: Vec<FunctionDefinitionIndex>,
@@ -24,18 +26,8 @@ pub struct MemoryAccessInfo {
 }
 
 impl MemoryAccessInfo {
-    // for any variable, only the last store in each basic block may affect other basic blocks
-    pub fn stores_used_by_other_blocks(&self) -> Vec<FunctionDefinitionIndex> {
-        self.store
-            .iter()
-            .group_by(|it| it.0)
-            .into_iter()
-            .map(|(_, it)| it.into_iter().last().unwrap())
-            .cloned()
-            .collect_vec()
-    }
-
-    pub fn store_group_by_basic_block(&self) -> &HashMap<usize, Vec<usize>> {
+    /// Group store statements by basic block.
+    fn store_group_by_basic_block(&self) -> &HashMap<usize, Vec<usize>> {
         self.store_group_by_basic_block.get_or_init(|| {
             self.store
                 .iter()
@@ -48,7 +40,8 @@ impl MemoryAccessInfo {
         })
     }
 
-    pub fn load_group_by_basic_block(&self) -> &HashMap<usize, Vec<usize>> {
+    /// Group load statements by basic block.
+    fn load_group_by_basic_block(&self) -> &HashMap<usize, Vec<usize>> {
         self.load_group_by_basic_block.get_or_init(|| {
             self.load
                 .iter()
@@ -61,7 +54,10 @@ impl MemoryAccessInfo {
         })
     }
 
-    pub fn loads_dorminated_by_store(
+    /// Find all loades which are
+    /// - in the same basic block as the given store
+    /// - appear after the given store
+    pub fn loads_dorminated_by_store_in_block(
         &self,
         store: &FunctionDefinitionIndex,
     ) -> Vec<FunctionDefinitionIndex> {
@@ -81,12 +77,14 @@ impl MemoryAccessInfo {
     }
 }
 
+/// [`MemoryUsageAnalyzer`] is for analyzing how a function uses stack memory.
 pub struct MemoryUsageAnalyzer<'a> {
     content: &'a FunctionDefinition,
     memory_access: OnceCell<HashMap<RegisterName, MemoryAccessInfo>>,
 }
 
 impl<'a> MemoryUsageAnalyzer<'a> {
+    /// Create a new [`MemoryUsageAnalyzer`] from a [`FunctionDefinition`].
     pub fn new(content: &'a FunctionDefinition) -> Self {
         Self {
             content,
@@ -94,15 +92,18 @@ impl<'a> MemoryUsageAnalyzer<'a> {
         }
     }
 
+    /// Get the [`MemoryAccessInfo`] of the given variable.
     pub fn memory_access_info(&self, variable_name: &RegisterName) -> &MemoryAccessInfo {
         self.memory_access().get(variable_name).unwrap()
     }
 
-    pub fn variables(&self) -> impl Iterator<Item = &RegisterName> {
+    /// All variables which are allocated on stack.
+    pub fn memory_access_variables(&self) -> impl Iterator<Item = &RegisterName> {
         self.memory_access().keys()
     }
 
-    pub fn variable_and_types(&self) -> HashMap<RegisterName, Type> {
+    /// All variables and their type which are allocated on stack.
+    pub fn memory_access_variables_and_types(&self) -> HashMap<RegisterName, Type> {
         self.memory_access()
             .iter()
             .map(|(variable, info)| {
@@ -116,10 +117,14 @@ impl<'a> MemoryUsageAnalyzer<'a> {
     }
 
     fn memory_access(&self) -> &HashMap<RegisterName, MemoryAccessInfo> {
-        self.memory_access.get_or_init(|| {
-            let mut memory_access = HashMap::new();
-            for (index, statement) in self.content.iter().function_definition_index_enumerate() {
-                if matches!(statement, IRStatement::Alloca(_)) {
+        self.memory_access.get_or_init(|| self.init_memory_access())
+    }
+
+    fn init_memory_access(&self) -> HashMap<RegisterName, MemoryAccessInfo> {
+        let mut memory_access = HashMap::new();
+        for (index, statement) in self.content.iter().function_definition_index_enumerate() {
+            match statement {
+                IRStatement::Alloca(_) => {
                     memory_access
                         .entry(statement.generate_register().unwrap().0)
                         .or_insert_with(|| MemoryAccessInfo {
@@ -130,8 +135,9 @@ impl<'a> MemoryUsageAnalyzer<'a> {
                             load_group_by_basic_block: OnceCell::new(),
                         })
                         .alloca = index.clone();
-                } else if matches!(statement, IRStatement::Store(_)) {
-                    if let Quantity::RegisterName(local) = &statement.as_store().target {
+                }
+                IRStatement::Store(store) => {
+                    if let Quantity::RegisterName(local) = &store.target {
                         memory_access
                             .entry(local.clone())
                             .or_insert_with(|| MemoryAccessInfo {
@@ -145,8 +151,9 @@ impl<'a> MemoryUsageAnalyzer<'a> {
                             .store
                             .push(index);
                     }
-                } else if matches!(statement, IRStatement::Load(_)) {
-                    if let Quantity::RegisterName(local) = &statement.as_load().from {
+                }
+                IRStatement::Load(load) => {
+                    if let Quantity::RegisterName(local) = &load.from {
                         memory_access
                             .entry(local.clone())
                             .or_insert_with(|| MemoryAccessInfo {
@@ -161,8 +168,9 @@ impl<'a> MemoryUsageAnalyzer<'a> {
                             .push(index);
                     }
                 }
+                _ => (),
             }
-            memory_access
-        })
+        }
+        memory_access
     }
 }

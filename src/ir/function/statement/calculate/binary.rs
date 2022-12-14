@@ -208,6 +208,16 @@ pub mod test_util {
             data_type: data_type::I32.clone(),
         }
     }
+
+    pub fn new_constant(target: &str) -> BinaryCalculate {
+        BinaryCalculate {
+            operation: BinaryOperation::Add,
+            operand1: 1.into(),
+            operand2: 2.into(),
+            to: RegisterName(target.to_string()),
+            data_type: data_type::I32.clone(),
+        }
+    }
 }
 
 #[cfg(test)]

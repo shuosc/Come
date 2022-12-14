@@ -1,4 +1,5 @@
 fn test_condition(i32 %a, i32 %b) -> i32 {
+  test_condition_entry:
     %a_0_addr = alloca i32
     store i32 %a, address %a_0_addr
     %b_0_addr = alloca i32

@@ -1,5 +1,6 @@
 test_condition:
     addi sp, sp, -8
+test_condition_entry:
     sw a0, 0(sp)
     sw a1, 4(sp)
     lw t2, 0(sp)
@@ -9,12 +10,12 @@ test_condition:
     bne t4, t1, if_0_success
     j if_0_fail
 if_0_success:
-    lw t5, 0(sp)
-    mv a0, t5
+    lw t4, 0(sp)
+    mv a0, t4
     j test_condition_end
 if_0_fail:
-    lw t6, 4(sp)
-    mv a0, t6
+    lw t4, 4(sp)
+    mv a0, t4
     j test_condition_end
 if_0_end:
     j test_condition_end
