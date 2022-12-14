@@ -13,7 +13,7 @@ use petgraph::{
 
 use crate::{
     ir::{statement::IRStatement, FunctionDefinition},
-    utility::{self},
+    utility,
 };
 
 type NodeId = <DiGraph<usize, ()> as GraphBase>::NodeId;
@@ -161,12 +161,7 @@ impl ControlFlowGraph {
                 passed_nodes.dedup();
                 passed_nodes
                     .into_iter()
-                    .map(|it| {
-                        self.bb_index_node_index_map
-                            .get_by_right(&it)
-                            .unwrap()
-                            .clone()
-                    })
+                    .map(|it| *self.bb_index_node_index_map.get_by_right(&it).unwrap())
                     .collect()
             })
             .clone()

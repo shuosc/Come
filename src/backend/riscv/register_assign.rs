@@ -1,22 +1,17 @@
 use core::fmt;
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     iter, mem,
 };
 
-use indexmap::IndexSet;
 use itertools::Itertools;
-use petgraph::data;
 
-use crate::{
-    ir::{
-        self,
-        analyzer::{control_flow::ControlFlowGraph, register_usage::RegisterUsageAnalyzer},
-        function::parameter::Parameter,
-        statement::{IRStatement, IsIRStatement},
-        RegisterName,
-    },
-    utility::data_type,
+use crate::ir::{
+    self,
+    analyzer::{control_flow::ControlFlowGraph, register_usage::RegisterUsageAnalyzer},
+    function::parameter::Parameter,
+    statement::{IRStatement, IsIRStatement},
+    RegisterName,
 };
 
 use super::{Context, HasSize};
@@ -43,7 +38,7 @@ impl fmt::Display for RegisterAssign {
                 "{}",
                 registers
                     .iter()
-                    .map(|register| format!("{}", register))
+                    .map(|register| register.to_string())
                     .collect_vec()
                     .join(",")
             ),
@@ -78,13 +73,7 @@ pub fn assign_register(
         .registers()
         .iter()
         .filter(|&&it| !alloca_registers.contains(it))
-        .filter(|&&it| {
-            ir_code
-                .parameters
-                .iter()
-                .find(|param| it == &param.name)
-                .is_none()
-        })
+        .filter(|&&it| !ir_code.parameters.iter().any(|param| it == &param.name))
         .cloned()
         .collect_vec();
     let variables_active_blocks: HashMap<_, HashSet<_>> = consider_registers
@@ -354,215 +343,124 @@ mod tests {
         assert!(contains_a0.contains(&RegisterName("a2".to_string())));
     }
 
-    // #[test]
-    // fn test_register_groups() {
-    //     let function_definition = FunctionDefinition {
-    //         name: "f".to_string(),
-    //         parameters: Vec::new(),
-    //         return_type: data_type::Type::None,
-    //         content: vec![
-    //             BasicBlock {
-    //                 name: Some("bb1".to_string()),
-    //                 content: vec![
-    //                     binop_constant("t0"),
-    //                     binop_constant("a1"),
-    //                     binop_constant("b0"),
-    //                     branch("bb2", "bb4"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb2".to_string()),
-    //                 content: vec![
-    //                     binop_constant("t1"),
-    //                     binop_constant("a0"),
-    //                     binop_constant("b1"),
-    //                     jump("bb3"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb3".to_string()),
-    //                 content: vec![
-    //                     phi("t2", "bb1", "t0", "bb2", "t1"),
-    //                     phi("a2", "bb1", "a1", "bb2", "a0"),
-    //                     jump("bb5"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb4".to_string()),
-    //                 content: vec![binop_constant("t3"), jump("bb5")],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb5".to_string()),
-    //                 content: vec![
-    //                     phi("t4", "bb3", "t2", "bb4", "t3"),
-    //                     Ret { value: None }.into(),
-    //                 ],
-    //             },
-    //         ],
-    //     };
-    //     let ctx = Context::default();
-    //     let control_flow_graph = ControlFlowGraph::new(&function_definition);
-    //     let register_analyzer = RegisterUsageAnalyzer::new(&function_definition);
-    //     let groups = register_groups(
-    //         &function_definition,
-    //         &ctx,
-    //         &control_flow_graph,
-    //         &register_analyzer,
-    //     );
-    //     assert_eq!(groups.len(), 3);
-    //     let contains_t0 = groups
-    //         .iter()
-    //         .find(|it| it.contains(&RegisterName("t0".to_string())))
-    //         .unwrap();
-    //     assert_eq!(contains_t0.len(), 5);
-    //     assert!(contains_t0.contains(&RegisterName("t1".to_string())));
-    //     assert!(contains_t0.contains(&RegisterName("t2".to_string())));
-    //     assert!(contains_t0.contains(&RegisterName("t3".to_string())));
-    //     assert!(contains_t0.contains(&RegisterName("t4".to_string())));
+    #[test]
+    fn test_assign_register() {
+        let function_definition = FunctionDefinition {
+            name: "f".to_string(),
+            parameters: Vec::new(),
+            return_type: data_type::Type::None,
+            content: vec![
+                BasicBlock {
+                    name: Some("bb0".to_string()),
+                    content: vec![
+                        binop_constant("m"),
+                        binop_constant("n"),
+                        binop_constant("u1"),
+                        binop("i0", "m", "m"),
+                        binop("j0", "n", "n"),
+                        binop("a0", "u1", "u1"),
+                        binop_constant("r"),
+                        jump("bb1"),
+                    ],
+                },
+                BasicBlock {
+                    name: Some("bb1".to_string()),
+                    content: vec![
+                        phi("i_bb1", "bb1", "i0", "bb4", "i2"),
+                        phi("a_bb1", "bb1", "a0", "bb4", "a1"),
+                        binop("i1", "i_bb1", "i_bb1"),
+                        binop("j1", "j0", "j0"),
+                        branch("bb2", "bb3"),
+                    ],
+                },
+                BasicBlock {
+                    name: Some("bb2".to_string()),
+                    content: vec![
+                        binop("u2", "a_bb1", "a_bb1"),
+                        binop("a1", "u2", "i1"),
+                        jump("bb3"),
+                    ],
+                },
+                BasicBlock {
+                    name: Some("bb3".to_string()),
+                    content: vec![
+                        binop_constant("u3"),
+                        binop("i2", "u3", "j1"),
+                        branch("bb1", "bb4"),
+                    ],
+                },
+                BasicBlock {
+                    name: Some("bb4".to_string()),
+                    content: vec![Ret {
+                        value: Some(RegisterName("r".to_string()).into()),
+                    }
+                    .into()],
+                },
+            ],
+        };
+        let ctx = Context::default();
+        let control_flow_graph = ControlFlowGraph::new(&function_definition);
+        let register_analyzer = RegisterUsageAnalyzer::new(&function_definition);
+        let (assign, stack_usage) = assign_register(
+            &function_definition,
+            &ctx,
+            control_flow_graph,
+            register_analyzer,
+        );
+        assert_eq!(stack_usage, 8);
+        assert_ne!(
+            assign[&RegisterName("m".to_string())],
+            assign[&RegisterName("n".to_string())]
+        );
+        assert_ne!(
+            assign[&RegisterName("m".to_string())],
+            assign[&RegisterName("u1".to_string())]
+        );
+        assert_ne!(
+            assign[&RegisterName("m".to_string())],
+            assign[&RegisterName("i0".to_string())]
+        );
+        assert_ne!(
+            assign[&RegisterName("m".to_string())],
+            assign[&RegisterName("j0".to_string())]
+        );
+        assert_ne!(
+            assign[&RegisterName("m".to_string())],
+            assign[&RegisterName("a0".to_string())]
+        );
+        assert_ne!(
+            assign[&RegisterName("m".to_string())],
+            assign[&RegisterName("r".to_string())]
+        );
 
-    //     let contains_a0 = groups
-    //         .iter()
-    //         .find(|it| it.contains(&RegisterName("a0".to_string())))
-    //         .unwrap();
-    //     assert!(contains_a0.contains(&RegisterName("a1".to_string())));
-    //     assert!(contains_a0.contains(&RegisterName("a2".to_string())));
+        assert_eq!(
+            assign[&RegisterName("i_bb1".to_string())],
+            assign[&RegisterName("i0".to_string())]
+        );
+        assert_eq!(
+            assign[&RegisterName("i_bb1".to_string())],
+            assign[&RegisterName("i2".to_string())]
+        );
+        assert_eq!(
+            assign[&RegisterName("a_bb1".to_string())],
+            assign[&RegisterName("a1".to_string())]
+        );
+        assert_eq!(
+            assign[&RegisterName("a_bb1".to_string())],
+            assign[&RegisterName("a0".to_string())]
+        );
+        assert_ne!(
+            assign[&RegisterName("i_bb1".to_string())],
+            assign[&RegisterName("a_bb1".to_string())]
+        );
 
-    //     let contains_b0 = groups
-    //         .iter()
-    //         .find(|it| it.contains(&RegisterName("b0".to_string())))
-    //         .unwrap();
-    //     assert_eq!(contains_b0.len(), 2);
-    //     assert!(contains_b0.contains(&RegisterName("b1".to_string())));
-
-    //     let function_definition = FunctionDefinition {
-    //         name: "f".to_string(),
-    //         parameters: Vec::new(),
-    //         return_type: data_type::Type::None,
-    //         content: vec![
-    //             BasicBlock {
-    //                 name: Some("bb0".to_string()),
-    //                 content: vec![
-    //                     binop_constant("m"),
-    //                     binop_constant("n"),
-    //                     binop_constant("u1"),
-    //                     binop("i0", "m", "m"),
-    //                     binop("j0", "n", "n"),
-    //                     binop("a0", "u1", "u1"),
-    //                     binop_constant("r"),
-    //                     jump("bb1"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb1".to_string()),
-    //                 content: vec![
-    //                     phi("i_bb1", "bb1", "i0", "bb4", "i2"),
-    //                     phi("a_bb1", "bb1", "a0", "bb4", "a1"),
-    //                     binop("i1", "i_bb1", "i_bb1"),
-    //                     binop("j1", "j0", "j0"),
-    //                     branch("bb2", "bb3"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb2".to_string()),
-    //                 content: vec![
-    //                     binop("u2", "a_bb1", "a_bb1"),
-    //                     binop("a1", "u2", "i1"),
-    //                     jump("bb3"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb3".to_string()),
-    //                 content: vec![
-    //                     binop_constant("u3"),
-    //                     binop("i2", "u3", "j1"),
-    //                     branch("bb1", "bb4"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb4".to_string()),
-    //                 content: vec![Ret {
-    //                     value: Some(RegisterName("r".to_string()).into()),
-    //                 }
-    //                 .into()],
-    //             },
-    //         ],
-    //     };
-    //     let ctx = Context::default();
-    //     let control_flow_graph = ControlFlowGraph::new(&function_definition);
-    //     let register_analyzer = RegisterUsageAnalyzer::new(&function_definition);
-    //     let groups = register_groups(
-    //         &function_definition,
-    //         &ctx,
-    //         &control_flow_graph,
-    //         &register_analyzer,
-    //     );
-    //     assert_eq!(groups.len(), 7);
-    // }
-
-    // #[test]
-    // fn test_assign_register() {
-    //     let function_definition = FunctionDefinition {
-    //         name: "f".to_string(),
-    //         parameters: Vec::new(),
-    //         return_type: data_type::Type::None,
-    //         content: vec![
-    //             BasicBlock {
-    //                 name: Some("bb0".to_string()),
-    //                 content: vec![
-    //                     binop_constant("m"),
-    //                     binop_constant("n"),
-    //                     binop_constant("u1"),
-    //                     binop("i0", "m", "m"),
-    //                     binop("j0", "n", "n"),
-    //                     binop("a0", "u1", "u1"),
-    //                     binop_constant("r"),
-    //                     jump("bb1"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb1".to_string()),
-    //                 content: vec![
-    //                     phi("i_bb1", "bb1", "i0", "bb4", "i2"),
-    //                     phi("a_bb1", "bb1", "a0", "bb4", "a1"),
-    //                     binop("i1", "i_bb1", "i_bb1"),
-    //                     binop("j1", "j0", "j0"),
-    //                     branch("bb2", "bb3"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb2".to_string()),
-    //                 content: vec![
-    //                     binop("u2", "a_bb1", "a_bb1"),
-    //                     binop("a1", "u2", "i1"),
-    //                     jump("bb3"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb3".to_string()),
-    //                 content: vec![
-    //                     binop_constant("u3"),
-    //                     binop("i2", "u3", "j1"),
-    //                     branch("bb1", "bb4"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb4".to_string()),
-    //                 content: vec![Ret {
-    //                     value: Some(RegisterName("r".to_string()).into()),
-    //                 }
-    //                 .into()],
-    //             },
-    //         ],
-    //     };
-    //     let ctx = Context::default();
-    //     let control_flow_graph = ControlFlowGraph::new(&function_definition);
-    //     let register_analyzer = RegisterUsageAnalyzer::new(&function_definition);
-    //     let assign = assign_register(
-    //         &function_definition,
-    //         &ctx,
-    //         control_flow_graph,
-    //         register_analyzer,
-    //     );
-    // }
-
+        assert_eq!(
+            assign[&RegisterName("m".to_string())],
+            assign[&RegisterName("i1".to_string())]
+        );
+        assert_eq!(
+            assign[&RegisterName("m".to_string())],
+            assign[&RegisterName("u3".to_string())]
+        );
+    }
 }

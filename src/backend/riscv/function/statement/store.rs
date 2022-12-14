@@ -56,7 +56,7 @@ pub fn emit_code(
         match local {
             RegisterAssign::StackRef(stack_offset) => stack_offset,
             RegisterAssign::Register(_) => todo!(),
-            RegisterAssign::StackValue(stack_offset) => todo!(),
+            RegisterAssign::StackValue(_stack_offset) => todo!(),
             RegisterAssign::MultipleRegisters(_) => todo!(),
         }
     } else {

@@ -21,7 +21,7 @@ use std::hash::Hash;
 /// but in most real world cases it has almost linear complexity.
 ///
 /// `graph` must be the same, un-mutated graph that the `dominators` was constructed from.
-/// 
+///
 /// Panic when there are nodes unreachable from the root node `dominators` constructed with.
 ///
 /// [0]: http://www.cs.rice.edu/~keith/EMBED/dom.pdf

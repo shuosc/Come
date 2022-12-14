@@ -1,10 +1,4 @@
-use crate::{
-    ir::{
-        self,
-        analyzer::{control_flow::ControlFlowGraph, register_usage::RegisterUsageAnalyzer},
-    },
-    utility::data_type,
-};
+use crate::{ir, utility::data_type};
 use std::{collections::HashMap, str};
 /// Compiling a function.
 mod function;

@@ -8,7 +8,7 @@ use itertools::Itertools;
 
 use crate::{
     ir::{
-        function::{parameter::Parameter, FunctionDefinitionIndex},
+        function::FunctionDefinitionIndex,
         statement::{IRStatement, IsIRStatement},
         FunctionDefinition, RegisterName,
     },
@@ -33,11 +33,12 @@ impl<'a> RegisterUsage<'a> {
 
     pub fn data_type(&self) -> data_type::Type {
         match &self.define_index {
-            Either::Left(define_index) => self.content[define_index.clone()]
-                .generate_register()
-                .unwrap()
-                .1
-                .clone(),
+            Either::Left(define_index) => {
+                self.content[define_index.clone()]
+                    .generate_register()
+                    .unwrap()
+                    .1
+            }
             Either::Right(parameter_index) => {
                 self.content.parameters[*parameter_index].data_type.clone()
             }
@@ -140,7 +141,9 @@ impl<'a> RegisterUsageAnalyzer<'a> {
                     HashMap::new();
                 if define_grouped_by_block.is_empty() {
                     for (register_name, usage) in self.register_usages() {
-                        if let Some(define_in_block) = usage.define_index.as_ref().left().map(|it| it.0) {
+                        if let Some(define_in_block) =
+                            usage.define_index.as_ref().left().map(|it| it.0)
+                        {
                             define_grouped_by_block
                                 .entry(define_in_block)
                                 .or_default()
@@ -183,12 +186,13 @@ impl<'a> RegisterUsageAnalyzer<'a> {
         control_flow_graph: &ControlFlowGraph,
     ) -> Vec<usize> {
         let register_usages = &self.register_usages().get(register).unwrap();
-        let use_blocks = register_usages
+        let mut use_blocks = register_usages
             .use_indexes
             .iter()
             .map(|it| it.0)
             .collect::<Vec<_>>();
-
+        use_blocks.sort();
+        use_blocks.dedup();
         let mut result = Vec::new();
         if let Some(define_block) = register_usages.define_index.as_ref().left().map(|it| it.0) {
             if use_blocks.len() == 1 && use_blocks[0] == define_block {
@@ -205,13 +209,11 @@ impl<'a> RegisterUsageAnalyzer<'a> {
             }
         } else {
             for use_block in use_blocks {
-                result.extend(
-                    control_flow_graph
-                        .passed_block(0, use_block)
-                        .into_iter(),
-                );
+                result.extend(control_flow_graph.passed_block(0, use_block).into_iter());
             }
         }
+        result.sort();
+        result.dedup();
         result
     }
 }
@@ -226,91 +228,91 @@ pub mod tests {
         FunctionDefinition,
     };
 
-    // #[test]
-    // fn register_active_blocks() {
-    //     let function_definition = FunctionDefinition {
-    //         name: "f".to_string(),
-    //         parameters: Vec::new(),
-    //         return_type: data_type::Type::None,
-    //         content: vec![
-    //             BasicBlock {
-    //                 name: Some("bb0".to_string()),
-    //                 content: vec![
-    //                     binop_constant("m"),
-    //                     binop_constant("n"),
-    //                     binop_constant("u1"),
-    //                     binop("i0", "m", "m"),
-    //                     binop("j0", "n", "n"),
-    //                     binop("a0", "u1", "u1"),
-    //                     binop_constant("r"),
-    //                     jump("bb1"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb1".to_string()),
-    //                 content: vec![
-    //                     phi("i_bb1", "bb1", "i0", "bb4", "i2"),
-    //                     phi("a_bb1", "bb1", "a0", "bb4", "a1"),
-    //                     binop("i1", "i_bb1", "i_bb1"),
-    //                     binop("j1", "j0", "j0"),
-    //                     branch("bb2", "bb3"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb2".to_string()),
-    //                 content: vec![
-    //                     binop("u2", "a_bb1", "a_bb1"),
-    //                     binop("a1", "u2", "i1"),
-    //                     jump("bb3"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb3".to_string()),
-    //                 content: vec![
-    //                     binop_constant("u3"),
-    //                     binop("i2", "u3", "j1"),
-    //                     branch("bb1", "bb4"),
-    //                 ],
-    //             },
-    //             BasicBlock {
-    //                 name: Some("bb4".to_string()),
-    //                 content: vec![Ret {
-    //                     value: Some(RegisterName("r".to_string()).into()),
-    //                 }
-    //                 .into()],
-    //             },
-    //         ],
-    //     };
-    //     let control_flow_graph = ControlFlowGraph::new(&function_definition);
-    //     let analyzer = RegisterUsageAnalyzer::new(&function_definition);
-    //     assert_eq!(
-    //         analyzer.register_active_blocks(&RegisterName("m".to_string()), &control_flow_graph),
-    //         vec![0],
-    //     );
-    //     assert_eq!(
-    //         analyzer
-    //             .register_active_blocks(&RegisterName("i_bb1".to_string()), &control_flow_graph),
-    //         vec![1],
-    //     );
-    //     assert_eq!(
-    //         analyzer.register_active_blocks(&RegisterName("i0".to_string()), &control_flow_graph),
-    //         vec![0, 1]
-    //     );
-    //     assert_eq!(
-    //         analyzer.register_active_blocks(&RegisterName("i2".to_string()), &control_flow_graph),
-    //         vec![1, 3],
-    //     );
-    //     assert_eq!(
-    //         analyzer.register_active_blocks(&RegisterName("a1".to_string()), &control_flow_graph),
-    //         vec![1, 2, 3],
-    //     );
-    //     assert_eq!(
-    //         analyzer.register_active_blocks(&RegisterName("j1".to_string()), &control_flow_graph),
-    //         vec![1, 2, 3],
-    //     );
-    //     assert_eq!(
-    //         analyzer.register_active_blocks(&RegisterName("r".to_string()), &control_flow_graph),
-    //         vec![0, 1, 2, 3, 4]
-    //     );
-    // }
+    #[test]
+    fn register_active_blocks() {
+        let function_definition = FunctionDefinition {
+            name: "f".to_string(),
+            parameters: Vec::new(),
+            return_type: data_type::Type::None,
+            content: vec![
+                BasicBlock {
+                    name: Some("bb0".to_string()),
+                    content: vec![
+                        binop_constant("m"),
+                        binop_constant("n"),
+                        binop_constant("u1"),
+                        binop("i0", "m", "m"),
+                        binop("j0", "n", "n"),
+                        binop("a0", "u1", "u1"),
+                        binop_constant("r"),
+                        jump("bb1"),
+                    ],
+                },
+                BasicBlock {
+                    name: Some("bb1".to_string()),
+                    content: vec![
+                        phi("i_bb1", "bb1", "i0", "bb4", "i2"),
+                        phi("a_bb1", "bb1", "a0", "bb4", "a1"),
+                        binop("i1", "i_bb1", "i_bb1"),
+                        binop("j1", "j0", "j0"),
+                        branch("bb2", "bb3"),
+                    ],
+                },
+                BasicBlock {
+                    name: Some("bb2".to_string()),
+                    content: vec![
+                        binop("u2", "a_bb1", "a_bb1"),
+                        binop("a1", "u2", "i1"),
+                        jump("bb3"),
+                    ],
+                },
+                BasicBlock {
+                    name: Some("bb3".to_string()),
+                    content: vec![
+                        binop_constant("u3"),
+                        binop("i2", "u3", "j1"),
+                        branch("bb1", "bb4"),
+                    ],
+                },
+                BasicBlock {
+                    name: Some("bb4".to_string()),
+                    content: vec![Ret {
+                        value: Some(RegisterName("r".to_string()).into()),
+                    }
+                    .into()],
+                },
+            ],
+        };
+        let control_flow_graph = ControlFlowGraph::new(&function_definition);
+        let analyzer = RegisterUsageAnalyzer::new(&function_definition);
+        assert_eq!(
+            analyzer.register_active_blocks(&RegisterName("m".to_string()), &control_flow_graph),
+            vec![0],
+        );
+        assert_eq!(
+            analyzer
+                .register_active_blocks(&RegisterName("i_bb1".to_string()), &control_flow_graph),
+            vec![1],
+        );
+        assert_eq!(
+            analyzer.register_active_blocks(&RegisterName("i0".to_string()), &control_flow_graph),
+            vec![0, 1]
+        );
+        assert_eq!(
+            analyzer.register_active_blocks(&RegisterName("i2".to_string()), &control_flow_graph),
+            vec![1, 3],
+        );
+        assert_eq!(
+            analyzer.register_active_blocks(&RegisterName("a1".to_string()), &control_flow_graph),
+            vec![1, 2, 3],
+        );
+        assert_eq!(
+            analyzer.register_active_blocks(&RegisterName("j1".to_string()), &control_flow_graph),
+            vec![1, 2, 3],
+        );
+        assert_eq!(
+            analyzer.register_active_blocks(&RegisterName("r".to_string()), &control_flow_graph),
+            vec![0, 1, 2, 3, 4]
+        );
+    }
 }
