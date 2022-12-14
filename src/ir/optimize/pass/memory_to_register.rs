@@ -3,10 +3,8 @@ use std::collections::HashMap;
 use itertools::Itertools;
 
 use crate::ir::{
-    optimize::{
-        action::EditActionBatch,
-    },
     analyzer::{control_flow::ControlFlowGraph, memory_usage::MemoryUsageAnalyzer, Analyzer},
+    optimize::action::EditActionBatch,
     quantity::Quantity,
     statement::{IRStatement, Load, Store},
     FunctionDefinition, RegisterName,

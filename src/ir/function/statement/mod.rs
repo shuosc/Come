@@ -152,6 +152,10 @@ pub mod test_util {
         calculate::binary::test_util::new(target, source1, source2).into()
     }
 
+    pub fn binop_constant(target: &str) -> IRStatement {
+        calculate::binary::test_util::new_constant(target).into()
+    }
+
     pub fn alloca(variable_name: &str) -> IRStatement {
         alloca::test_util::new(variable_name).into()
     }
@@ -174,5 +178,15 @@ pub mod test_util {
 
     pub fn store_with_reg(variable_name: &str, reg: &str) -> IRStatement {
         store::test_util::with_reg_value(variable_name, reg).into()
+    }
+
+    pub fn phi(
+        target: &str,
+        source1_bb: &str,
+        source1: &str,
+        source2_bb: &str,
+        source2: &str,
+    ) -> IRStatement {
+        phi::test_util::new(target, source1_bb, source1, source2_bb, source2).into()
     }
 }

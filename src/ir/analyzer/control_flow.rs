@@ -1,8 +1,12 @@
 use std::{cell::RefCell, collections::HashMap};
 
 use bimap::BiMap;
+use itertools::Itertools;
 use petgraph::{
-    algo::dominators::{simple_fast, Dominators},
+    algo::{
+        self,
+        dominators::{simple_fast, Dominators},
+    },
     prelude::*,
     visit::GraphBase,
 };
@@ -21,7 +25,7 @@ pub struct ControlFlowGraph {
     frontiers: HashMap<NodeId, Vec<NodeId>>,
     bb_name_index_map: BiMap<String, usize>,
     bb_index_node_index_map: BiMap<usize, NodeId>,
-    bb_index_dfs_index_map: RefCell<BiMap<usize, usize>>,
+    from_to_passed_blocks: RefCell<HashMap<(usize, usize), Vec<usize>>>,
     start_node: NodeId,
     end_node: NodeId,
 }
@@ -78,6 +82,12 @@ impl ControlFlowGraph {
             }
         }
         let dorminators = simple_fast(&graph, start_node);
+        let mut reachable_nodes = vec![];
+        let mut dfs = Dfs::new(&graph, dorminators.root());
+        while let Some(node) = dfs.next(&graph) {
+            reachable_nodes.push(node);
+        }
+        graph.retain_nodes(|_, it| reachable_nodes.contains(&it));
         let frontiers = utility::graph::dominance_frontiers(&dorminators, &graph);
         Self {
             graph,
@@ -87,7 +97,7 @@ impl ControlFlowGraph {
             start_node,
             end_node,
             bb_name_index_map,
-            bb_index_dfs_index_map: RefCell::new(BiMap::new()),
+            from_to_passed_blocks: RefCell::new(HashMap::new()),
         }
     }
 
@@ -134,5 +144,31 @@ impl ControlFlowGraph {
             })
             .cloned()
             .collect()
+    }
+
+    pub fn passed_block(&self, from: usize, to: usize) -> Vec<usize> {
+        let mut from_to_passed_blocks = self.from_to_passed_blocks.borrow_mut();
+        from_to_passed_blocks
+            .entry((from, to))
+            .or_insert_with(|| {
+                let from_node = self.bb_index_node_index_map.get_by_left(&from).unwrap();
+                let to_node = self.bb_index_node_index_map.get_by_left(&to).unwrap();
+                let mut passed_nodes =
+                    algo::all_simple_paths::<Vec<_>, _>(&self.graph, *from_node, *to_node, 0, None)
+                        .flatten()
+                        .collect_vec();
+                passed_nodes.sort();
+                passed_nodes.dedup();
+                passed_nodes
+                    .into_iter()
+                    .map(|it| {
+                        self.bb_index_node_index_map
+                            .get_by_right(&it)
+                            .unwrap()
+                            .clone()
+                    })
+                    .collect()
+            })
+            .clone()
     }
 }

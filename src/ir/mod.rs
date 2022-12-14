@@ -5,12 +5,12 @@ use std::{
 
 use enum_dispatch::enum_dispatch;
 
+pub mod analyzer;
 /// Data structure, parser and ir generator for functions.
 pub mod function;
 mod global_definition;
 mod integer_literal;
 mod optimize;
-pub mod analyzer;
 /// Data structure and parser for variables (global or local) and literals.
 pub mod quantity;
 mod type_definition;

@@ -241,12 +241,19 @@ pub fn from_ast(
         });
     }
     compound_from_ast(content, &mut ctx);
-    FunctionDefinition {
+    formalize(FunctionDefinition {
         name: name.clone(),
         parameters,
         return_type: return_type.clone(),
         content: ctx.done(),
+    })
+}
+
+fn formalize(mut function: FunctionDefinition) -> FunctionDefinition {
+    if function.content[0].name.is_none() {
+        function.content[0].name = Some(format!("{}_entry", function.name));
     }
+    function
 }
 
 // todo: test

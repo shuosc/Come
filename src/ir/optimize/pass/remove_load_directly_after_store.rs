@@ -1,4 +1,4 @@
-use crate::ir::{optimize::{action::EditActionBatch}, analyzer::Analyzer};
+use crate::ir::{analyzer::Analyzer, optimize::action::EditActionBatch};
 
 use super::IsPass;
 pub struct RemoveLoadDirectlyAfterStore;

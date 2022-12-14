@@ -1,4 +1,6 @@
-use crate::ir::{optimize::{action::EditActionBatch}, analyzer::Analyzer};
+use either::Either;
+
+use crate::ir::{analyzer::Analyzer, optimize::action::EditActionBatch};
 
 use super::IsPass;
 
@@ -9,7 +11,9 @@ impl IsPass for RemoveUnusedRegister {
         let mut result = EditActionBatch::default();
         for usage in analyzer.register_usage.register_usages().values() {
             if usage.use_indexes.is_empty() {
-                result.remove(usage.define_index.clone());
+                if let Either::Left(define_index) = &usage.define_index {
+                    result.remove(define_index.clone());
+                }
             }
         }
         result

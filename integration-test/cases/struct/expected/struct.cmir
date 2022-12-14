@@ -4,6 +4,7 @@
 }
 
 fn f(Foo %foo) -> i32 {
+  f_entry:
     %foo_0_addr = alloca Foo
     store Foo %foo, address %foo_0_addr
     %1 = load Foo %foo_0_addr

@@ -1,5 +1,5 @@
+use super::action::EditActionBatch;
 use crate::ir::analyzer::Analyzer;
-use super::{action::EditActionBatch};
 
 mod memory_to_register;
 mod remove_load_directly_after_store;

@@ -121,6 +121,35 @@ pub fn parse(code: &str) -> IResult<&str, Phi> {
 }
 
 #[cfg(test)]
+pub mod test_util {
+    #![allow(clippy::borrow_interior_mutable_const)]
+
+    use super::*;
+    pub fn new(
+        target: &str,
+        source1_bb: &str,
+        source1: &str,
+        source2_bb: &str,
+        source2: &str,
+    ) -> Phi {
+        Phi {
+            to: RegisterName(target.to_string()),
+            data_type: data_type::I32.clone(),
+            from: vec![
+                PhiSource {
+                    name: RegisterName(source1.to_string()).into(),
+                    block: source1_bb.to_string(),
+                },
+                PhiSource {
+                    name: RegisterName(source2.to_string()).into(),
+                    block: source2_bb.to_string(),
+                },
+            ],
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     #![allow(clippy::borrow_interior_mutable_const)]
     use super::*;

@@ -20,9 +20,6 @@ impl Optimizor {
         //       except fill name for the first block,
         //       we should also fill the jump statement for blocks
         //       which don't have a terminator
-        if ir.content[0].name.is_none() {
-            ir.content[0].name = Some(format!("{}_entry", ir.name));
-        }
         let mut current_control_flow_graph = None;
         for pass in self.passes {
             let analyzer = if let Some(current_control_flow_graph) = current_control_flow_graph {
