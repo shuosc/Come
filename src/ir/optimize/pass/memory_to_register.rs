@@ -19,7 +19,7 @@ fn insert_phi_positions(
     control_flow_graph: &ControlFlowGraph,
 ) -> Vec<(String, usize)> {
     let mut result = Vec::new();
-    for variable_name in memory_usage.variables() {
+    for variable_name in memory_usage.memory_access_variables() {
         let memory_access_info = memory_usage.memory_access_info(variable_name);
         let mut pending_bb_indexes = memory_access_info.store.iter().map(|it| it.0).collect_vec();
         pending_bb_indexes.dedup();
@@ -29,7 +29,7 @@ fn insert_phi_positions(
             done_bb_index.push(considering_bb_index);
             let dominator_frontier_bb_indexes =
                 control_flow_graph.dorminate_frontier(considering_bb_index);
-            for to_bb_index in dominator_frontier_bb_indexes.clone() {
+            for &to_bb_index in dominator_frontier_bb_indexes {
                 result.push((variable_name.0.clone(), to_bb_index));
                 // it's possible we put a phi node to a new block which contains no
                 // store to this variable in the past, in such cases we should look at the bacic block

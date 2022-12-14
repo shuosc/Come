@@ -25,7 +25,7 @@ pub fn emit_code(function: &ir::FunctionDefinition, ctx: &mut super::Context) ->
     let control_flow_graph = ControlFlowGraph::new(function);
     let register_usage = RegisterUsageAnalyzer::new(function);
     let (register_assign, stack_space) =
-        register_assign::assign_register(function, ctx, control_flow_graph, register_usage);
+        register_assign::assign_register(ctx, function, control_flow_graph, register_usage);
     let mut result = format!("{}:\n", function.name);
     let mut context = FunctionCompileContext {
         parent_context: ctx,
@@ -44,9 +44,10 @@ pub fn emit_code(function: &ir::FunctionDefinition, ctx: &mut super::Context) ->
     }
     if let Some(cleanup_label) = context.cleanup_label {
         result.push_str(format!("{}:\n", cleanup_label).as_str());
-    }
-    if stack_space != 0 {
-        result.push_str(format!("    addi sp, sp, {}\n    ret\n", stack_space).as_str());
+        if stack_space != 0 {
+            result.push_str(format!("    addi sp, sp, {}\n", stack_space).as_str());
+        }
+        result.push_str("    ret\n");
     }
     result
 }

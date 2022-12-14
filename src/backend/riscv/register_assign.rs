@@ -50,8 +50,8 @@ impl fmt::Display for RegisterAssign {
 
 /// Assign registers for a [`ir::FunctionDefinition`].
 pub fn assign_register(
-    ir_code: &ir::FunctionDefinition,
     ctx: &Context,
+    ir_code: &ir::FunctionDefinition,
     control_flow_graph: ControlFlowGraph,
     register_usage: RegisterUsageAnalyzer,
 ) -> (HashMap<ir::RegisterName, RegisterAssign>, usize) {
@@ -276,7 +276,7 @@ mod tests {
         utility::data_type,
     };
 
-    use super::{assign_register, *};
+    use super::*;
 
     #[test]
     fn test_collect_phied_registers() {
@@ -402,8 +402,8 @@ mod tests {
         let control_flow_graph = ControlFlowGraph::new(&function_definition);
         let register_analyzer = RegisterUsageAnalyzer::new(&function_definition);
         let (assign, stack_usage) = assign_register(
-            &function_definition,
             &ctx,
+            &function_definition,
             control_flow_graph,
             register_analyzer,
         );

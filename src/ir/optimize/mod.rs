@@ -28,7 +28,7 @@ impl Optimizor {
                 Analyzer::new(&ir)
             };
             let edit_action_batch = pass.run(&analyzer);
-            let variable_and_types = analyzer.memory_usage.variable_and_types();
+            let variable_and_types = analyzer.memory_usage.memory_access_variables_and_types();
             current_control_flow_graph = Some(analyzer.free());
             ir = edit_action_batch.execute(ir, &variable_and_types);
         }
@@ -53,7 +53,7 @@ mod test_util {
 
         let analyzer = Analyzer::new(&ir);
         let edit_action_batch = pass.run(&analyzer);
-        let variable_and_types = analyzer.memory_usage.variable_and_types();
+        let variable_and_types = analyzer.memory_usage.memory_access_variables_and_types();
         edit_action_batch.execute(ir, &variable_and_types)
     }
 }

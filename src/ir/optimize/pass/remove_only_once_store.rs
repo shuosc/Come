@@ -7,7 +7,7 @@ pub struct RemoveOnlyOnceStore;
 impl IsPass for RemoveOnlyOnceStore {
     fn run(&self, analyzer: &Analyzer) -> EditActionBatch {
         let mut result = EditActionBatch::default();
-        for variable in analyzer.memory_usage.variables() {
+        for variable in analyzer.memory_usage.memory_access_variables() {
             let memory_access_info = analyzer.memory_usage.memory_access_info(variable);
             // todo: it is possible that the basic block the store statement in
             // cannot dorminate the block a load is in, in such cases, an error should

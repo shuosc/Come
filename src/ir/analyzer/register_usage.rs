@@ -1,31 +1,48 @@
-use std::{
-    cell::OnceCell,
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-};
-
-use either::Either;
-use itertools::Itertools;
+use std::{cell::OnceCell, collections::HashMap};
 
 use crate::{
     ir::{
-        function::FunctionDefinitionIndex,
-        statement::{IRStatement, IsIRStatement},
-        FunctionDefinition, RegisterName,
+        function::FunctionDefinitionIndex, statement::IsIRStatement, FunctionDefinition,
+        RegisterName,
     },
     utility::data_type,
 };
 
 use super::control_flow::ControlFlowGraph;
+
+pub enum RegisterDefinePosition {
+    Body(FunctionDefinitionIndex),
+    Parameter(usize),
+}
+
+impl RegisterDefinePosition {
+    pub fn unwrap_body(&self) -> &FunctionDefinitionIndex {
+        if let Self::Body(index) = self {
+            index
+        } else {
+            panic!("called `RegisterDefinePosition::unwrap_body()` on a `Parameter` value")
+        }
+    }
+
+    pub fn body(&self) -> Option<&FunctionDefinitionIndex> {
+        if let Self::Body(index) = self {
+            Some(index)
+        } else {
+            None
+        }
+    }
+}
+
 pub struct RegisterUsage<'a> {
     content: &'a FunctionDefinition,
     // define statementindex or parameter id
-    pub define_index: Either<FunctionDefinitionIndex, usize>,
+    pub define_index: RegisterDefinePosition,
     pub use_indexes: Vec<FunctionDefinitionIndex>,
 }
 
 impl<'a> RegisterUsage<'a> {
     pub fn alloca_type(&self) -> data_type::Type {
-        self.content[self.define_index.as_ref().unwrap_left().clone()]
+        self.content[self.define_index.unwrap_body().clone()]
             .as_alloca()
             .alloc_type
             .clone()
@@ -33,43 +50,22 @@ impl<'a> RegisterUsage<'a> {
 
     pub fn data_type(&self) -> data_type::Type {
         match &self.define_index {
-            Either::Left(define_index) => {
+            RegisterDefinePosition::Body(define_index) => {
                 self.content[define_index.clone()]
                     .generate_register()
                     .unwrap()
                     .1
             }
-            Either::Right(parameter_index) => {
+            RegisterDefinePosition::Parameter(parameter_index) => {
                 self.content.parameters[*parameter_index].data_type.clone()
             }
         }
-    }
-
-    pub fn define_statement(&self) -> &IRStatement {
-        &self.content[self.define_index.as_ref().unwrap_left().clone()]
-    }
-
-    pub fn use_statements(&self) -> impl Iterator<Item = &IRStatement> {
-        self.use_indexes
-            .iter()
-            .map(|index| &self.content[index.clone()])
-    }
-
-    pub fn uses_grouped_by_block(&self) -> BTreeMap<usize, BTreeSet<usize>> {
-        self.use_indexes
-            .iter()
-            .group_by(|it| it.0)
-            .into_iter()
-            .map(|(bb_index, group)| (bb_index, group.into_iter().map(|it| it.1).collect()))
-            .collect()
     }
 }
 
 pub struct RegisterUsageAnalyzer<'a> {
     content: &'a FunctionDefinition,
     register_usages: OnceCell<HashMap<RegisterName, RegisterUsage<'a>>>,
-    uses_grouped_by_block: OnceCell<HashMap<usize, HashSet<RegisterName>>>,
-    define_grouped_by_block: OnceCell<HashMap<usize, HashSet<RegisterName>>>,
 }
 
 impl<'a> RegisterUsageAnalyzer<'a> {
@@ -77,8 +73,6 @@ impl<'a> RegisterUsageAnalyzer<'a> {
         Self {
             content,
             register_usages: OnceCell::new(),
-            uses_grouped_by_block: OnceCell::new(),
-            define_grouped_by_block: OnceCell::new(),
         }
     }
 
@@ -102,7 +96,7 @@ impl<'a> RegisterUsageAnalyzer<'a> {
                     param.name.clone(),
                     RegisterUsage {
                         content: self.content,
-                        define_index: Either::Right(index),
+                        define_index: RegisterDefinePosition::Parameter(index),
                         use_indexes: Vec::new(),
                     },
                 );
@@ -113,17 +107,17 @@ impl<'a> RegisterUsageAnalyzer<'a> {
                         .entry(define_register_name)
                         .or_insert_with(|| RegisterUsage {
                             content: self.content,
-                            define_index: Either::Left(index.clone()),
+                            define_index: RegisterDefinePosition::Body(index.clone()),
                             use_indexes: Vec::new(),
                         })
-                        .define_index = Either::Left(index.clone());
+                        .define_index = RegisterDefinePosition::Body(index.clone());
                 }
                 for use_register_name in statement.use_register() {
                     register_usages
                         .entry(use_register_name)
                         .or_insert_with(|| RegisterUsage {
                             content: self.content,
-                            define_index: Either::Left(index.clone()),
+                            define_index: RegisterDefinePosition::Body(index.clone()),
                             use_indexes: Vec::new(),
                         })
                         .use_indexes
@@ -132,52 +126,6 @@ impl<'a> RegisterUsageAnalyzer<'a> {
             }
             register_usages
         })
-    }
-
-    pub fn registers_defined_in_block(&self, block_id: usize) -> HashSet<RegisterName> {
-        self.define_grouped_by_block
-            .get_or_init(|| {
-                let mut define_grouped_by_block: HashMap<usize, HashSet<RegisterName>> =
-                    HashMap::new();
-                if define_grouped_by_block.is_empty() {
-                    for (register_name, usage) in self.register_usages() {
-                        if let Some(define_in_block) =
-                            usage.define_index.as_ref().left().map(|it| it.0)
-                        {
-                            define_grouped_by_block
-                                .entry(define_in_block)
-                                .or_default()
-                                .insert(register_name.clone());
-                        }
-                    }
-                }
-                define_grouped_by_block
-            })
-            .get(&block_id)
-            .cloned()
-            .unwrap_or_default()
-    }
-
-    pub fn registers_used_in_block(&self, block_id: usize) -> HashSet<RegisterName> {
-        self.uses_grouped_by_block
-            .get_or_init(|| {
-                let mut uses_grouped_by_block: HashMap<usize, HashSet<RegisterName>> =
-                    HashMap::new();
-                if uses_grouped_by_block.is_empty() {
-                    for (register_name, usage) in self.register_usages() {
-                        for use_in_block in usage.use_indexes.iter().map(|it| it.0) {
-                            uses_grouped_by_block
-                                .entry(use_in_block)
-                                .or_default()
-                                .insert(register_name.clone());
-                        }
-                    }
-                }
-                uses_grouped_by_block
-            })
-            .get(&block_id)
-            .cloned()
-            .unwrap_or_default()
     }
 
     pub fn register_active_blocks(
@@ -194,7 +142,7 @@ impl<'a> RegisterUsageAnalyzer<'a> {
         use_blocks.sort();
         use_blocks.dedup();
         let mut result = Vec::new();
-        if let Some(define_block) = register_usages.define_index.as_ref().left().map(|it| it.0) {
+        if let Some(define_block) = register_usages.define_index.body().map(|it| it.0) {
             if use_blocks.len() == 1 && use_blocks[0] == define_block {
                 return vec![define_block];
             }
@@ -203,13 +151,13 @@ impl<'a> RegisterUsageAnalyzer<'a> {
             for use_block in use_blocks {
                 result.extend(
                     control_flow_graph
-                        .passed_block(define_block, use_block)
-                        .into_iter(),
+                        .may_pass_blocks(define_block, use_block)
+                        .iter(),
                 );
             }
         } else {
             for use_block in use_blocks {
-                result.extend(control_flow_graph.passed_block(0, use_block).into_iter());
+                result.extend(control_flow_graph.may_pass_blocks(0, use_block).iter());
             }
         }
         result.sort();
