@@ -151,6 +151,7 @@ mod tests {
             parent_context: &mut ctx,
             local_assign: HashMap::new(),
             cleanup_label: None,
+            phi_constant_assign: HashMap::new(),
         };
         // Simple struct
         ctx.local_assign.insert(
@@ -242,6 +243,7 @@ mod tests {
             parent_context: &mut ctx,
             local_assign: HashMap::new(),
             cleanup_label: None,
+            phi_constant_assign: HashMap::new(),
         };
         ctx.local_assign.insert(
             RegisterName("a".to_string()),
@@ -285,6 +287,7 @@ mod tests {
             parent_context: &mut ctx,
             local_assign: HashMap::new(),
             cleanup_label: None,
+            phi_constant_assign: HashMap::new(),
         };
         ctx.local_assign.insert(
             RegisterName("a".to_string()),
@@ -331,6 +334,7 @@ mod tests {
             parent_context: &mut ctx,
             local_assign: HashMap::new(),
             cleanup_label: None,
+            phi_constant_assign: HashMap::new(),
         };
         // Simple struct
         ctx.local_assign.insert(
@@ -406,6 +410,7 @@ mod tests {
             parent_context: &mut ctx,
             local_assign: HashMap::new(),
             cleanup_label: None,
+            phi_constant_assign: HashMap::new(),
         };
         ctx.local_assign.insert(
             RegisterName("a".to_string()),
@@ -457,6 +462,7 @@ mod tests {
             parent_context: &mut ctx,
             local_assign: HashMap::new(),
             cleanup_label: None,
+            phi_constant_assign: HashMap::new(),
         };
         ctx.local_assign.insert(
             RegisterName("a".to_string()),
@@ -503,6 +509,7 @@ mod tests {
             parent_context: &mut ctx,
             local_assign: HashMap::new(),
             cleanup_label: None,
+            phi_constant_assign: HashMap::new(),
         };
         ctx.local_assign.insert(
             RegisterName("a".to_string()),
