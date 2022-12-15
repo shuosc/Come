@@ -23,7 +23,7 @@ pub fn emit_code(
     ctx: &mut FunctionCompileContext,
 ) -> String {
     match statement {
-        ir::statement::IRStatement::Phi(_) => todo!(),
+        ir::statement::IRStatement::Phi(_) => String::new(),
         ir::statement::IRStatement::Alloca(_) => String::new(),
         ir::statement::IRStatement::UnaryCalculate(unary_calculate) => {
             unary_calculate::emit_code(unary_calculate, ctx)
