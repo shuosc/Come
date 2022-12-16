@@ -1,0 +1,5 @@
+fn test_code(a: i32, b: i32) -> i32 {
+    let c: i32 = a + 2;
+    let d: i32 = b + 1;
+    return c + d;
+}

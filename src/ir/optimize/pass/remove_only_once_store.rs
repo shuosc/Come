@@ -5,7 +5,8 @@ use super::IsPass;
 /// This pass will
 /// - remove all store statements which is the only one store to a variable
 /// - remove the load statements to the variable
-/// - replace all usage of the load results to the sourse of the store
+/// - replace all usage of the load results to the source of the store
+#[derive(Copy, Clone, Debug)]
 pub struct RemoveOnlyOnceStore;
 
 impl IsPass for RemoveOnlyOnceStore {

@@ -1,0 +1,6 @@
+{
+    "optimize": [
+        "MemoryToRegister",
+        "RemoveUnusedRegister"
+    ]
+}

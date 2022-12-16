@@ -1,0 +1,7 @@
+fn test_code(i32 %a, i32 %b) -> i32 {
+  test_code_entry:
+    %0 = add i32 %a, 2
+    %2 = add i32 %b, 1
+    %4 = add i32 %0, %2
+    ret %4
+}

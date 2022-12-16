@@ -1,19 +1,23 @@
 use pass::{IsPass, Pass};
 
-use super::analyzer::Analyzer;
+use super::{analyzer::Analyzer, IR};
 
 /// Actions and action batch to edit ir function.
 mod action;
 /// Optimizing passes to be executed on a function.
-mod pass;
+pub mod pass;
 
-/// [`Optimizer`] can manage passes and optimize the ir function.
+/// [`FunctionOptimizer`] can manage passes and optimize the ir function.
 #[derive(Default)]
-pub struct Optimizor {
+pub struct FunctionOptimizer {
     passes: Vec<Pass>,
 }
 
-impl Optimizor {
+impl FunctionOptimizer {
+    pub fn from_passes(passes: Vec<Pass>) -> Self {
+        Self { passes }
+    }
+
     /// Add a [`Pass`] to [`Optimizer`].
     pub fn add_pass(&mut self, pass: Pass) {
         self.passes.push(pass);
@@ -39,6 +43,22 @@ impl Optimizor {
         }
         ir
     }
+}
+
+pub fn optimize(ir: Vec<IR>, passes: Vec<Pass>) -> Vec<IR> {
+    let mut result = Vec::new();
+    for ir in ir {
+        match ir {
+            IR::FunctionDefinition(function_definition) => {
+                let function_optimizer = FunctionOptimizer::from_passes(passes.clone());
+                let optimized_function_definition =
+                    function_optimizer.optimize(function_definition);
+                result.push(IR::FunctionDefinition(optimized_function_definition));
+            }
+            ir => result.push(ir),
+        }
+    }
+    result
 }
 
 #[cfg(test)]
