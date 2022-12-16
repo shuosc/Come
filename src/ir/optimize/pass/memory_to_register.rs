@@ -14,6 +14,7 @@ use super::IsPass;
 
 /// [`MemoryToRegister`] is a pass that convert memory access to register access.
 /// It is similar to LLVM's [`mem2reg`](https://llvm.org/docs/Passes.html#mem2reg-promote-memory-to-register).
+#[derive(Copy, Clone, Debug)]
 pub struct MemoryToRegister;
 
 /// Find out where should we insert phi positions.

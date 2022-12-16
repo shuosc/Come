@@ -6,6 +6,7 @@ use crate::ir::{
 use super::IsPass;
 
 /// This pass will remove the register which are defined but not used.
+#[derive(Copy, Clone, Debug)]
 pub struct RemoveUnusedRegister;
 
 impl IsPass for RemoveUnusedRegister {

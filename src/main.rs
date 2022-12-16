@@ -2,6 +2,7 @@
 #![feature(let_chains)]
 use clap::Parser;
 use ezio::prelude::*;
+use ir::optimize::optimize;
 use std::{io::Write, path::PathBuf};
 
 /// Definitions of AST nodes and their parser.
@@ -28,6 +29,9 @@ struct Args {
     /// IR file path, won't generate ir file if empty.
     #[arg(short = None, long = "emit-ir")]
     emit_ir_path: Option<PathBuf>,
+
+    #[arg(short = 'O', long, value_delimiter = ',')]
+    optimize: Vec<ir::optimize::pass::Pass>,
 }
 
 fn main() {
@@ -35,6 +39,7 @@ fn main() {
     let code = file::read(args.input);
     let ast = ast::from_source(&code).unwrap().1;
     let ir = ir::from_ast(&ast);
+    let ir = optimize(ir, args.optimize);
     if let Some(emit_ir_path) = args.emit_ir_path {
         let mut w = file::writer(emit_ir_path);
         for ir in ir.iter() {

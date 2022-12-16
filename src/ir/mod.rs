@@ -14,7 +14,7 @@ pub mod quantity;
 
 mod global_definition;
 mod integer_literal;
-mod optimize;
+pub mod optimize;
 mod type_definition;
 
 use self::type_definition::TypeDefinitionMapping;

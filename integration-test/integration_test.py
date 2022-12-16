@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
+import json
 import subprocess
 import difflib
 import sys
-from os import listdir, remove
+from os import listdir, remove, path
 CASE_DIR = "./integration-test/cases/"
 
 try:
@@ -13,6 +14,7 @@ except ImportError:  # fallback so that the imported classes always exist
     class ColorFallback():
         def __getattr__(self, name): return ''
     Fore = Back = Style = ColorFallback()
+
 
 def color_diff(diff):
     for line in diff:
@@ -25,16 +27,24 @@ def color_diff(diff):
         else:
             yield line
 
+
 for casename in listdir(CASE_DIR):
     print("run case: " + casename)
-    subprocess.run(["./target/debug/come",
-                    "-i", "{}{}/{}.come".format(CASE_DIR, casename, casename),
-                    "-o", "{}{}/{}.asm".format(CASE_DIR, casename, casename),
-                    "--emit-ir", "{}{}/{}.cmir".format(CASE_DIR, casename, casename)])
+    command = ["./target/debug/come",
+               "-i", "{}{}/{}.come".format(CASE_DIR, casename, casename),
+               "-o", "{}{}/{}.asm".format(CASE_DIR, casename, casename),
+               "--emit-ir", "{}{}/{}.cmir".format(CASE_DIR, casename, casename)]
+    if path.exists("{}{}/road.json".format(CASE_DIR, casename, casename)):
+        road = json.load(
+            open("{}{}/road.json".format(CASE_DIR, casename, casename), "r"))
+        command.append("-O")
+        command.append(','.join(road['optimize']))
+    subprocess.run(command)
     ir = open("{}{}/{}.cmir".format(CASE_DIR, casename, casename), "r").read()
     correct_ir = open("{}{}/expected/{}.cmir".format(CASE_DIR,
                       casename, casename), "r").read()
-    ir_diff = list(difflib.unified_diff(ir, correct_ir, fromfile='result ir', tofile='correct ir'))
+    ir_diff = list(difflib.unified_diff(
+        ir, correct_ir, fromfile='result ir', tofile='correct ir'))
     if len(ir_diff) != 0:
         sys.stdout.writelines(color_diff(ir_diff))
         exit(1)

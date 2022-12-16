@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use super::action::EditActionBatch;
 use crate::ir::analyzer::Analyzer;
 
@@ -20,9 +22,32 @@ pub trait IsPass {
 
 /// All passes which can do optimizing on ir function.
 #[enum_dispatch(IsPass)]
+#[derive(Clone, Debug)]
 pub enum Pass {
     RemoveUnusedRegister,
     RemoveOnlyOnceStore,
     RemoveLoadDirectlyAfterStore,
     MemoryToRegister,
+}
+
+impl FromStr for Pass {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "RemoveUnusedRegister" => Ok(Self::RemoveUnusedRegister(RemoveUnusedRegister)),
+            "RemoveOnlyOnceStore" => Ok(Self::RemoveOnlyOnceStore(RemoveOnlyOnceStore)),
+            "RemoveLoadDirectlyAfterStore" => Ok(Self::RemoveLoadDirectlyAfterStore(
+                RemoveLoadDirectlyAfterStore,
+            )),
+            "MemoryToRegister" => Ok(Self::MemoryToRegister(MemoryToRegister)),
+            _ => Err(()),
+        }
+    }
+}
+
+impl From<&str> for Pass {
+    fn from(s: &str) -> Self {
+        Self::from_str(s).unwrap()
+    }
 }
