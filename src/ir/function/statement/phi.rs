@@ -80,7 +80,8 @@ impl IsIRStatement for Phi {
     fn use_register(&self) -> Vec<RegisterName> {
         self.from
             .iter()
-            .map(|PhiSource { name, .. }| name.clone().unwrap_local())
+            .filter_map(|PhiSource { name, .. }| name.as_local())
+            .cloned()
             .collect()
     }
 }

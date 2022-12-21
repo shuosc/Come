@@ -28,6 +28,14 @@ impl Quantity {
             panic!("Not local")
         }
     }
+
+    pub fn as_local(&self) -> Option<&RegisterName> {
+        if let Quantity::RegisterName(register_name) = self {
+            Some(register_name)
+        } else {
+            None
+        }
+    }
 }
 
 impl Display for Quantity {
