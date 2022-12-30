@@ -51,12 +51,12 @@ pub fn emit_code(function: &ir::FunctionDefinition, ctx: &mut super::Context) ->
     let (register_assign, stack_space) =
         register_assign::assign_register(ctx, function, control_flow_graph, register_usage);
     let phi_constant_assign = collect_phi_constant_assign(function, &register_assign);
-    let mut result = format!("{}:\n", function.name);
+    let mut result = format!("{}:\n", function.header.name);
     let mut context = FunctionCompileContext {
         parent_context: ctx,
         local_assign: register_assign,
         cleanup_label: if stack_space != 0 {
-            Some(format!("{}_end", function.name))
+            Some(format!("{}_end", function.header.name))
         } else {
             None
         },
@@ -95,9 +95,11 @@ mod tests {
     #[test]
     fn test_collect_phi_constant_assign() {
         let function = ir::FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: Type::None,
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: Type::None,
+            },
             content: vec![
                 BasicBlock {
                     name: Some("f_entry".to_string()),

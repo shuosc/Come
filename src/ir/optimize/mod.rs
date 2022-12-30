@@ -73,7 +73,7 @@ mod test_util {
         //       we should also fill the jump statement for blocks
         //       which don't have a terminator
         if ir.content[0].name.is_none() {
-            ir.content[0].name = Some(format!("{}_entry", ir.name));
+            ir.content[0].name = Some(format!("{}_entry", ir.header.name));
         }
 
         let analyzer = Analyzer::new(&ir);

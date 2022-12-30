@@ -206,6 +206,7 @@ mod tests {
 
     use crate::{
         ir::{
+            self,
             function::basic_block::BasicBlock,
             optimize::test_util::execute_pass,
             statement::{phi::PhiSource, Ret},
@@ -220,9 +221,11 @@ mod tests {
     #[test]
     fn simple() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::I32.clone(),
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::I32.clone(),
+            },
             content: vec![
                 BasicBlock {
                     name: None,
@@ -285,9 +288,11 @@ mod tests {
     #[test]
     fn not_storing_unused() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::I32.clone(),
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::I32.clone(),
+            },
             content: vec![
                 BasicBlock {
                     name: None,
@@ -350,9 +355,11 @@ mod tests {
     #[test]
     fn remove_load_in_multiple_basic_blocks() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::I32.clone(),
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::I32.clone(),
+            },
             content: vec![
                 BasicBlock {
                     name: None,
@@ -439,9 +446,11 @@ mod tests {
     #[test]
     fn generate_store_like_phi() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::I32.clone(),
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::I32.clone(),
+            },
             content: vec![
                 BasicBlock {
                     name: None,
@@ -514,9 +523,11 @@ mod tests {
     #[test]
     fn self_refrence_phi() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::I32.clone(),
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::I32.clone(),
+            },
             content: vec![
                 BasicBlock {
                     name: None,
@@ -600,9 +611,11 @@ mod tests {
     #[test]
     fn comprehensive() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::I32.clone(),
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::I32.clone(),
+            },
             content: vec![
                 BasicBlock {
                     name: None,

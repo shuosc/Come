@@ -68,9 +68,10 @@ impl<'a> RegisterUsage<'a> {
                     .unwrap()
                     .1
             }
-            RegisterDefinePosition::Parameter(parameter_index) => {
-                self.content.parameters[*parameter_index].data_type.clone()
-            }
+            RegisterDefinePosition::Parameter(parameter_index) => self.content.header.parameters
+                [*parameter_index]
+                .data_type
+                .clone(),
         }
     }
 }
@@ -108,7 +109,7 @@ impl<'a> RegisterUsageAnalyzer<'a> {
     pub fn register_usages(&self) -> &HashMap<RegisterName, RegisterUsage> {
         self.register_usages.get_or_init(|| {
             let mut register_usages = HashMap::new();
-            for (index, param) in self.content.parameters.iter().enumerate() {
+            for (index, param) in self.content.header.parameters.iter().enumerate() {
                 register_usages.insert(
                     param.name.clone(),
                     RegisterUsage {
@@ -188,18 +189,24 @@ impl<'a> RegisterUsageAnalyzer<'a> {
 pub mod tests {
     use super::*;
 
-    use crate::ir::{
-        function::{basic_block::BasicBlock, test_util::*},
-        statement::Ret,
-        FunctionDefinition,
+    use crate::{
+        ir::{
+            self,
+            function::{basic_block::BasicBlock, test_util::*},
+            statement::Ret,
+            FunctionDefinition,
+        },
+        utility::data_type::Type,
     };
 
     #[test]
     fn register_active_blocks() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::Type::None,
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: Type::None,
+            },
             content: vec![
                 BasicBlock {
                     name: Some("bb0".to_string()),

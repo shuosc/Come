@@ -55,7 +55,7 @@ pub fn assign_register(
     control_flow_graph: ControlFlowGraph,
     register_usage: RegisterUsageAnalyzer,
 ) -> (HashMap<ir::RegisterName, RegisterAssign>, usize) {
-    let mut register_assign = assign_param(&ir_code.parameters, ctx);
+    let mut register_assign = assign_param(&ir_code.header.parameters, ctx);
     let mut current_used_stack_space = 0;
     let alloca_registers: Vec<_> = ir_code
         .iter()
@@ -73,7 +73,13 @@ pub fn assign_register(
         .registers()
         .iter()
         .filter(|&&it| !alloca_registers.contains(it))
-        .filter(|&&it| !ir_code.parameters.iter().any(|param| it == &param.name))
+        .filter(|&&it| {
+            !ir_code
+                .header
+                .parameters
+                .iter()
+                .any(|param| it == &param.name)
+        })
         .cloned()
         .collect_vec();
     let variables_active_blocks: HashMap<_, HashSet<_>> = consider_registers
@@ -106,7 +112,6 @@ pub fn assign_register(
         let data_type = register_usage.get(sample_register).data_type();
         let type_bytes = (data_type.size(ctx) + 7) / 8;
         let need_registers = type_bytes / 4;
-
         let assigned_to_register = if next_temporary_register_id + need_registers - 1 <= 6 {
             let current_temporary_register_id = next_temporary_register_id;
             next_temporary_register_id += need_registers;
@@ -216,7 +221,7 @@ fn register_groups(
         let type_bytes = (data_type.size(ctx) + 7) / 8;
         let need_registers = type_bytes / 4;
 
-        if need_registers <= 1 {
+        if need_registers == 1 {
             let register_active_block: HashSet<_> = register_usage
                 .register_active_blocks(register, control_flow_graph)
                 .into_iter()
@@ -273,7 +278,7 @@ mod tests {
             statement::Ret,
             FunctionDefinition,
         },
-        utility::data_type,
+        utility::data_type::{self, Type},
     };
 
     use super::*;
@@ -281,9 +286,11 @@ mod tests {
     #[test]
     fn test_collect_phied_registers() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::Type::None,
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: Type::None,
+            },
             content: vec![
                 BasicBlock {
                     name: Some("bb1".to_string()),
@@ -346,9 +353,11 @@ mod tests {
     #[test]
     fn test_assign_register() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::Type::None,
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: Type::None,
+            },
             content: vec![
                 BasicBlock {
                     name: Some("bb0".to_string()),

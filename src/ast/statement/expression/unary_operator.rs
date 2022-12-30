@@ -1,4 +1,4 @@
-use super::{field_access, integer_literal, rvalue::RValue, variable_ref};
+use super::{field_access, function_call, integer_literal, rvalue::RValue, variable_ref};
 use nom::{branch::alt, bytes::complete::tag, combinator::map, sequence::tuple, IResult};
 
 /// [`UnaryOperatorResult`] represents result of a unary operator.
@@ -12,6 +12,7 @@ pub struct UnaryOperatorResult {
 
 pub fn higher_than_unary_operator_result(code: &str) -> IResult<&str, RValue> {
     alt((
+        map(function_call::parse, RValue::FunctionCall),
         map(field_access::parse, RValue::FieldAccess),
         map(variable_ref::parse, RValue::VariableRef),
         map(integer_literal::parse, RValue::IntegerLiteral),

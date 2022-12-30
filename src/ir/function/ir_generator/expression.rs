@@ -4,7 +4,7 @@ use crate::{
     ir::{
         function::statement::{calculate, Load},
         quantity::Quantity,
-        statement::load_field,
+        statement::{call, load_field},
     },
 };
 
@@ -26,17 +26,13 @@ pub fn rvalue_from_ast(ast: &RValue, ctx: &mut IRGeneratingContext) -> Quantity 
             });
             target.into()
         }
-        ast::expression::rvalue::RValue::FunctionCall(_function_call) => {
-            todo!()
-        }
-        ast::expression::rvalue::RValue::InBrackets(x) => rvalue_from_ast(&x.0, ctx),
-        ast::expression::rvalue::RValue::FieldAccess(field_access) => {
-            load_field::from_ast(field_access, ctx).into()
-        }
-        ast::expression::rvalue::RValue::UnaryOperatorResult(unary_operator_result) => {
+        RValue::FunctionCall(function_call) => call::from_ast(function_call, ctx).into(),
+        RValue::InBrackets(x) => rvalue_from_ast(&x.0, ctx),
+        RValue::FieldAccess(field_access) => load_field::from_ast(field_access, ctx).into(),
+        RValue::UnaryOperatorResult(unary_operator_result) => {
             calculate::unary::from_ast(unary_operator_result, ctx)
         }
-        ast::expression::rvalue::RValue::BinaryOperatorResult(binary_operator_result) => {
+        RValue::BinaryOperatorResult(binary_operator_result) => {
             calculate::binary::from_ast(binary_operator_result, ctx).into()
         }
     }

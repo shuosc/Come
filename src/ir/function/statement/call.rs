@@ -1,11 +1,16 @@
 use crate::{
+    ast,
     ir::{
-        function::IsIRStatement,
+        function::{
+            ir_generator::{rvalue_from_ast, IRGeneratingContext},
+            IsIRStatement,
+        },
         quantity::{self, local, Quantity},
         RegisterName,
     },
     utility::{data_type, data_type::Type, parsing},
 };
+use itertools::Itertools;
 use nom::{
     bytes::complete::tag,
     character::complete::space0,
@@ -37,7 +42,7 @@ impl IsIRStatement for Call {
         for param in self.params.iter_mut() {
             if let Quantity::RegisterName(param_val) = param {
                 if param_val == from {
-                    *param_val = to.clone().unwrap_local();
+                    *param = to.clone();
                 }
             }
         }
@@ -107,9 +112,41 @@ pub fn parse(code: &str) -> IResult<&str, Call> {
     )(code)
 }
 
+/// Generate a [`Call`] from an [`ast::expression::FunctionCall`],
+/// and append it to the current basic block.
+/// Return a [`RegisterName`] which contains the result.
+pub fn from_ast(
+    ast: &ast::expression::FunctionCall,
+    ctx: &mut IRGeneratingContext,
+) -> RegisterName {
+    let ast::expression::FunctionCall { name, arguments } = ast;
+    let function_info = ctx
+        .parent_context
+        .function_definitions
+        .get(name)
+        .unwrap()
+        .clone();
+    let result_register = ctx.next_register_with_type(&function_info.return_type);
+    let params = arguments
+        .iter()
+        .map(|it| rvalue_from_ast(it, ctx))
+        .collect_vec();
+    ctx.current_basic_block.append_statement(Call {
+        to: Some(result_register.clone()),
+        name: name.clone(),
+        data_type: function_info.return_type.clone(),
+        params,
+    });
+    result_register
+}
 #[cfg(test)]
 mod tests {
     #![allow(clippy::borrow_interior_mutable_const)]
+    use crate::{
+        ast::expression::{IntegerLiteral, RValue},
+        ir::{function::parameter::Parameter, FunctionHeader},
+    };
+
     use super::*;
 
     #[test]
@@ -133,6 +170,40 @@ mod tests {
                 name: "foo".to_string(),
                 params: vec![RegisterName("0".to_string()).into()]
             }
+        );
+    }
+
+    #[test]
+    fn test_from_ast() {
+        let ast = ast::expression::FunctionCall {
+            name: "f".to_string(),
+            arguments: vec![IntegerLiteral(1i64).into()],
+        };
+        let mut parent_ctx = crate::ir::IRGeneratingContext::new();
+        parent_ctx.function_definitions.insert(
+            "f".to_string(),
+            FunctionHeader {
+                name: "f".to_string(),
+                parameters: vec![Parameter {
+                    name: RegisterName("a".to_string()),
+                    data_type: data_type::I32.clone(),
+                }],
+                return_type: data_type::I32.clone(),
+            },
+        );
+        let mut ctx = super::IRGeneratingContext::new(&mut parent_ctx);
+        let result = from_ast(&ast, &mut ctx);
+        assert_eq!(result, RegisterName("0".to_string()));
+        let call_statement = ctx.current_basic_block.content.pop().unwrap();
+        assert_eq!(
+            call_statement,
+            Call {
+                to: Some(RegisterName("0".to_string())),
+                data_type: data_type::I32.clone(),
+                name: "f".to_string(),
+                params: vec![1.into()]
+            }
+            .into()
         );
     }
 }

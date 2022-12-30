@@ -79,9 +79,11 @@ mod tests {
     #[test]
     fn phi_insert() {
         let function = ir::FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: Type::None,
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: Type::None,
+            },
             content: vec![
                 BasicBlock {
                     name: Some("f_entry".to_string()),

@@ -105,29 +105,34 @@ impl<'a> Iter<'a> {
     }
 }
 
-/// [`FunctionDefinition`] represents a function definition.
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct FunctionDefinition {
+pub struct FunctionHeader {
     /// Name of the function.
     pub name: String,
     /// Parameters of the function.
     pub parameters: Vec<Parameter>,
     /// Return type of the function.
     pub return_type: Type,
+}
+
+/// [`FunctionDefinition`] represents a function definition.
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct FunctionDefinition {
+    pub header: FunctionHeader,
     /// Basic blocks of the function.
     pub content: Vec<BasicBlock>,
 }
 
 impl fmt::Display for FunctionDefinition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "fn {}(", self.name)?;
-        for (i, parameter) in self.parameters.iter().enumerate() {
+        write!(f, "fn {}(", self.header.name)?;
+        for (i, parameter) in self.header.parameters.iter().enumerate() {
             if i != 0 {
                 write!(f, ", ")?;
             }
             write!(f, "{} {}", parameter.data_type, parameter.name)?;
         }
-        writeln!(f, ") -> {} {{", self.return_type)?;
+        writeln!(f, ") -> {} {{", self.header.return_type)?;
         for basic_block in &self.content {
             write!(f, "{}", basic_block)?;
         }
@@ -200,9 +205,11 @@ pub fn parse(code: &str) -> IResult<&str, FunctionDefinition> {
             delimited(tag("{"), many0(basic_block::parse), tag("}")),
         )),
         |(_, _, name, parameters, _, _, _, return_type, _, basic_blocks)| FunctionDefinition {
-            name,
-            parameters,
-            return_type,
+            header: FunctionHeader {
+                name,
+                parameters,
+                return_type,
+            },
             content: basic_blocks,
         },
     )(code)
@@ -241,17 +248,23 @@ pub fn from_ast(
         });
     }
     compound_from_ast(content, &mut ctx);
-    formalize(FunctionDefinition {
+    let header = FunctionHeader {
         name: name.clone(),
         parameters,
         return_type: return_type.clone(),
+    };
+    ctx.parent_context
+        .function_definitions
+        .insert(name.clone(), header.clone());
+    formalize(FunctionDefinition {
+        header,
         content: ctx.done(),
     })
 }
 
 fn formalize(mut function: FunctionDefinition) -> FunctionDefinition {
     if function.content[0].name.is_none() {
-        function.content[0].name = Some(format!("{}_entry", function.name));
+        function.content[0].name = Some(format!("{}_entry", function.header.name));
     }
     function
 }

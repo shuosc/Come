@@ -36,6 +36,7 @@ mod tests {
 
     use crate::{
         ir::{
+            self,
             function::basic_block::BasicBlock,
             optimize::test_util::execute_pass,
             statement::{
@@ -52,9 +53,11 @@ mod tests {
     #[test]
     fn run() {
         let function = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: Type::None,
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: Type::None,
+            },
             content: vec![
                 BasicBlock {
                     name: Some("bb0".to_string()),

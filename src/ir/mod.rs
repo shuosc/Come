@@ -17,9 +17,11 @@ mod integer_literal;
 pub mod optimize;
 mod type_definition;
 
-use self::type_definition::TypeDefinitionMapping;
-use crate::ast::{ASTNode, Ast};
-pub use function::{statement, FunctionDefinition};
+use crate::{
+    ast::{ASTNode, Ast},
+    utility::data_type::{self, Integer},
+};
+pub use function::{statement, FunctionDefinition, FunctionHeader};
 pub use global_definition::GlobalDefinition;
 use nom::{
     branch::alt, character::complete::multispace0, combinator::map, multi::many0,
@@ -27,6 +29,9 @@ use nom::{
 };
 pub use quantity::RegisterName;
 pub use type_definition::TypeDefinition;
+use type_definition::TypeDefinitionMapping;
+
+use self::function::parameter::Parameter;
 
 /// The root nodes of IR.
 #[enum_dispatch]
@@ -66,6 +71,8 @@ pub fn from_source(source: &str) -> IResult<&str, Vec<IR>> {
 /// Context for generating IR.
 #[derive(Debug)]
 pub struct IRGeneratingContext {
+    /// Known function definitions.
+    pub function_definitions: HashMap<String, FunctionHeader>,
     /// Known struct types.
     pub type_definitions: HashMap<String, TypeDefinitionMapping>,
     /// Known global variables.
@@ -81,12 +88,50 @@ pub struct IRGeneratingContext {
 impl IRGeneratingContext {
     /// Creates a new, empty [`IRGeneratingContext`].
     pub fn new() -> Self {
+        let mut built_in_functions = HashMap::new();
+        built_in_functions.insert(
+            "load_u32".to_string(),
+            FunctionHeader {
+                name: "load_u32".to_string(),
+                parameters: vec![Parameter {
+                    name: RegisterName("address".to_string()),
+                    data_type: data_type::Type::Address,
+                }],
+                return_type: Integer {
+                    signed: false,
+                    width: 32,
+                }
+                .into(),
+            },
+        );
+        built_in_functions.insert(
+            "store_u32".to_string(),
+            FunctionHeader {
+                name: "store_u32".to_string(),
+                parameters: vec![
+                    Parameter {
+                        name: RegisterName("address".to_string()),
+                        data_type: data_type::Type::Address,
+                    },
+                    Parameter {
+                        name: RegisterName("value".to_string()),
+                        data_type: Integer {
+                            signed: false,
+                            width: 32,
+                        }
+                        .into(),
+                    },
+                ],
+                return_type: data_type::Type::None,
+            },
+        );
         Self {
             type_definitions: HashMap::new(),
             global_definitions: HashMap::new(),
             next_register_id: 0,
             next_if_id: 0,
             next_loop_id: 0,
+            function_definitions: built_in_functions,
         }
     }
 

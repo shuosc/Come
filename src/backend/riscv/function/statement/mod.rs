@@ -4,18 +4,17 @@ use super::FunctionCompileContext;
 
 /// Compile a binary operator.
 mod binary_calculate;
+mod branch;
+mod call;
 /// Compile a load command.
 mod load;
+mod load_field;
+mod ret;
+mod set_field;
 /// Compile a store command.
 mod store;
 /// Compile a unary operator.
 mod unary_calculate;
-
-mod load_field;
-
-mod branch;
-mod ret;
-mod set_field;
 
 /// Emit assembly code for a [`ir::function::statement::IRStatement`].
 pub fn emit_code(
@@ -38,5 +37,6 @@ pub fn emit_code(
         ir::statement::IRStatement::Branch(branch) => branch::emit_code(branch, ctx),
         ir::statement::IRStatement::Jump(jump) => format!("    j {}\n", jump.label),
         ir::statement::IRStatement::Ret(ret) => ret::emit_code(ret, ctx),
+        ir::statement::IRStatement::Call(call) => call::emit_code(call, ctx),
     }
 }
