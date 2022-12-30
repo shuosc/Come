@@ -2,8 +2,9 @@ use std::{cell::OnceCell, collections::HashMap};
 
 use crate::{
     ir::{
-        function::FunctionDefinitionIndex, statement::IsIRStatement, FunctionDefinition,
-        RegisterName,
+        function::FunctionDefinitionIndex,
+        statement::{Call, IRStatement, IsIRStatement},
+        FunctionDefinition, RegisterName,
     },
     utility::data_type,
 };
@@ -72,6 +73,18 @@ impl<'a> RegisterUsage<'a> {
                 [*parameter_index]
                 .data_type
                 .clone(),
+        }
+    }
+
+    pub fn side_effect(&self) -> bool {
+        if let RegisterDefinePosition::Body(position) = &self.define_position {
+            if matches!(self.content[position.clone()], IRStatement::Call(_)) {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
         }
     }
 }

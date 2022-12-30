@@ -13,7 +13,7 @@ impl IsPass for RemoveUnusedRegister {
     fn run(&self, analyzer: &Analyzer) -> EditActionBatch {
         let mut result = EditActionBatch::default();
         for usage in analyzer.register_usage.register_usages().values() {
-            if usage.use_indexes.is_empty() {
+            if !usage.side_effect() && usage.use_indexes.is_empty() {
                 if let RegisterDefinePosition::Body(define_index) = &usage.define_position {
                     result.remove(define_index.clone());
                 }
