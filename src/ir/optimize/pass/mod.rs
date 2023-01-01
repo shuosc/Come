@@ -19,8 +19,10 @@ use remove_unused_register::RemoveUnusedRegister;
 pub trait IsPass {
     fn run(&self, analyzer: &Analyzer) -> EditActionBatch;
 
+    /// Which passes this pass requires to be executed before it.
     fn need(&self) -> Vec<Pass>;
 
+    /// Which passes this pass will invalidate.
     fn invalidate(&self) -> Vec<Pass>;
 }
 
