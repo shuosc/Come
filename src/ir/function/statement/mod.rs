@@ -11,7 +11,7 @@ pub mod branch;
 /// Data structure, parser and ir generator for calculations (unary or binary).
 pub mod calculate;
 /// Data structure, parser and ir generator for `call` statement.
-mod call;
+pub mod call;
 /// Data structure, parser and ir generator for `j` statement.
 mod jump;
 /// Data structure, parser and ir generator for `load` statement.
@@ -30,6 +30,7 @@ mod store;
 pub use alloca::Alloca;
 pub use branch::Branch;
 pub use calculate::{BinaryCalculate, UnaryCalculate};
+pub use call::Call;
 pub use jump::Jump;
 pub use load::Load;
 pub use load_field::LoadField;
@@ -57,6 +58,7 @@ pub trait IsIRStatement {
 pub enum IRStatement {
     Phi,
     Alloca,
+    Call,
     UnaryCalculate,
     BinaryCalculate,
     Load,
@@ -98,6 +100,7 @@ macro_rules! variant {
 
 variant!(phi, Phi);
 variant!(alloca, Alloca);
+variant!(call, Call);
 variant!(unary_calculate, UnaryCalculate);
 variant!(binary_calculate, BinaryCalculate);
 variant!(load, Load);
@@ -138,6 +141,7 @@ impl fmt::Display for IRStatement {
             IRStatement::Branch(x) => x.fmt(f),
             IRStatement::Jump(x) => x.fmt(f),
             IRStatement::Ret(x) => x.fmt(f),
+            IRStatement::Call(x) => x.fmt(f),
         }
     }
 }

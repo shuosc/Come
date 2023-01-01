@@ -66,7 +66,11 @@ pub fn parse_integer(code: &str) -> IResult<&str, Integer> {
 pub fn parse(code: &str) -> IResult<&str, Type> {
     alt((
         map(
-            alt((recognize(pair(parse_integer, tag("*"))), tag("address"))),
+            alt((
+                recognize(pair(parse_integer, tag("*"))),
+                tag("address"),
+                tag("Address"),
+            )),
             |_| Type::Address,
         ),
         map(parse_integer, Type::Integer),

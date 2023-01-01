@@ -6,20 +6,28 @@ use crate::ir::{
 use super::IsPass;
 
 /// This pass will remove the register which are defined but not used.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct RemoveUnusedRegister;
 
 impl IsPass for RemoveUnusedRegister {
     fn run(&self, analyzer: &Analyzer) -> EditActionBatch {
         let mut result = EditActionBatch::default();
         for usage in analyzer.register_usage.register_usages().values() {
-            if usage.use_indexes.is_empty() {
+            if !usage.side_effect() && usage.use_indexes.is_empty() {
                 if let RegisterDefinePosition::Body(define_index) = &usage.define_position {
                     result.remove(define_index.clone());
                 }
             }
         }
         result
+    }
+
+    fn need(&self) -> Vec<super::Pass> {
+        Vec::new()
+    }
+
+    fn invalidate(&self) -> Vec<super::Pass> {
+        Vec::new()
     }
 }
 
@@ -30,6 +38,7 @@ mod tests {
     use super::*;
     use crate::{
         ir::{
+            self,
             function::basic_block::BasicBlock,
             optimize::test_util::execute_pass,
             statement::{
@@ -44,9 +53,11 @@ mod tests {
     #[test]
     fn run() {
         let function = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: Type::None,
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: Type::None,
+            },
             content: vec![
                 BasicBlock {
                     name: None,

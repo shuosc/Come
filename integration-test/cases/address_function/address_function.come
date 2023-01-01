@@ -1,0 +1,11 @@
+fn main() -> () {
+    let gpio_address: Address = 0x80002000;
+    while 1 {
+        let current_value: u32 = load_u32(gpio_address);
+        if current_value == 0 {
+            store_u32(gpio_address, 1);
+        } else {
+            store_u32(gpio_address, 0);
+        }
+    }
+}

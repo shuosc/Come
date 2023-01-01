@@ -1,0 +1,20 @@
+fn main() -> () {
+  main_entry:
+    j loop_0_condition
+  loop_0_condition:
+    bne 1, 0, loop_0_success, loop_0_fail
+  loop_0_success:
+    %0 = call u32 load_u32(2147491840)
+    %2 = eq i32 %0, 0
+    bne %2, 0, if_0_success, if_0_fail
+  if_0_success:
+    %4 = call () store_u32(2147491840,1)
+    j if_0_end
+  if_0_fail:
+    %6 = call () store_u32(2147491840,0)
+    j if_0_end
+  if_0_end:
+    j loop_0_condition
+  loop_0_fail:
+    ret
+}

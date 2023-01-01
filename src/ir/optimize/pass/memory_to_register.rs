@@ -10,11 +10,14 @@ use crate::ir::{
     FunctionDefinition, RegisterName,
 };
 
-use super::IsPass;
+use super::{
+    remove_only_once_store::RemoveOnlyOnceStore, remove_unused_register::RemoveUnusedRegister,
+    IsPass,
+};
 
 /// [`MemoryToRegister`] is a pass that convert memory access to register access.
 /// It is similar to LLVM's [`mem2reg`](https://llvm.org/docs/Passes.html#mem2reg-promote-memory-to-register).
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MemoryToRegister;
 
 /// Find out where should we insert phi positions.
@@ -198,6 +201,14 @@ impl IsPass for MemoryToRegister {
             &insert_phis_at,
         )
     }
+
+    fn need(&self) -> Vec<super::Pass> {
+        vec![RemoveOnlyOnceStore.into()]
+    }
+
+    fn invalidate(&self) -> Vec<super::Pass> {
+        vec![RemoveUnusedRegister.into()]
+    }
 }
 
 #[cfg(test)]
@@ -206,6 +217,7 @@ mod tests {
 
     use crate::{
         ir::{
+            self,
             function::basic_block::BasicBlock,
             optimize::test_util::execute_pass,
             statement::{phi::PhiSource, Ret},
@@ -220,9 +232,11 @@ mod tests {
     #[test]
     fn simple() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::I32.clone(),
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::I32.clone(),
+            },
             content: vec![
                 BasicBlock {
                     name: None,
@@ -285,9 +299,11 @@ mod tests {
     #[test]
     fn not_storing_unused() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::I32.clone(),
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::I32.clone(),
+            },
             content: vec![
                 BasicBlock {
                     name: None,
@@ -350,9 +366,11 @@ mod tests {
     #[test]
     fn remove_load_in_multiple_basic_blocks() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::I32.clone(),
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::I32.clone(),
+            },
             content: vec![
                 BasicBlock {
                     name: None,
@@ -439,9 +457,11 @@ mod tests {
     #[test]
     fn generate_store_like_phi() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::I32.clone(),
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::I32.clone(),
+            },
             content: vec![
                 BasicBlock {
                     name: None,
@@ -514,9 +534,11 @@ mod tests {
     #[test]
     fn self_refrence_phi() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::I32.clone(),
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::I32.clone(),
+            },
             content: vec![
                 BasicBlock {
                     name: None,
@@ -600,9 +622,11 @@ mod tests {
     #[test]
     fn comprehensive() {
         let function_definition = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::I32.clone(),
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::I32.clone(),
+            },
             content: vec![
                 BasicBlock {
                     name: None,

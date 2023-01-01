@@ -6,7 +6,7 @@ use super::IsPass;
 /// - remove all store statements which is the only one store to a variable
 /// - remove the load statements to the variable
 /// - replace all usage of the load results to the source of the store
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct RemoveOnlyOnceStore;
 
 impl IsPass for RemoveOnlyOnceStore {
@@ -32,6 +32,14 @@ impl IsPass for RemoveOnlyOnceStore {
         }
         result
     }
+
+    fn need(&self) -> Vec<super::Pass> {
+        Vec::new()
+    }
+
+    fn invalidate(&self) -> Vec<super::Pass> {
+        Vec::new()
+    }
 }
 
 #[cfg(test)]
@@ -42,6 +50,7 @@ mod tests {
 
     use crate::{
         ir::{
+            self,
             function::basic_block::BasicBlock,
             optimize::test_util::execute_pass,
             statement::{
@@ -58,9 +67,11 @@ mod tests {
     #[test]
     fn run() {
         let function = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: Type::None,
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: Type::None,
+            },
             content: vec![
                 BasicBlock {
                     name: None,

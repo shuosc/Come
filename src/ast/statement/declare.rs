@@ -60,6 +60,11 @@ mod tests {
         let declare = parse("let b: i32 = 1;").unwrap().1;
         assert_eq!(declare.variable_name, "b");
         assert!(declare.init_value.is_some());
+        let declare = parse("let current_value: u32 = load_u32(gpio_address);")
+            .unwrap()
+            .1;
+        assert_eq!(declare.variable_name, "current_value");
+        assert!(declare.init_value.is_some());
         // Hope we can make it pass one day!
         let fail = parse("let b = 1;");
         assert!(fail.is_err());

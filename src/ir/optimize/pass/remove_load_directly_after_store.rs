@@ -5,7 +5,7 @@ use super::IsPass;
 /// This pass will remove all load instructions which are
 /// - in same block with a store instruction
 /// - after the store instruction.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct RemoveLoadDirectlyAfterStore;
 
 impl IsPass for RemoveLoadDirectlyAfterStore {
@@ -28,6 +28,14 @@ impl IsPass for RemoveLoadDirectlyAfterStore {
         }
         result
     }
+
+    fn need(&self) -> Vec<super::Pass> {
+        Vec::new()
+    }
+
+    fn invalidate(&self) -> Vec<super::Pass> {
+        Vec::new()
+    }
 }
 
 #[cfg(test)]
@@ -36,6 +44,7 @@ mod tests {
 
     use crate::{
         ir::{
+            self,
             function::basic_block::BasicBlock,
             optimize::test_util::execute_pass,
             statement::{
@@ -52,9 +61,11 @@ mod tests {
     #[test]
     fn run() {
         let function = FunctionDefinition {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: Type::None,
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: Type::None,
+            },
             content: vec![
                 BasicBlock {
                     name: Some("bb0".to_string()),

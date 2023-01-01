@@ -1,6 +1,6 @@
 use super::{
     basic_block::BasicBlock,
-    statement::{IRStatement, Ret},
+    statement::{call, IRStatement, Ret},
 };
 use crate::{
     ast::{self, expression::VariableRef, statement::Statement},
@@ -201,12 +201,14 @@ pub fn compound_from_ast(ast: &ast::statement::compound::Compound, ctx: &mut IRG
             Statement::Assign(assign) => assign::from_ast(assign, ctx),
             Statement::Return(return_statement) => {
                 return_statement::from_ast(return_statement, ctx);
-                // statements after return is meanless
+                // statements after return is meaningless
                 break;
             }
             Statement::If(if_statement) => if_statement::from_ast(if_statement, ctx),
             Statement::While(while_statement) => while_statement::from_ast(while_statement, ctx),
-            Statement::FunctionCall(_) => todo!(),
+            Statement::FunctionCall(function_call) => {
+                call::from_ast(&function_call.0, ctx);
+            }
         }
     }
     ctx.symbol_table.end_frame();
