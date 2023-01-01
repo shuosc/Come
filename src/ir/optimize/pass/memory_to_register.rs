@@ -10,11 +10,14 @@ use crate::ir::{
     FunctionDefinition, RegisterName,
 };
 
-use super::IsPass;
+use super::{
+    remove_only_once_store::RemoveOnlyOnceStore, remove_unused_register::RemoveUnusedRegister,
+    IsPass,
+};
 
 /// [`MemoryToRegister`] is a pass that convert memory access to register access.
 /// It is similar to LLVM's [`mem2reg`](https://llvm.org/docs/Passes.html#mem2reg-promote-memory-to-register).
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MemoryToRegister;
 
 /// Find out where should we insert phi positions.
@@ -197,6 +200,14 @@ impl IsPass for MemoryToRegister {
             &analyzer.control_flow_graph,
             &insert_phis_at,
         )
+    }
+
+    fn need(&self) -> Vec<super::Pass> {
+        vec![RemoveOnlyOnceStore.into()]
+    }
+
+    fn invalidate(&self) -> Vec<super::Pass> {
+        vec![RemoveUnusedRegister.into()]
     }
 }
 

@@ -7,7 +7,7 @@ pub fn emit_code(call: &Call, ctx: &mut FunctionCompileContext) -> String {
     let Call {
         to,
         name,
-        data_type,
+        data_type: _,
         params,
     } = call;
     // handle builtin functions
@@ -86,7 +86,7 @@ fn load_u32(
         }
         Quantity::GlobalVariableName(_) => todo!(),
     }
-    result.push_str(&format!("    lw a0, 0(a0)\n"));
+    result.push_str("    lw a0, 0(a0)\n");
     if let Some(to_register) = to {
         let register_assign = ctx.local_assign.get(to_register).unwrap();
         match register_assign {

@@ -278,7 +278,7 @@ mod tests {
             statement::Ret,
             FunctionDefinition,
         },
-        utility::data_type::{self, Type},
+        utility::data_type::Type,
     };
 
     use super::*;

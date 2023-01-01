@@ -18,11 +18,15 @@ use remove_unused_register::RemoveUnusedRegister;
 #[enum_dispatch]
 pub trait IsPass {
     fn run(&self, analyzer: &Analyzer) -> EditActionBatch;
+
+    fn need(&self) -> Vec<Pass>;
+
+    fn invalidate(&self) -> Vec<Pass>;
 }
 
 /// All passes which can do optimizing on ir function.
 #[enum_dispatch(IsPass)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Pass {
     RemoveUnusedRegister,
     RemoveOnlyOnceStore,

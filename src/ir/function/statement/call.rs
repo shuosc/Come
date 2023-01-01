@@ -143,7 +143,7 @@ pub fn from_ast(
 mod tests {
     #![allow(clippy::borrow_interior_mutable_const)]
     use crate::{
-        ast::expression::{IntegerLiteral, RValue},
+        ast::expression::IntegerLiteral,
         ir::{function::parameter::Parameter, FunctionHeader},
     };
 

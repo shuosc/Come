@@ -5,7 +5,7 @@ use super::IsPass;
 /// This pass will remove all load instructions which are
 /// - in same block with a store instruction
 /// - after the store instruction.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct RemoveLoadDirectlyAfterStore;
 
 impl IsPass for RemoveLoadDirectlyAfterStore {
@@ -27,6 +27,14 @@ impl IsPass for RemoveLoadDirectlyAfterStore {
             }
         }
         result
+    }
+
+    fn need(&self) -> Vec<super::Pass> {
+        Vec::new()
+    }
+
+    fn invalidate(&self) -> Vec<super::Pass> {
+        Vec::new()
     }
 }
 

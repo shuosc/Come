@@ -1,6 +1,6 @@
 use super::IRGeneratingContext;
 use crate::{
-    ast::{self, expression::RValue},
+    ast::expression::RValue,
     ir::{
         function::statement::{calculate, Load},
         quantity::Quantity,

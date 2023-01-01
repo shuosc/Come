@@ -6,7 +6,7 @@ use crate::ir::{
 use super::IsPass;
 
 /// This pass will remove the register which are defined but not used.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct RemoveUnusedRegister;
 
 impl IsPass for RemoveUnusedRegister {
@@ -20,6 +20,14 @@ impl IsPass for RemoveUnusedRegister {
             }
         }
         result
+    }
+
+    fn need(&self) -> Vec<super::Pass> {
+        Vec::new()
+    }
+
+    fn invalidate(&self) -> Vec<super::Pass> {
+        Vec::new()
     }
 }
 
