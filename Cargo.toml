@@ -2,6 +2,7 @@
 name = "come"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -16,6 +17,10 @@ nom = "7.1.1"
 paste = "1.0.10"
 petgraph = "0.6.2"
 phf = { version = "0.11.1", features = ["macros"] }
+shadow-rs = "0.20.0"
 
 [dev-dependencies]
 cov-mark = "1.1.0"
+
+[build-dependencies]
+shadow-rs = "0.20.0"

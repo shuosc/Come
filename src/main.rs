@@ -14,9 +14,13 @@ mod ir;
 /// Utilities shared among modules.
 mod utility;
 
+use shadow_rs::shadow;
+
+shadow!(build);
+
 /// Come language compiler.
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, long_version = build::CLAP_LONG_VERSION, about, long_about = None)]
 struct Args {
     /// Input file path.
     #[arg(short, long)]
