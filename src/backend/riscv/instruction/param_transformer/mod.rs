@@ -1,8 +1,6 @@
 use enum_dispatch::enum_dispatch;
 use nom::{branch::alt, combinator::map, IResult};
 
-
-
 mod bit_at;
 mod bits_at;
 mod branch_high;
@@ -18,7 +16,7 @@ pub use csr::Csr;
 pub use jal_form::JalForm;
 pub use register::Register;
 
-use super::ParsedParam;
+use super::param::ParsedParam;
 
 #[enum_dispatch]
 pub trait IsParamTransformer {

@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::utility::parsing::{self, in_multispace};
 use bitvec::prelude::*;
 use itertools::Itertools;
@@ -18,7 +16,7 @@ use super::{
 };
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub enum TemplatePart {
+pub enum Part {
     BitPattern(Vec<bool>),
     ParamTransformer((usize, ParamTransformer)),
 }
@@ -38,12 +36,12 @@ fn parse_param_transformer(code: &str) -> IResult<&str, (usize, ParamTransformer
     )(code)
 }
 
-fn parse_template_part(code: &str) -> IResult<&str, TemplatePart> {
+fn parse_template_part(code: &str) -> IResult<&str, Part> {
     // for human beings, we prefer to write the MSB first
     // so we need to reverse the bits
     alt((
         map(many1(alt((tag("0"), tag("1")))), |char_bits| {
-            TemplatePart::BitPattern(
+            Part::BitPattern(
                 char_bits
                     .into_iter()
                     .rev()
@@ -55,30 +53,30 @@ fn parse_template_part(code: &str) -> IResult<&str, TemplatePart> {
                     .collect(),
             )
         }),
-        map(parse_param_transformer, TemplatePart::ParamTransformer),
+        map(parse_param_transformer, Part::ParamTransformer),
     ))(code)
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct InstructionTemplate {
-    pub parts: Vec<TemplatePart>,
+pub struct Template {
+    pub parts: Vec<Part>,
 }
 
-pub fn parse(code: &str) -> IResult<&str, InstructionTemplate> {
+pub fn parse(code: &str) -> IResult<&str, Template> {
     // for human beings, we prefer to write the MSB first
     // so we need to reverse the parts
     map(many1(parse_template_part), |mut parts| {
         parts.reverse();
-        InstructionTemplate { parts }
+        Template { parts }
     })(code)
 }
 
-impl InstructionTemplate {
+impl Template {
     fn param_bit_count(&self, param_id: usize) -> usize {
         let mut current_result = 0;
         for part in &self.parts {
             match part {
-                TemplatePart::ParamTransformer((id, ParamTransformer::BitsAt(bits_at)))
+                Part::ParamTransformer((id, ParamTransformer::BitsAt(bits_at)))
                     if param_id == *id =>
                 {
                     if bits_at.end as usize > current_result {
@@ -94,8 +92,8 @@ impl InstructionTemplate {
         let mut bits = Vec::new();
         for part in &self.parts {
             match part {
-                TemplatePart::BitPattern(bit_pattern) => bits.extend(bit_pattern),
-                TemplatePart::ParamTransformer((param_id, transformer)) => {
+                Part::BitPattern(bit_pattern) => bits.extend(bit_pattern),
+                Part::ParamTransformer((param_id, transformer)) => {
                     bits.extend(transformer.argument_to_bits(address, &params[*param_id]))
                 }
             }
@@ -107,7 +105,7 @@ impl InstructionTemplate {
         let mut params = Vec::new();
         for part in &self.parts {
             match part {
-                TemplatePart::BitPattern(bit_pattern) => {
+                Part::BitPattern(bit_pattern) => {
                     if bits.len() < bit_pattern.len() {
                         return Err(nom::Err::Error(nom::error::Error::new(
                             bits,
@@ -122,7 +120,7 @@ impl InstructionTemplate {
                     }
                     bits = &bits[bit_pattern.len()..];
                 }
-                TemplatePart::ParamTransformer((param_id, transformer)) => {
+                Part::ParamTransformer((param_id, transformer)) => {
                     while params.len() <= *param_id {
                         params.push(None);
                     }
@@ -149,7 +147,8 @@ impl InstructionTemplate {
 
 #[cfg(test)]
 mod tests {
-    use crate::backend::riscv::param_transformer::{BitsAt, Register};
+
+    use crate::backend::riscv::instruction::param_transformer::{BitsAt, Register};
 
     use super::*;
 
@@ -159,10 +158,10 @@ mod tests {
             parse("{{ params[0] | bits_at(0,5) }}100"),
             Ok((
                 "",
-                InstructionTemplate {
+                Template {
                     parts: vec![
-                        TemplatePart::BitPattern(vec![false, false, true]),
-                        TemplatePart::ParamTransformer((0, BitsAt::new(0, 5).into())),
+                        Part::BitPattern(vec![false, false, true]),
+                        Part::ParamTransformer((0, BitsAt::new(0, 5).into())),
                     ]
                 }
             ))
@@ -171,10 +170,10 @@ mod tests {
 
     #[test]
     fn test_render() {
-        let template = InstructionTemplate {
+        let template = Template {
             parts: vec![
-                TemplatePart::BitPattern(vec![false, false, true]),
-                TemplatePart::ParamTransformer((0, BitsAt::new(0, 5).into())),
+                Part::BitPattern(vec![false, false, true]),
+                Part::ParamTransformer((0, BitsAt::new(0, 5).into())),
             ],
         };
         assert_eq!(
@@ -182,12 +181,12 @@ mod tests {
             vec![false, false, true, true, false, true, true, true]
         );
 
-        let template = InstructionTemplate {
+        let template = Template {
             parts: vec![
-                TemplatePart::BitPattern(vec![true, false, true, true, false]),
-                TemplatePart::ParamTransformer((1, BitsAt::new(5, 8).into())),
-                TemplatePart::BitPattern(vec![false, false, true]),
-                TemplatePart::ParamTransformer((0, Register.into())),
+                Part::BitPattern(vec![true, false, true, true, false]),
+                Part::ParamTransformer((1, BitsAt::new(5, 8).into())),
+                Part::BitPattern(vec![false, false, true]),
+                Part::ParamTransformer((0, Register.into())),
             ],
         };
         assert_eq!(

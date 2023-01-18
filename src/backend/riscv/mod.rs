@@ -1,24 +1,14 @@
-pub mod param;
-mod param_transformer;
-use std::{collections::HashMap, fmt::Display, sync::OnceLock};
+use std::{collections::HashMap, sync::OnceLock};
 
-use bitvec::{field::BitField, vec::BitVec};
-use nom::IResult;
-pub use param::ParsedParam;
+use bitvec::vec::BitVec;
 
 use crate::{
     binary::format::clef::{self, Architecture, Clef, Os, SectionMeta, Symbol},
     utility::parsing,
 };
 
-mod instruction_template;
-
 pub mod instruction;
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct UnparsedInstruction {
-    name: String,
-    params: Vec<String>,
-}
+
 mod section;
 use section::Section;
 
@@ -31,7 +21,7 @@ enum Directive {
 
 fn parse_directive(line: &str) -> Directive {
     let mut parts = line
-        .split(" ")
+        .split(' ')
         .map(|it| it.trim())
         .filter(|it| !it.is_empty());
     let first_part = parts.next().unwrap();
@@ -45,7 +35,7 @@ fn parse_directive(line: &str) -> Directive {
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum Line {
     Tag(String),
-    Instruction(UnparsedInstruction),
+    Instruction(instruction::Unparsed),
     Directive(Directive),
 }
 
@@ -57,7 +47,7 @@ fn instruction_line(line: &str) -> Line {
         .split(',')
         .map(|it| it.trim().to_string())
         .collect();
-    Line::Instruction(UnparsedInstruction {
+    Line::Instruction(instruction::Unparsed {
         name: name.to_string(),
         params,
     })
@@ -68,7 +58,7 @@ fn preprocess(code: &str) -> Vec<Line> {
     for line in code.lines().map(|it| it.trim()).filter(|it| !it.is_empty()) {
         if line.ends_with(':') {
             result.push(Line::Tag(line.trim_end_matches(':').to_string()));
-        } else if line.starts_with(".") {
+        } else if line.starts_with('.') {
             result.push(Line::Directive(parse_directive(line)));
         } else {
             result.push(instruction_line(line));
@@ -81,11 +71,11 @@ fn replace_complex_pseudo(preprocessed: &[Line]) -> Vec<Line> {
     let mut result = Vec::new();
     for line in preprocessed {
         match line {
-            t @ Line::Tag(tag) => result.push(t.clone()),
-            Line::Instruction(UnparsedInstruction { name, params }) => match name.as_str() {
+            t @ Line::Tag(_tag) => result.push(t.clone()),
+            Line::Instruction(instruction::Unparsed { name, params }) => match name.as_str() {
                 "li" => {
                     let param: i64 = parsing::integer(&params[1]).unwrap().1;
-                    let mut lower = param & 0xfff;
+                    let lower = param & 0xfff;
                     let lower_is_negative = lower > 0x7ff;
                     let higher = (if lower_is_negative {
                         // lower is, in fact, a negative number when used in addi
@@ -95,22 +85,22 @@ fn replace_complex_pseudo(preprocessed: &[Line]) -> Vec<Line> {
                     }) & 0xffffffff;
                     let lower = param - (higher << 12);
                     if higher == 0 && lower == 0 {
-                        result.push(Line::Instruction(UnparsedInstruction {
+                        result.push(Line::Instruction(instruction::Unparsed {
                             name: "mv".to_string(),
                             params: vec![params[0].clone(), "zero".to_string()],
                         }))
                     } else if higher == 0 {
-                        result.push(Line::Instruction(UnparsedInstruction {
+                        result.push(Line::Instruction(instruction::Unparsed {
                             name: "addi".to_string(),
                             params: vec![params[0].clone(), "x0".to_string(), format!("{lower}")],
                         }));
                     } else {
-                        result.push(Line::Instruction(UnparsedInstruction {
+                        result.push(Line::Instruction(instruction::Unparsed {
                             name: "lui".to_string(),
                             params: vec![params[0].clone(), format!("0x{higher:x}")],
                         }));
                         if lower != 0 {
-                            result.push(Line::Instruction(UnparsedInstruction {
+                            result.push(Line::Instruction(instruction::Unparsed {
                                 name: "addi".to_string(),
                                 params: vec![
                                     params[0].clone(),
@@ -121,12 +111,12 @@ fn replace_complex_pseudo(preprocessed: &[Line]) -> Vec<Line> {
                         }
                     }
                 }
-                _ => result.push(Line::Instruction(UnparsedInstruction {
+                _ => result.push(Line::Instruction(instruction::Unparsed {
                     name: name.to_string(),
                     params: params.clone(),
                 })),
             },
-            d @ Line::Directive(directive) => result.push(d.clone()),
+            d @ Line::Directive(_directive) => result.push(d.clone()),
         }
     }
     result
@@ -159,14 +149,14 @@ fn replace_simple_pseudo(complex_replaced: &[Line]) -> Vec<Line> {
     });
     let mut result = Vec::new();
     for line in complex_replaced {
-        if let Line::Instruction(UnparsedInstruction { name, params }) = line {
+        if let Line::Instruction(instruction::Unparsed { name, params }) = line {
             if let Some(SimplePseudoTemplate { template }) =
                 pseudo_simple_instructions.get(name.as_str())
             {
                 let mut replaced = template.to_string();
                 for (i, param) in params.iter().enumerate() {
-                    let param_pattern = format!("{{{{params[{}]}}}}", i);
-                    replaced = replaced.replace(&param_pattern, &param);
+                    let param_pattern = format!("{{{{params[{i}]}}}}");
+                    replaced = replaced.replace(&param_pattern, param);
                 }
                 result.push(instruction_line(&replaced));
             } else {
@@ -255,19 +245,19 @@ mod tests {
             preprocessed,
             vec![
                 Line::Tag("label".to_string()),
-                Line::Instruction(UnparsedInstruction {
+                Line::Instruction(instruction::Unparsed {
                     name: "addi".to_string(),
                     params: vec!["t0".to_string(), "t1".to_string(), "1".to_string()]
                 }),
-                Line::Instruction(UnparsedInstruction {
+                Line::Instruction(instruction::Unparsed {
                     name: "li".to_string(),
                     params: vec!["t2".to_string(), "0x998".to_string()]
                 }),
-                Line::Instruction(UnparsedInstruction {
+                Line::Instruction(instruction::Unparsed {
                     name: "not".to_string(),
                     params: vec!["t3".to_string(), "t4".to_string()]
                 }),
-                Line::Instruction(UnparsedInstruction {
+                Line::Instruction(instruction::Unparsed {
                     name: "lb".to_string(),
                     params: vec!["t5".to_string(), "4".to_string(), "t6".to_string()]
                 }),
@@ -279,19 +269,19 @@ mod tests {
     fn test_replace_complex_pseudo() {
         let lines = vec![
             Line::Tag("label".to_string()),
-            Line::Instruction(UnparsedInstruction {
+            Line::Instruction(instruction::Unparsed {
                 name: "addi".to_string(),
                 params: vec!["t0".to_string(), "t1".to_string(), "1".to_string()],
             }),
-            Line::Instruction(UnparsedInstruction {
+            Line::Instruction(instruction::Unparsed {
                 name: "li".to_string(),
                 params: vec!["t2".to_string(), "0x998".to_string()],
             }),
-            Line::Instruction(UnparsedInstruction {
+            Line::Instruction(instruction::Unparsed {
                 name: "not".to_string(),
                 params: vec!["t3".to_string(), "t4".to_string()],
             }),
-            Line::Instruction(UnparsedInstruction {
+            Line::Instruction(instruction::Unparsed {
                 name: "lb".to_string(),
                 params: vec!["t5".to_string(), "4".to_string(), "t6".to_string()],
             }),
@@ -301,23 +291,23 @@ mod tests {
             result,
             vec![
                 Line::Tag("label".to_string()),
-                Line::Instruction(UnparsedInstruction {
+                Line::Instruction(instruction::Unparsed {
                     name: "addi".to_string(),
                     params: vec!["t0".to_string(), "t1".to_string(), "1".to_string()]
                 }),
-                Line::Instruction(UnparsedInstruction {
+                Line::Instruction(instruction::Unparsed {
                     name: "lui".to_string(),
                     params: vec!["t2".to_string(), "0x1".to_string()]
                 }),
-                Line::Instruction(UnparsedInstruction {
+                Line::Instruction(instruction::Unparsed {
                     name: "addi".to_string(),
                     params: vec!["t2".to_string(), "t2".to_string(), "-1640".to_string()]
                 }),
-                Line::Instruction(UnparsedInstruction {
+                Line::Instruction(instruction::Unparsed {
                     name: "not".to_string(),
                     params: vec!["t3".to_string(), "t4".to_string()]
                 }),
-                Line::Instruction(UnparsedInstruction {
+                Line::Instruction(instruction::Unparsed {
                     name: "lb".to_string(),
                     params: vec!["t5".to_string(), "4".to_string(), "t6".to_string()]
                 }),
@@ -329,7 +319,7 @@ mod tests {
     fn test_replace_simple_pseudo() {
         let lines = vec![
             Line::Tag("label".to_string()),
-            Line::Instruction(UnparsedInstruction {
+            Line::Instruction(instruction::Unparsed {
                 name: "mv".to_string(),
                 params: vec!["t0".to_string(), "t1".to_string()],
             }),
@@ -339,7 +329,7 @@ mod tests {
             result,
             vec![
                 Line::Tag("label".to_string()),
-                Line::Instruction(UnparsedInstruction {
+                Line::Instruction(instruction::Unparsed {
                     name: "addi".to_string(),
                     params: vec!["t0".to_string(), "t1".to_string(), "0".to_string()]
                 }),

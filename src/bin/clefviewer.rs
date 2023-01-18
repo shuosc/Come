@@ -1,12 +1,9 @@
-use std::{fs::File, io::Write, path::PathBuf};
+use std::{fs::File, path::PathBuf};
 
 use bincode::Options;
 use clap::Parser;
-use come::{
-    backend::riscv::{emit_clef, instruction},
-    binary::format::clef::Clef,
-};
-use ezio::file;
+use come::{backend::riscv::instruction, binary::format::clef::Clef};
+
 use shadow_rs::shadow;
 shadow!(build);
 
@@ -34,18 +31,18 @@ fn main() {
         );
         println!("symbols:");
         for symbol in section.meta.symbols {
-            println!("  {}", symbol);
+            println!("  {symbol}");
         }
         println!("pending symbols:");
         for pending_symbol in section.meta.pending_symbols {
-            println!("{}", pending_symbol);
+            println!("{pending_symbol}");
         }
         println!("content:",);
         let content: Vec<bool> = section.content.into_iter().collect();
         let mut content: &[bool] = &content;
         while !content.is_empty() {
             let (rest, result) = instruction::parse_bin(content).unwrap();
-            println!("  {}", result);
+            println!("  {result}");
             content = rest;
         }
     }

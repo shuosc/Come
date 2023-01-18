@@ -1,3 +1,6 @@
+mod param;
+mod param_transformer;
+mod template;
 use std::{collections::HashMap, fmt::Display, sync::OnceLock};
 
 use bitvec::vec::BitVec;
@@ -11,25 +14,19 @@ use nom::{
     IResult,
 };
 
-use crate::{
-    backend::riscv::instruction_template,
-    utility::parsing::{ident, in_multispace},
-};
+use crate::utility::parsing::{ident, in_multispace};
 
-use super::{
-    instruction_template::{InstructionTemplate, TemplatePart},
-    param,
-    param_transformer::ParamTransformer,
-    ParsedParam, UnparsedInstruction,
-};
+use param::ParsedParam;
+
+use self::template::Template;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Instruction {
+pub struct Parsed {
     pub name: String,
     pub params: Vec<ParsedParam>,
 }
 
-impl Display for Instruction {
+impl Display for Parsed {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} ", self.name)?;
         // todo: find a better way to handle `offset(register)` format
@@ -45,15 +42,15 @@ impl Display for Instruction {
                 if i != 0 {
                     write!(f, ", ")?;
                 }
-                write!(f, "{}", param)?;
+                write!(f, "{param}")?;
             }
         }
         Ok(())
     }
 }
 
-fn templates() -> &'static HashMap<&'static str, InstructionTemplate> {
-    static TEMPLATE_MAPPING: OnceLock<HashMap<&'static str, InstructionTemplate>> = OnceLock::new();
+fn templates() -> &'static HashMap<&'static str, Template> {
+    static TEMPLATE_MAPPING: OnceLock<HashMap<&'static str, Template>> = OnceLock::new();
     TEMPLATE_MAPPING.get_or_init(|| {
         let mut mapping = HashMap::new();
         let templates_str = include_str!("../spec/instructions.spec");
@@ -63,16 +60,13 @@ fn templates() -> &'static HashMap<&'static str, InstructionTemplate> {
             .filter(|it| !it.is_empty());
         for template in templates {
             let (name, template) = template.split_once(' ').unwrap();
-            mapping.insert(
-                name,
-                instruction_template::parse(template.trim()).unwrap().1,
-            );
+            mapping.insert(name, template::parse(template.trim()).unwrap().1);
         }
         mapping
     })
 }
 
-pub fn parse(code: &str) -> IResult<&str, Instruction> {
+pub fn parse(code: &str) -> IResult<&str, Parsed> {
     map(
         tuple((
             ident,
@@ -80,12 +74,12 @@ pub fn parse(code: &str) -> IResult<&str, Instruction> {
             separated_list0(in_multispace(alt((tag(","), tag("(")))), param::parse),
             opt(tag(")")),
         )),
-        |(name, _, params, _)| Instruction { name, params },
+        |(name, _, params, _)| Parsed { name, params },
     )(code)
 }
 
-pub fn from_unparsed(unparsed: UnparsedInstruction) -> Instruction {
-    Instruction {
+pub fn from_unparsed(unparsed: Unparsed) -> Parsed {
+    Parsed {
         name: unparsed.name,
         params: unparsed
             .params
@@ -95,7 +89,7 @@ pub fn from_unparsed(unparsed: UnparsedInstruction) -> Instruction {
     }
 }
 
-pub fn parse_bin(bin: &[bool]) -> IResult<&[bool], Instruction> {
+pub fn parse_bin(bin: &[bool]) -> IResult<&[bool], Parsed> {
     // todo: speed up matching process
     if let Some((name, (rest, params))) = templates()
         .iter()
@@ -103,7 +97,7 @@ pub fn parse_bin(bin: &[bool]) -> IResult<&[bool], Instruction> {
     {
         Ok((
             rest,
-            Instruction {
+            Parsed {
                 name: name.to_string(),
                 params,
             },
@@ -113,11 +107,17 @@ pub fn parse_bin(bin: &[bool]) -> IResult<&[bool], Instruction> {
     }
 }
 
-impl Instruction {
+impl Parsed {
     pub fn binary(&self, address: u64) -> BitVec {
         let template = templates().get(self.name.as_str()).unwrap();
         template.render(&self.params, address).into_iter().collect()
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Unparsed {
+    pub name: String,
+    pub params: Vec<String>,
 }
 
 #[cfg(test)]
@@ -146,7 +146,7 @@ mod tests {
         let parsed = parse_bin(&instruction_bits).unwrap().1;
         assert_eq!(
             parsed,
-            Instruction {
+            Parsed {
                 name: "lui".to_string(),
                 params: vec![ParsedParam::Register(1), ParsedParam::Immediate(0x998)]
             }

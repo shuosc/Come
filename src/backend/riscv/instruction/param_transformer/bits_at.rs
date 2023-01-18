@@ -1,5 +1,5 @@
 use crate::{
-    backend::riscv::ParsedParam,
+    backend::riscv::instruction::ParsedParam,
     utility::parsing::{self, in_multispace},
 };
 use nom::{

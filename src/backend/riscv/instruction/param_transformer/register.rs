@@ -1,6 +1,6 @@
 use nom::{bytes::complete::tag, combinator::map, IResult};
 
-use crate::backend::riscv::ParsedParam;
+use crate::backend::riscv::instruction::param::ParsedParam;
 
 use super::{bits_at, IsParamTransformer};
 
@@ -39,7 +39,6 @@ impl IsParamTransformer for Register {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::riscv::ParsedParam;
 
     #[test]
     fn test_argument_to_bits() {

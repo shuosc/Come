@@ -143,6 +143,12 @@ impl IRGeneratingContext {
     }
 }
 
+impl Default for IRGeneratingContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Generate IR from AST.
 pub fn from_ast(ast: &Ast) -> Vec<IR> {
     let mut context = IRGeneratingContext::new();

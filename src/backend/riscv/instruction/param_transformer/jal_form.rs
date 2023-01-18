@@ -1,4 +1,4 @@
-use crate::backend::riscv::ParsedParam;
+use crate::backend::riscv::instruction::ParsedParam;
 use nom::{bytes::complete::tag, combinator::map, IResult};
 
 use super::{bits_at, IsParamTransformer};
@@ -50,7 +50,7 @@ impl IsParamTransformer for JalForm {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::riscv::ParsedParam;
+    use crate::backend::riscv::instruction::ParsedParam;
 
     #[test]
     fn test_argument_to_bits() {

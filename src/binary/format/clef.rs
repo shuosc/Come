@@ -30,11 +30,11 @@ impl Display for PendingSymbol {
             "{}",
             self.pending_instruction_offsets
                 .iter()
-                .map(|it| format!("0x{:08x}", it))
+                .map(|it| format!("0x{it:08x}"))
                 .chunks(4)
                 .into_iter()
                 .map(|mut it| it.join(", "))
-                .map(|it| format!("    {}", it))
+                .map(|it| format!("    {it}"))
                 .join("\n")
         )
     }
@@ -51,7 +51,7 @@ impl Display for LinkableOrLoadable {
         match self {
             LinkableOrLoadable::Linkable => write!(f, "linkable"),
             LinkableOrLoadable::Loadable(address) => {
-                write!(f, "should be loaded into address 0x{:x}", address)
+                write!(f, "should be loaded into address 0x{address:x}")
             }
         }
     }

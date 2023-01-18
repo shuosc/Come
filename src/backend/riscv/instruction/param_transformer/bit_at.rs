@@ -1,4 +1,4 @@
-use crate::{backend::riscv::ParsedParam, utility::parsing};
+use crate::{backend::riscv::instruction::ParsedParam, utility::parsing};
 use nom::{bytes::complete::tag, combinator::map, sequence::delimited, IResult};
 
 use super::{bit_at, IsParamTransformer};

@@ -22,11 +22,11 @@ pub enum ParsedParam {
 impl Display for ParsedParam {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParsedParam::Symbol(s) => write!(f, "{}", s),
+            ParsedParam::Symbol(s) => write!(f, "{s}"),
             // todo: mapping csr/register -> name
-            ParsedParam::Register(r) => write!(f, "x{}", r),
-            ParsedParam::Csr(c) => write!(f, "0x{:04x}", c),
-            ParsedParam::Immediate(i) => write!(f, "{}", i),
+            ParsedParam::Register(r) => write!(f, "x{r}"),
+            ParsedParam::Csr(c) => write!(f, "0x{c:04x}"),
+            ParsedParam::Immediate(i) => write!(f, "{i}"),
         }
     }
 }
@@ -56,7 +56,7 @@ fn parse_csr_bytes(code: &[u8]) -> IResult<&[u8], u16> {
     static CSRS: OnceLock<HashMap<&'static str, u16>> = OnceLock::new();
     let csrs = CSRS.get_or_init(|| {
         let mut csrs = HashMap::new();
-        let csrs_str = include_str!("./spec/csr.spec");
+        let csrs_str = include_str!("../spec/csr.spec");
         for line in csrs_str
             .lines()
             .map(|it| it.trim())
@@ -92,7 +92,7 @@ fn parse_register_bytes(code: &[u8]) -> IResult<&[u8], u8> {
     static REGISTERS: OnceLock<HashMap<&'static str, u8>> = OnceLock::new();
     let registers = REGISTERS.get_or_init(|| {
         let mut registers = HashMap::new();
-        let registers_str = include_str!("./spec/registers.spec");
+        let registers_str = include_str!("../spec/registers.spec");
         for line in registers_str
             .lines()
             .map(|it| it.trim())

@@ -1,4 +1,4 @@
-use crate::backend::riscv::ParsedParam;
+use crate::backend::riscv::instruction::ParsedParam;
 use itertools::Itertools;
 use nom::{bytes::complete::tag, combinator::map, IResult};
 
@@ -46,7 +46,7 @@ impl IsParamTransformer for BranchHigh {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::riscv::ParsedParam;
+    use crate::backend::riscv::instruction::ParsedParam;
 
     #[test]
     fn test_argument_to_bits() {
