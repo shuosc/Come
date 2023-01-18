@@ -1,5 +1,5 @@
 use crate::{
-    backend::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign, HasSize},
+    asm::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign, HasSize},
     ir,
     utility::data_type::Type,
 };
@@ -117,7 +117,7 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        backend::riscv::{register_assign::RegisterAssign, Context},
+        asm::riscv::{register_assign::RegisterAssign, Context},
         ir::RegisterName,
         utility::data_type::{self, Type},
     };

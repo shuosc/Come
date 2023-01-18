@@ -1,5 +1,5 @@
 use super::{statement, FunctionCompileContext};
-use crate::{backend::riscv::register_assign::RegisterAssign, ir};
+use crate::{asm::riscv::register_assign::RegisterAssign, ir};
 
 /// Emit assembly code for a [`ir::function::basic_block::BasicBlock`].
 pub fn emit_code(
@@ -64,9 +64,7 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        backend::riscv::{
-            function::FunctionCompileContext, register_assign::RegisterAssign, Context,
-        },
+        asm::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign, Context},
         ir::{
             self,
             function::{basic_block::BasicBlock, test_util::*},

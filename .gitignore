@@ -102,3 +102,4 @@ Cargo.lock
 *.cmir
 !integration-test/cases/*/expected/*.cmir
 !integration-test/cases/*/expected/*.asm
+*.clef

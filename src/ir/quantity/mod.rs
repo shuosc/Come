@@ -41,9 +41,9 @@ impl Quantity {
 impl Display for Quantity {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Quantity::GlobalVariableName(global) => write!(f, "{}", global),
-            Quantity::RegisterName(local) => write!(f, "{}", local),
-            Quantity::NumberLiteral(number) => write!(f, "{}", number),
+            Quantity::GlobalVariableName(global) => write!(f, "{global}"),
+            Quantity::RegisterName(local) => write!(f, "{local}"),
+            Quantity::NumberLiteral(number) => write!(f, "{number}"),
         }
     }
 }

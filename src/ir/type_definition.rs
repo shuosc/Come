@@ -24,7 +24,7 @@ impl fmt::Display for TypeDefinition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "%{} = {{", self.name)?;
         for tyoe in &self.fields {
-            writeln!(f, "    {},", tyoe)?;
+            writeln!(f, "    {tyoe},")?;
         }
         writeln!(f, "}}")
     }

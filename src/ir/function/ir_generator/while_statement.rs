@@ -9,9 +9,9 @@ pub fn from_ast(ast: &ast::statement::While, ctx: &mut IRGeneratingContext) {
     let ast::statement::While { condition, content } = ast;
     let statement_id = ctx.parent_context.next_loop_id;
     ctx.parent_context.next_loop_id += 1;
-    let condition_label = format!("loop_{}_condition", statement_id);
-    let success_label = format!("loop_{}_success", statement_id);
-    let fail_label = format!("loop_{}_fail", statement_id);
+    let condition_label = format!("loop_{statement_id}_condition");
+    let success_label = format!("loop_{statement_id}_success");
+    let fail_label = format!("loop_{statement_id}_fail");
     ctx.end_current_basic_block_with(Jump {
         label: condition_label.clone(),
     });

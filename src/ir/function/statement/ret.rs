@@ -44,7 +44,7 @@ impl IsIRStatement for Ret {
 impl fmt::Display for Ret {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(value) = &self.value {
-            write!(f, "ret {}", value)
+            write!(f, "ret {value}")
         } else {
             write!(f, "ret")
         }
