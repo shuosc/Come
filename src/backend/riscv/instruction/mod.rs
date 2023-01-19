@@ -3,7 +3,7 @@ mod param_transformer;
 mod template;
 use std::{collections::HashMap, fmt::Display, sync::OnceLock};
 
-use bitvec::vec::BitVec;
+use bitvec::{slice::BitSlice, vec::BitVec};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -89,7 +89,7 @@ pub fn from_unparsed(unparsed: Unparsed) -> Parsed {
     }
 }
 
-pub fn parse_bin(bin: &[bool]) -> IResult<&[bool], Parsed> {
+pub fn parse_bin(bin: &BitSlice<u32>) -> IResult<&BitSlice<u32>, Parsed> {
     // todo: speed up matching process
     if let Some((name, (rest, params))) = templates()
         .iter()

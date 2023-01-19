@@ -96,7 +96,7 @@ impl Display for Os {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Section {
     pub meta: SectionMeta,
-    pub content: BitVec,
+    pub content: BitVec<u32>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

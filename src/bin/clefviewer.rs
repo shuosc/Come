@@ -1,6 +1,7 @@
 use std::{fs::File, path::PathBuf};
 
 use bincode::Options;
+use bitvec::slice::BitSlice;
 use clap::Parser;
 use come::{backend::riscv::instruction, binary::format::clef::Clef};
 
@@ -38,8 +39,7 @@ fn main() {
             println!("{pending_symbol}");
         }
         println!("content:",);
-        let content: Vec<bool> = section.content.into_iter().collect();
-        let mut content: &[bool] = &content;
+        let mut content: &BitSlice<u32> = &section.content;
         while !content.is_empty() {
             let (rest, result) = instruction::parse_bin(content).unwrap();
             println!("  {result}");

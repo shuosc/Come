@@ -1,15 +1,15 @@
+use super::{bits_at, IsParamTransformer};
 use crate::{
-    backend::riscv::instruction::ParsedParam,
+    backend::riscv::instruction::{param, ParsedParam},
     utility::parsing::{self, in_multispace},
 };
+use bitvec::{prelude::*, vec::BitVec, view::BitView};
 use nom::{
     bytes::complete::tag,
     combinator::map,
     sequence::{delimited, tuple},
     IResult,
 };
-
-use super::{bits_at, IsParamTransformer};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BitsAt {
@@ -37,19 +37,21 @@ impl BitsAt {
 }
 
 impl IsParamTransformer for BitsAt {
-    fn argument_to_bits(&self, _address: u64, argument: &ParsedParam) -> Vec<bool> {
-        bits_at(argument.unwrap_immediate() as u32, self.start..self.end)
+    fn param_to_instruction_part(&self, _address: u64, param: &ParsedParam) -> BitVec<u32> {
+        let param_bits = param.unwrap_immediate() as u32;
+        param_bits.view_bits::<Lsb0>()[self.start as usize..self.end as usize].to_bitvec()
     }
 
-    fn update_argument(&self, instruction_part: &[bool], param: &mut ParsedParam) {
-        if let ParsedParam::Immediate(value) = param {
-            for (index, &bit) in (self.start..self.end).zip(instruction_part.iter()) {
-                *value |= (bit as i32) << index;
-            }
+    fn update_param(&self, instruction_part: &BitSlice<u32>, param: &mut ParsedParam) {
+        if let ParsedParam::Immediate(param_value) = param {
+            let mut param_bits_store = *param_value as u32;
+            let param_bits = param_bits_store.view_bits_mut::<Lsb0>();
+            param_bits[self.start as usize..self.end as usize].copy_from_bitslice(instruction_part);
+            *param_value = param_bits_store as i32;
         }
     }
 
-    fn default_argument(&self) -> ParsedParam {
+    fn default_param(&self) -> ParsedParam {
         ParsedParam::Immediate(0)
     }
 }
@@ -67,34 +69,40 @@ mod tests {
     }
 
     #[test]
-    fn argument_to_bits() {
+    fn param_to_instruction_part() {
         let transformer = BitsAt::new(0, 2);
         let param = ParsedParam::Immediate(0b1010);
-        assert_eq!(transformer.argument_to_bits(0, &param), vec![false, true]);
+        assert_eq!(
+            transformer.param_to_instruction_part(0, &param),
+            vec![false, true]
+        );
         let transformer = BitsAt::new(1, 3);
-        assert_eq!(transformer.argument_to_bits(0, &param), vec![true, false]);
+        assert_eq!(
+            transformer.param_to_instruction_part(0, &param),
+            vec![true, false]
+        );
         let transformer = BitsAt::new(3, 8);
         assert_eq!(
-            transformer.argument_to_bits(0, &param),
+            transformer.param_to_instruction_part(0, &param),
             vec![true, false, false, false, false]
         );
     }
 
     #[test]
-    fn update_argument() {
+    fn update_param() {
         let transformer = BitsAt::new(0, 3);
         let mut param = ParsedParam::Immediate(0);
-        transformer.update_argument(&[true, false, true], &mut param);
+        transformer.update_param(&[true, false, true], &mut param);
         assert_eq!(param, ParsedParam::Immediate(0b101));
 
         let transformer = BitsAt::new(1, 3);
         let mut param = ParsedParam::Immediate(0);
-        transformer.update_argument(&[false, true], &mut param);
+        transformer.update_param(&[false, true], &mut param);
         assert_eq!(param, ParsedParam::Immediate(0b100));
 
         let transformer = BitsAt::new(24, 32);
         let mut param = ParsedParam::Immediate(0);
-        transformer.update_argument(
+        transformer.update_param(
             &[true, false, true, false, false, false, false, false],
             &mut param,
         );

@@ -17,7 +17,7 @@ use super::{
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Part {
-    BitPattern(Vec<bool>),
+    BitPattern(BitVec<u32>),
     ParamTransformer((usize, ParamTransformer)),
 }
 
@@ -88,19 +88,22 @@ impl Template {
         }
         current_result
     }
-    pub fn render(&self, params: &[ParsedParam], address: u64) -> Vec<bool> {
-        let mut bits = Vec::new();
+    pub fn render(&self, params: &[ParsedParam], address: u64) -> BitVec<u32> {
+        let mut bits = BitVec::new();
         for part in &self.parts {
             match part {
-                Part::BitPattern(bit_pattern) => bits.extend(bit_pattern),
-                Part::ParamTransformer((param_id, transformer)) => {
-                    bits.extend(transformer.argument_to_bits(address, &params[*param_id]))
-                }
+                Part::BitPattern(bit_pattern) => bits.extend_from_bitslice(bit_pattern),
+                Part::ParamTransformer((param_id, transformer)) => bits.extend_from_bitslice(
+                    &transformer.param_to_instruction_part(address, &params[*param_id]),
+                ),
             }
         }
         bits
     }
-    pub fn parse_binary<'a>(&'a self, bits: &'a [bool]) -> IResult<&'a [bool], Vec<ParsedParam>> {
+    pub fn parse_binary<'a>(
+        &'a self,
+        bits: &'a BitSlice<u32>,
+    ) -> IResult<&'a BitSlice<u32>, Vec<ParsedParam>> {
         let mut bits = bits;
         let mut params = Vec::new();
         for part in &self.parts {
@@ -127,8 +130,8 @@ impl Template {
                     let param = params
                         .get_mut(*param_id)
                         .unwrap()
-                        .get_or_insert(transformer.default_argument());
-                    transformer.update_argument(&bits[0..transformer.bit_count()], param);
+                        .get_or_insert(transformer.default_param());
+                    transformer.update_param(&bits[0..transformer.bit_count()], param);
                     bits = &bits[transformer.bit_count()..];
                 }
             }
