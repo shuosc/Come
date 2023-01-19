@@ -4,6 +4,7 @@ use nom::{bytes::complete::tag, combinator::map, sequence::delimited, IResult};
 
 use super::IsParamTransformer;
 
+/// A transformer that extracts a bit at `Self.0`th bit of a parameter.
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct BitAt(u8);
 

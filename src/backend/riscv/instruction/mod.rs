@@ -1,5 +1,9 @@
+/// Parameter information and parser.
 mod param;
+/// Parameter transformers are used to convert back and forth from a parameter to fields in
+/// a binary form of instruction.
 mod param_transformer;
+/// Instruction template information, parser and related functions.
 mod template;
 use std::{collections::HashMap, fmt::Display, sync::OnceLock};
 
@@ -20,10 +24,36 @@ use param::Param;
 
 use self::template::Template;
 
+/// A parsed instruction.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parsed {
+    /// The name of the instruction.
     pub name: String,
+    /// The parameters of the instruction.
     pub params: Vec<Param>,
+}
+
+/// An unparsed instruction.
+/// "Unparsed" means we regard all parts of this instruction as string.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Unparsed {
+    /// The name of the instruction.
+    pub name: String,
+    /// The parameters of the instruction.
+    pub params: Vec<String>,
+}
+
+impl From<Unparsed> for Parsed {
+    fn from(unparsed: Unparsed) -> Self {
+        Parsed {
+            name: unparsed.name,
+            params: unparsed
+                .params
+                .into_iter()
+                .map(|it| param::parse(&it).unwrap().1)
+                .collect(),
+        }
+    }
 }
 
 impl Display for Parsed {
@@ -66,6 +96,7 @@ fn templates() -> &'static HashMap<&'static str, Template> {
     })
 }
 
+/// Parse asm code into parsed instruction.
 pub fn parse(code: &str) -> IResult<&str, Parsed> {
     map(
         tuple((
@@ -78,17 +109,7 @@ pub fn parse(code: &str) -> IResult<&str, Parsed> {
     )(code)
 }
 
-pub fn from_unparsed(unparsed: Unparsed) -> Parsed {
-    Parsed {
-        name: unparsed.name,
-        params: unparsed
-            .params
-            .into_iter()
-            .map(|it| param::parse(&it).unwrap().1)
-            .collect(),
-    }
-}
-
+/// Parse binary instruction into parsed instruction.
 pub fn parse_bin(bin: &BitSlice<u32>) -> IResult<&BitSlice<u32>, Parsed> {
     // todo: speed up matching process
     if let Some((name, (rest, params))) = templates()
@@ -114,6 +135,7 @@ impl Parsed {
     }
 }
 
+/// Macro for easily constructing an instruction.
 macro_rules! instruction {
     ($name:ident) => {
         Parsed {
@@ -174,12 +196,6 @@ macro_rules! instruction {
             ],
         }
     };
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Unparsed {
-    pub name: String,
-    pub params: Vec<String>,
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@ use nom::{bytes::complete::tag, combinator::map, IResult};
 
 use super::IsParamTransformer;
 
+/// A transformer that extract the bits of an imm used for a jal instruction.
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct JalForm;
 

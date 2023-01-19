@@ -11,11 +11,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::utility::parsing;
 
+/// Parameter of an instruction.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum Param {
+    /// An unresolved symbol.
     Symbol(String),
+    /// A register.
     Register(u8),
+    /// A csr.
     Csr(u16),
+    /// An immediate value.
     Immediate(i32),
 }
 
@@ -126,6 +131,7 @@ fn parse_register(code: &str) -> IResult<&str, u8> {
         .map_err(|_| nom::Err::Error(nom::error::Error::new(code, nom::error::ErrorKind::Tag)))
 }
 
+/// Parses asm code to get a [`Param`] instance.
 pub fn parse(code: &str) -> IResult<&str, Param> {
     alt((
         map(parse_register, Param::Register),
@@ -135,6 +141,8 @@ pub fn parse(code: &str) -> IResult<&str, Param> {
     ))(code)
 }
 
+/// There are some types we hope can be converted to [`Param`].
+/// So we can make `instruction!` macro easily.
 pub trait AsParam {
     fn as_param(&self) -> Param;
 }

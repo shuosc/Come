@@ -3,6 +3,8 @@ use nom::{bytes::complete::tag, combinator::map, IResult};
 
 use super::IsParamTransformer;
 use bitvec::prelude::*;
+
+/// A transformer that extract the csr form of the parameter.
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct Csr;
 

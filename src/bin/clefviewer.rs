@@ -3,7 +3,7 @@ use std::{fs::File, path::PathBuf};
 use bincode::Options;
 use bitvec::prelude::*;
 use clap::Parser;
-use come::{backend::riscv::instruction, binary::format::clef::Clef};
+use come::{backend::riscv::instruction, binary_format::clef::Clef};
 
 use shadow_rs::shadow;
 shadow!(build);

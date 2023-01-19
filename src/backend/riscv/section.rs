@@ -1,8 +1,10 @@
 use nom::{branch::alt, bytes::complete::tag, combinator::map, IResult};
 use std::fmt::Display;
 
+/// The sections of the program.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Section {
+    /// I REALLY want to call this section `code` TAT
     Text,
     Data,
     Rodata,

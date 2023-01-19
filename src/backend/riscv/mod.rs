@@ -1,21 +1,25 @@
-use std::{collections::HashMap, sync::OnceLock};
-
-use bitvec::prelude::*;
-
-use crate::{
-    binary::format::clef::{self, Architecture, Clef, Os, SectionMeta, Symbol},
-    utility::parsing,
-};
-
+/// Functions for generating asm from IR
 pub mod from_ir;
+/// Instruction information parser
 pub mod instruction;
+/// Section name information and parser
 mod section;
-use section::Section;
 
 use self::section::parse_section;
+use crate::{
+    binary_format::clef::{self, Architecture, Clef, Os, SectionMeta, Symbol},
+    utility::parsing,
+};
+use bitvec::prelude::*;
+use section::Section;
+use std::{collections::HashMap, sync::OnceLock};
+
+/// Directive in an asm file.
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum Directive {
+    /// Marks a global symbol to be exported.
     Global(String),
+    /// Marks the beginning of a section.
     Section(Section),
 }
 
@@ -32,10 +36,14 @@ fn parse_directive(line: &str) -> Directive {
     }
 }
 
+/// A line in an asm file.
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum Line {
+    /// A tag.
     Tag(String),
+    /// An instruction.
     Instruction(instruction::Unparsed),
+    /// A directive.
     Directive(Directive),
 }
 
@@ -169,6 +177,7 @@ fn replace_simple_pseudo(complex_replaced: &[Line]) -> Vec<Line> {
     result
 }
 
+/// Emit clef file from an asm file.
 pub fn emit_clef(asm_code: &str) -> Clef {
     let mut result = Clef::new(Architecture::RiscV, Os::BareMetal);
     let preprocessed = preprocess(asm_code);
@@ -191,7 +200,7 @@ pub fn emit_clef(asm_code: &str) -> Clef {
                 }
             }
             Line::Instruction(unparsed) => {
-                let parsed = instruction::from_unparsed(unparsed);
+                let parsed = instruction::Parsed::from(unparsed);
                 let binary = parsed.binary(current_offset as _);
                 let current_section = section_map.get_mut(&current_section_name).unwrap();
                 current_section.content.extend_from_bitslice(&binary);

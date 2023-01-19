@@ -11,6 +11,7 @@ use nom::{
     IResult,
 };
 
+/// A transformer that takes a part of a parameter.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BitsAt {
     pub start: u8,

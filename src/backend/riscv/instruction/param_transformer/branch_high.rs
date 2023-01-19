@@ -3,6 +3,8 @@ use nom::{bytes::complete::tag, combinator::map, IResult};
 
 use super::IsParamTransformer;
 use bitvec::prelude::*;
+
+/// A transformer that extract the higher bits of an imm used for a branch instruction.
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct BranchHigh;
 

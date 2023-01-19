@@ -15,9 +15,12 @@ use super::{
     Param,
 };
 
+/// A part of a template.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Part {
+    /// Several determined bits.
     BitPattern(BitVec<u32>),
+    /// A parameter transformer for transform `Self.0`th param into expected form.
     ParamTransformer((usize, ParamTransformer)),
 }
 
@@ -57,6 +60,7 @@ fn parse_template_part(code: &str) -> IResult<&str, Part> {
     ))(code)
 }
 
+/// A template of an instruction.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Template {
     pub parts: Vec<Part>,
@@ -79,6 +83,7 @@ impl Template {
         }
         current_result
     }
+    /// Render an instruction into bits with param and address.
     pub fn render(&self, params: &[Param], address: u64) -> BitVec<u32> {
         let mut bits = BitVec::new();
         for part in &self.parts {
@@ -91,6 +96,7 @@ impl Template {
         }
         bits
     }
+    /// Parse an instruction to get its params.
     pub fn parse_binary<'a>(
         &'a self,
         bits: &'a BitSlice<u32>,
@@ -139,6 +145,7 @@ impl Template {
     }
 }
 
+/// Parse the string form of a template to get a [`Template`] object.
 pub fn parse(code: &str) -> IResult<&str, Template> {
     // for human beings, we prefer to write the MSB first
     // so we need to reverse the parts

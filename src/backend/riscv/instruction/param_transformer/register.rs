@@ -4,6 +4,7 @@ use nom::{bytes::complete::tag, combinator::map, IResult};
 
 use super::IsParamTransformer;
 
+/// A transformer that extract the register form of the parameter.
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct Register;
 
