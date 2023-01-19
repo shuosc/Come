@@ -1,3 +1,5 @@
+.section .text
+.global f
 f:
     addi sp, sp, -104
 f_entry:

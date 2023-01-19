@@ -1,3 +1,5 @@
+.section .text
+.global main
 main:
 main_entry:
     j loop_0_condition

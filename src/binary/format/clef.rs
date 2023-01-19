@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use bitvec::vec::BitVec;
+use bitvec::prelude::*;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 

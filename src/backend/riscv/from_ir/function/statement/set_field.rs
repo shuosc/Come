@@ -1,5 +1,7 @@
 use crate::{
-    asm::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign, HasSize},
+    backend::riscv::from_ir::{
+        function::FunctionCompileContext, register_assign::RegisterAssign, HasSize,
+    },
     ir::{self, quantity::Quantity},
     utility::data_type::Type,
 };
@@ -17,7 +19,7 @@ pub fn emit_code(set_field: &ir::statement::SetField, ctx: &mut FunctionCompileC
     let value_to_set = match source {
         Quantity::RegisterName(local) => ctx.local_assign.get(local).unwrap().clone(),
         Quantity::NumberLiteral(n) => {
-            code.push_str(&format!("    li t1, {}\n", n));
+            code.push_str(&format!("    li t1, {n}\n"));
             RegisterAssign::Register("t1".to_string())
         }
         Quantity::GlobalVariableName(_) => todo!(),
@@ -44,10 +46,10 @@ pub fn emit_code(set_field: &ir::statement::SetField, ctx: &mut FunctionCompileC
     code.push_str(
         match (result_register, value_to_be_setted, value_to_set) {
             (RegisterAssign::Register(result), _, RegisterAssign::Register(to_set)) => {
-                format!("    mv {}, {}\n", result, to_set)
+                format!("    mv {result}, {to_set}\n")
             }
             (RegisterAssign::Register(result), _, RegisterAssign::StackValue(to_set)) => {
-                format!("    lw {}, {}(sp)\n", result, to_set)
+                format!("    lw {result}, {to_set}(sp)\n")
             }
             (
                 RegisterAssign::MultipleRegisters(result),
@@ -121,11 +123,10 @@ pub fn emit_code(set_field: &ir::statement::SetField, ctx: &mut FunctionCompileC
                 for (i, result_register) in result.iter().enumerate() {
                     if i == current_offset_bytes / 4 {
                         result_code
-                            .push_str(&format!("    mv {}, {}\n", result_register, value_to_set));
+                            .push_str(&format!("    mv {result_register}, {value_to_set}\n"));
                     } else {
                         let offset = to_be_setted + i * 4;
-                        result_code
-                            .push_str(&format!("    lw {}, {}(sp)\n", result_register, offset));
+                        result_code.push_str(&format!("    lw {result_register}, {offset}(sp)\n"));
                     }
                 }
                 result_code
@@ -183,15 +184,12 @@ pub fn emit_code(set_field: &ir::statement::SetField, ctx: &mut FunctionCompileC
                 RegisterAssign::StackValue(result),
                 RegisterAssign::Register(_to_be_setted),
                 RegisterAssign::Register(value_to_set),
-            ) => format!("    sw {}, {}(sp)\n", value_to_set, result),
+            ) => format!("    sw {value_to_set}, {result}(sp)\n"),
             (
                 RegisterAssign::StackValue(result),
                 RegisterAssign::Register(_to_be_setted),
                 RegisterAssign::StackValue(value_to_set),
-            ) => format!(
-                "    lw t0, {}(sp)\n    sw t0, {}(sp)\n",
-                value_to_set, result
-            ),
+            ) => format!("    lw t0, {value_to_set}(sp)\n    sw t0, {result}(sp)\n"),
             (
                 RegisterAssign::StackValue(result),
                 RegisterAssign::MultipleRegisters(to_be_setted),
@@ -201,12 +199,10 @@ pub fn emit_code(set_field: &ir::statement::SetField, ctx: &mut FunctionCompileC
                 for (i, to_be_setted_register) in to_be_setted.iter().enumerate() {
                     let offset = result + i * 4;
                     if i == current_offset_bytes / 4 {
-                        result_code.push_str(&format!("    sw {}, {}(sp)\n", value_to_set, offset));
+                        result_code.push_str(&format!("    sw {value_to_set}, {offset}(sp)\n"));
                     } else {
-                        result_code.push_str(&format!(
-                            "    sw {}, {}(sp)\n",
-                            to_be_setted_register, offset
-                        ));
+                        result_code
+                            .push_str(&format!("    sw {to_be_setted_register}, {offset}(sp)\n"));
                     }
                 }
                 result_code
@@ -397,14 +393,10 @@ pub fn emit_code(set_field: &ir::statement::SetField, ctx: &mut FunctionCompileC
 mod tests {
     #![allow(clippy::borrow_interior_mutable_const)]
 
+    use crate::{backend::riscv::from_ir::Context, ir::RegisterName, utility::data_type};
+
     use super::*;
     use std::collections::HashMap;
-
-    use crate::{
-        asm::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign, Context},
-        ir::{self, RegisterName},
-        utility::data_type::{self, Type},
-    };
 
     #[test]
     fn emit_code_reg_whatever_reg() {

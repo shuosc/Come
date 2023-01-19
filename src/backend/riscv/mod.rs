@@ -1,14 +1,14 @@
 use std::{collections::HashMap, sync::OnceLock};
 
-use bitvec::vec::BitVec;
+use bitvec::prelude::*;
 
 use crate::{
     binary::format::clef::{self, Architecture, Clef, Os, SectionMeta, Symbol},
     utility::parsing,
 };
 
+pub mod from_ir;
 pub mod instruction;
-
 mod section;
 use section::Section;
 
@@ -228,7 +228,7 @@ pub fn emit_clef(asm_code: &str) -> Clef {
 
 #[cfg(test)]
 mod tests {
-    use bitvec::field::BitField;
+    use bitvec::prelude::*;
 
     use super::*;
     #[test]

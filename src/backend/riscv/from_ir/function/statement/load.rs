@@ -1,5 +1,5 @@
 use crate::{
-    asm::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign},
+    backend::riscv::from_ir::{function::FunctionCompileContext, register_assign::RegisterAssign},
     ir,
 };
 
@@ -49,12 +49,9 @@ pub fn emit_code(
             return result;
         }
     };
-    result.push_str(&format!(
-        "    lw {}, {}(sp)\n",
-        to_register, from_stack_offset
-    ));
+    result.push_str(&format!("    lw {to_register}, {from_stack_offset}(sp)\n"));
     if let RegisterAssign::StackValue(stack_offset) = to_physical {
-        result.push_str(&format!("    sw {}, {}(sp)\n", to_register, stack_offset));
+        result.push_str(&format!("    sw {to_register}, {stack_offset}(sp)\n"));
     }
     result
 }

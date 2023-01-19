@@ -51,7 +51,10 @@ pub fn emit_code(function: &ir::FunctionDefinition, ctx: &mut super::Context) ->
     let (register_assign, stack_space) =
         register_assign::assign_register(ctx, function, control_flow_graph, register_usage);
     let phi_constant_assign = collect_phi_constant_assign(function, &register_assign);
-    let mut result = format!("{}:\n", function.header.name);
+    let mut result = format!(
+        ".global {}\n{}:\n",
+        function.header.name, function.header.name
+    );
     let mut context = FunctionCompileContext {
         parent_context: ctx,
         local_assign: register_assign,
@@ -63,15 +66,15 @@ pub fn emit_code(function: &ir::FunctionDefinition, ctx: &mut super::Context) ->
         phi_constant_assign,
     };
     if stack_space != 0 {
-        result.push_str(format!("    addi sp, sp, -{}\n", stack_space).as_str());
+        result.push_str(format!("    addi sp, sp, -{stack_space}\n").as_str());
     }
     for basic_block in function.content.iter() {
         result.push_str(basic_block::emit_code(basic_block, &mut context).as_str());
     }
     if let Some(cleanup_label) = context.cleanup_label {
-        result.push_str(format!("{}:\n", cleanup_label).as_str());
+        result.push_str(format!("{cleanup_label}:\n").as_str());
         if stack_space != 0 {
-            result.push_str(format!("    addi sp, sp, {}\n", stack_space).as_str());
+            result.push_str(format!("    addi sp, sp, {stack_space}\n").as_str());
         }
         result.push_str("    ret\n");
     }

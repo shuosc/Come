@@ -1,5 +1,7 @@
 use crate::{
-    asm::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign, HasSize},
+    backend::riscv::from_ir::{
+        function::FunctionCompileContext, register_assign::RegisterAssign, HasSize,
+    },
     ir,
     utility::data_type::Type,
 };
@@ -34,7 +36,7 @@ pub fn emit_code(statement: &ir::statement::LoadField, ctx: &mut FunctionCompile
         let current_offset_bytes = current_offset_bytes;
         match (to_physical_register, from_physical_register) {
             (RegisterAssign::Register(to), RegisterAssign::Register(from)) => {
-                format!("    mv {}, {}\n", to, from)
+                format!("    mv {to}, {from}\n")
             }
             (RegisterAssign::Register(to), RegisterAssign::MultipleRegisters(from)) => {
                 // todo: handle unaligned access
@@ -64,21 +66,21 @@ pub fn emit_code(statement: &ir::statement::LoadField, ctx: &mut FunctionCompile
                 let mut result = String::new();
                 let mut current_offset = from + current_offset_bytes;
                 for to_register in to {
-                    result.push_str(&format!("    lw {}, {}(sp)\n", to_register, current_offset));
+                    result.push_str(&format!("    lw {to_register}, {current_offset}(sp)\n"));
                     current_offset += 4;
                 }
                 result
             }
             (RegisterAssign::StackValue(to), RegisterAssign::Register(from)) => {
-                format!("    sw {}, {}(sp)\n", from, to)
+                format!("    sw {from}, {to}(sp)\n")
             }
             (RegisterAssign::StackValue(to), RegisterAssign::StackValue(from)) => {
                 let mut result = String::new();
                 let mut current_from = from + current_offset_bytes;
                 let mut current_to = to + current_offset_bytes;
                 for _ in 0..final_result_bytes / 4 {
-                    result.push_str(&format!("    lw t0, {}(sp)\n", current_from));
-                    result.push_str(&format!("    sw t0, {}(sp)\n", current_to));
+                    result.push_str(&format!("    lw t0, {current_from}(sp)\n"));
+                    result.push_str(&format!("    sw t0, {current_to}(sp)\n"));
                     current_from += 4;
                     current_to += 4;
                 }
@@ -90,7 +92,7 @@ pub fn emit_code(statement: &ir::statement::LoadField, ctx: &mut FunctionCompile
                 let start_at_register = current_offset_bytes / 4;
                 let final_result_words = final_result_bytes / 4;
                 for from_item in from.iter().skip(start_at_register).take(final_result_words) {
-                    result.push_str(&format!("    sw {}, {}(sp)\n", from_item, current_offset));
+                    result.push_str(&format!("    sw {from_item}, {current_offset}(sp)\n"));
                     current_offset += 4;
                 }
                 result
@@ -117,7 +119,7 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        asm::riscv::{register_assign::RegisterAssign, Context},
+        backend::riscv::from_ir::Context,
         ir::RegisterName,
         utility::data_type::{self, Type},
     };

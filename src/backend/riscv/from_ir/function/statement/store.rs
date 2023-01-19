@@ -1,5 +1,5 @@
 use crate::{
-    asm::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign},
+    backend::riscv::from_ir::{function::FunctionCompileContext, register_assign::RegisterAssign},
     ir,
 };
 
@@ -20,7 +20,7 @@ pub fn emit_code(
             match local {
                 RegisterAssign::Register(register) => register.clone(),
                 RegisterAssign::StackValue(stack_offset) => {
-                    result.push_str(&format!("    lw t0, {}(sp)\n", stack_offset));
+                    result.push_str(&format!("    lw t0, {stack_offset}(sp)\n"));
                     "t0".to_string()
                 }
                 RegisterAssign::StackRef(_) => unreachable!(),
@@ -47,7 +47,7 @@ pub fn emit_code(
         }
         ir::quantity::Quantity::GlobalVariableName(_) => todo!(),
         ir::quantity::Quantity::NumberLiteral(n) => {
-            result.push_str(&format!("    li t0, {}\n", n));
+            result.push_str(&format!("    li t0, {n}\n"));
             "t0".to_string()
         }
     };
@@ -64,8 +64,7 @@ pub fn emit_code(
         todo!()
     };
     result.push_str(&format!(
-        "    sw {}, {}(sp)\n",
-        source_register, target_stack_offset
+        "    sw {source_register}, {target_stack_offset}(sp)\n"
     ));
     result
 }

@@ -3,7 +3,7 @@ mod param_transformer;
 mod template;
 use std::{collections::HashMap, fmt::Display, sync::OnceLock};
 
-use bitvec::{slice::BitSlice, vec::BitVec};
+use bitvec::prelude::*;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -16,14 +16,14 @@ use nom::{
 
 use crate::utility::parsing::{ident, in_multispace};
 
-use param::ParsedParam;
+use param::Param;
 
 use self::template::Template;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parsed {
     pub name: String,
-    pub params: Vec<ParsedParam>,
+    pub params: Vec<Param>,
 }
 
 impl Display for Parsed {
@@ -114,6 +114,68 @@ impl Parsed {
     }
 }
 
+macro_rules! instruction {
+    ($name:ident) => {
+        Parsed {
+            name: stringify!($name).to_string(),
+            params: vec![],
+        }
+    };
+    ($name:ident, $param1:expr) => {
+        Parsed {
+            name: stringify!($name).to_string(),
+            params: vec![crate::backend::riscv::instruction::param::AsParam::as_param(&$param1)],
+        }
+    };
+    ($name:ident, $param1:ident) => {
+        Parsed {
+            name: stringify!($name).to_string(),
+            params: vec![
+                crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
+            ],
+        }
+    };
+    ($name:ident, $param1:ident, $param2:expr) => {
+        Parsed {
+            name: stringify!($name).to_string(),
+            params: vec![
+                crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
+                crate::backend::riscv::instruction::param::AsParam::as_param(&$param2),
+            ],
+        }
+    };
+    ($name:ident, $param1:ident, $param2:expr, $param3:ident) => {
+        Parsed {
+            name: stringify!($name).to_string(),
+            params: vec![
+                crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
+                crate::backend::riscv::instruction::param::AsParam::as_param(&$param2),
+                crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param3)),
+            ],
+        }
+    };
+    ($name:ident, $param1:ident, $param2:ident, $param3:expr) => {
+        Parsed {
+            name: stringify!($name).to_string(),
+            params: vec![
+                crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
+                crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param2)),
+                crate::backend::riscv::instruction::param::AsParam::as_param(&$param3),
+            ],
+        }
+    };
+    ($name:ident, $param1:ident, $param2:ident, $param3:ident) => {
+        Parsed {
+            name: stringify!($name).to_string(),
+            params: vec![
+                crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
+                crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param2)),
+                crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param3)),
+            ],
+        }
+    };
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Unparsed {
     pub name: String,
@@ -123,7 +185,7 @@ pub struct Unparsed {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitvec::prelude::*;
+
     #[test]
     fn test_parse() {
         let code = "lui x1, 0x1234";
@@ -131,8 +193,8 @@ mod tests {
         assert_eq!(rest, "");
         assert_eq!(parsed.name, "lui");
         assert_eq!(parsed.params.len(), 2);
-        assert_eq!(parsed.params[0], ParsedParam::Register(1));
-        assert_eq!(parsed.params[1], ParsedParam::Immediate(0x1234));
+        assert_eq!(parsed.params[0], Param::Register(1));
+        assert_eq!(parsed.params[1], Param::Immediate(0x1234));
     }
 
     #[test]
@@ -144,7 +206,7 @@ mod tests {
             parsed,
             Parsed {
                 name: "lui".to_string(),
-                params: vec![ParsedParam::Register(1), ParsedParam::Immediate(0x998)]
+                params: vec![Param::Register(1), Param::Immediate(0x998)]
             }
         );
     }

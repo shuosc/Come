@@ -12,7 +12,7 @@ use nom::{
 
 use super::{
     param_transformer::{self, IsParamTransformer, ParamTransformer},
-    ParsedParam,
+    Param,
 };
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -62,15 +62,6 @@ pub struct Template {
     pub parts: Vec<Part>,
 }
 
-pub fn parse(code: &str) -> IResult<&str, Template> {
-    // for human beings, we prefer to write the MSB first
-    // so we need to reverse the parts
-    map(many1(parse_template_part), |mut parts| {
-        parts.reverse();
-        Template { parts }
-    })(code)
-}
-
 impl Template {
     fn param_bit_count(&self, param_id: usize) -> usize {
         let mut current_result = 0;
@@ -88,7 +79,7 @@ impl Template {
         }
         current_result
     }
-    pub fn render(&self, params: &[ParsedParam], address: u64) -> BitVec<u32> {
+    pub fn render(&self, params: &[Param], address: u64) -> BitVec<u32> {
         let mut bits = BitVec::new();
         for part in &self.parts {
             match part {
@@ -103,7 +94,7 @@ impl Template {
     pub fn parse_binary<'a>(
         &'a self,
         bits: &'a BitSlice<u32>,
-    ) -> IResult<&'a BitSlice<u32>, Vec<ParsedParam>> {
+    ) -> IResult<&'a BitSlice<u32>, Vec<Param>> {
         let mut bits = bits;
         let mut params = Vec::new();
         for part in &self.parts {
@@ -138,7 +129,7 @@ impl Template {
         }
         let mut params = params.into_iter().map(|it| it.unwrap()).collect_vec();
         for (param_id, param) in params.iter_mut().enumerate() {
-            if let ParsedParam::Immediate(imm) = param {
+            if let Param::Immediate(imm) = param {
                 let imm_bits = *imm as u32;
                 let bits = imm_bits.view_bits::<Lsb0>();
                 *imm = bits[0..self.param_bit_count(param_id)].load_le();
@@ -146,6 +137,15 @@ impl Template {
         }
         Ok((bits, params))
     }
+}
+
+pub fn parse(code: &str) -> IResult<&str, Template> {
+    // for human beings, we prefer to write the MSB first
+    // so we need to reverse the parts
+    map(many1(parse_template_part), |mut parts| {
+        parts.reverse();
+        Template { parts }
+    })(code)
 }
 
 #[cfg(test)]
@@ -180,7 +180,7 @@ mod tests {
             ],
         };
         assert_eq!(
-            template.render(&[ParsedParam::Immediate(0b11101)], 0),
+            template.render(&[Param::Immediate(0b11101)], 0),
             bits![0, 0, 1, 1, 0, 1, 1, 1]
         );
 
@@ -194,10 +194,7 @@ mod tests {
         };
         assert_eq!(
             template.render(
-                &[
-                    ParsedParam::Register(0b11101),
-                    ParsedParam::Immediate(0b0010_0000)
-                ],
+                &[Param::Register(0b11101), Param::Immediate(0b0010_0000)],
                 0
             ),
             bits![1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1]

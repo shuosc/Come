@@ -1,5 +1,5 @@
 use crate::{
-    asm::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign},
+    backend::riscv::from_ir::{function::FunctionCompileContext, register_assign::RegisterAssign},
     ir::{self, statement::calculate::unary::UnaryOperation},
 };
 
@@ -21,7 +21,7 @@ pub fn emit_code(
             if let RegisterAssign::Register(physical_register) = logical_register_assign {
                 physical_register.clone()
             } else if let RegisterAssign::StackValue(offset) = logical_register_assign {
-                result.push_str(&format!("    lw t0, {}(sp)\n", offset));
+                result.push_str(&format!("    lw t0, {offset}(sp)\n"));
                 "t0".to_string()
             } else {
                 unreachable!()
@@ -29,7 +29,7 @@ pub fn emit_code(
         }
         ir::quantity::Quantity::GlobalVariableName(_global) => todo!(),
         ir::quantity::Quantity::NumberLiteral(literal) => {
-            result.push_str(&format!("    li t0, {}\n", literal));
+            result.push_str(&format!("    li t0, {literal}\n"));
             "t0".to_string()
         }
     };
@@ -42,14 +42,14 @@ pub fn emit_code(
     };
     match operation {
         UnaryOperation::Neg => {
-            result.push_str(&format!("    neg {}, {}\n", to_register, operand_register));
+            result.push_str(&format!("    neg {to_register}, {operand_register}\n"));
         }
         UnaryOperation::Not => {
-            result.push_str(&format!("    not {}, {}\n", to_register, operand_register));
+            result.push_str(&format!("    not {to_register}, {operand_register}\n"));
         }
     }
     if let RegisterAssign::StackValue(stack_offset) = to_register_assign {
-        result.push_str(&format!("    sw {}, {}(sp)\n", to_register, stack_offset));
+        result.push_str(&format!("    sw {to_register}, {stack_offset}(sp)\n"));
     }
     result
 }

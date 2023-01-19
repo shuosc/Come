@@ -1,3 +1,5 @@
+.section .text
+.global test_code
 test_code:
     addi sp, sp, -24
 test_code_entry:

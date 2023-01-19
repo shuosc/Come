@@ -1,3 +1,5 @@
+.section .text
+.global test_condition
 test_condition:
     addi sp, sp, -16
 test_condition_entry:

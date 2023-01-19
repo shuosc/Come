@@ -1,7 +1,7 @@
 use std::{fs::File, path::PathBuf};
 
 use bincode::Options;
-use bitvec::slice::BitSlice;
+use bitvec::prelude::*;
 use clap::Parser;
 use come::{backend::riscv::instruction, binary::format::clef::Clef};
 

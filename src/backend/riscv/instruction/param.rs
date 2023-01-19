@@ -12,41 +12,41 @@ use serde::{Deserialize, Serialize};
 use crate::utility::parsing;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub enum ParsedParam {
+pub enum Param {
     Symbol(String),
     Register(u8),
     Csr(u16),
     Immediate(i32),
 }
 
-impl Display for ParsedParam {
+impl Display for Param {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParsedParam::Symbol(s) => write!(f, "{s}"),
+            Param::Symbol(s) => write!(f, "{s}"),
             // todo: mapping csr/register -> name
-            ParsedParam::Register(r) => write!(f, "x{r}"),
-            ParsedParam::Csr(c) => write!(f, "0x{c:04x}"),
-            ParsedParam::Immediate(i) => write!(f, "{i}"),
+            Param::Register(r) => write!(f, "x{r}"),
+            Param::Csr(c) => write!(f, "0x{c:04x}"),
+            Param::Immediate(i) => write!(f, "{i}"),
         }
     }
 }
 
-impl ParsedParam {
+impl Param {
     pub fn unwrap_immediate(&self) -> i32 {
         match self {
-            ParsedParam::Immediate(i) => *i,
+            Param::Immediate(i) => *i,
             _ => panic!("Expected immediate!"),
         }
     }
     pub fn unwrap_register(&self) -> u8 {
         match self {
-            ParsedParam::Register(r) => *r,
+            Param::Register(r) => *r,
             _ => panic!("Expected register!"),
         }
     }
     pub fn unwrap_csr(&self) -> u16 {
         match self {
-            ParsedParam::Csr(r) => *r,
+            Param::Csr(r) => *r,
             _ => panic!("Expected CSR!"),
         }
     }
@@ -126,16 +126,29 @@ fn parse_register(code: &str) -> IResult<&str, u8> {
         .map_err(|_| nom::Err::Error(nom::error::Error::new(code, nom::error::ErrorKind::Tag)))
 }
 
-pub fn parse(code: &str) -> IResult<&str, ParsedParam> {
+pub fn parse(code: &str) -> IResult<&str, Param> {
     alt((
-        map(parse_register, ParsedParam::Register),
-        map(parse_csr, ParsedParam::Csr),
-        map(
-            parsing::in_multispace(parsing::integer),
-            ParsedParam::Immediate,
-        ),
-        map(parsing::ident, ParsedParam::Symbol),
+        map(parse_register, Param::Register),
+        map(parse_csr, Param::Csr),
+        map(parsing::in_multispace(parsing::integer), Param::Immediate),
+        map(parsing::ident, Param::Symbol),
     ))(code)
+}
+
+pub trait AsParam {
+    fn as_param(&self) -> Param;
+}
+
+impl AsParam for i32 {
+    fn as_param(&self) -> Param {
+        Param::Immediate(*self)
+    }
+}
+
+impl AsParam for &str {
+    fn as_param(&self) -> Param {
+        parse(self).unwrap().1
+    }
 }
 
 #[cfg(test)]
@@ -164,23 +177,23 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        assert_eq!(parse("x0"), Ok(("", ParsedParam::Register(0))));
-        assert_eq!(parse("x1"), Ok(("", ParsedParam::Register(1))));
-        assert_eq!(parse("x8"), Ok(("", ParsedParam::Register(8))));
-        assert_eq!(parse("s0"), Ok(("", ParsedParam::Register(8))));
-        assert_eq!(parse("fp"), Ok(("", ParsedParam::Register(8))));
-        assert_eq!(parse("zero"), Ok(("", ParsedParam::Register(0))));
-        assert_eq!(parse("x26"), Ok(("", ParsedParam::Register(26))));
-        assert_eq!(parse("s10"), Ok(("", ParsedParam::Register(26))));
-        assert_eq!(parse("cycle"), Ok(("", ParsedParam::Csr(0xc00))));
-        assert_eq!(parse("cycleh"), Ok(("", ParsedParam::Csr(0xc80))));
-        assert_eq!(parse("0"), Ok(("", ParsedParam::Immediate(0))));
-        assert_eq!(parse("1"), Ok(("", ParsedParam::Immediate(1))));
-        assert_eq!(parse("0x1"), Ok(("", ParsedParam::Immediate(1))));
-        assert_eq!(parse("-0x1"), Ok(("", ParsedParam::Immediate(-1))));
+        assert_eq!(parse("x0"), Ok(("", Param::Register(0))));
+        assert_eq!(parse("x1"), Ok(("", Param::Register(1))));
+        assert_eq!(parse("x8"), Ok(("", Param::Register(8))));
+        assert_eq!(parse("s0"), Ok(("", Param::Register(8))));
+        assert_eq!(parse("fp"), Ok(("", Param::Register(8))));
+        assert_eq!(parse("zero"), Ok(("", Param::Register(0))));
+        assert_eq!(parse("x26"), Ok(("", Param::Register(26))));
+        assert_eq!(parse("s10"), Ok(("", Param::Register(26))));
+        assert_eq!(parse("cycle"), Ok(("", Param::Csr(0xc00))));
+        assert_eq!(parse("cycleh"), Ok(("", Param::Csr(0xc80))));
+        assert_eq!(parse("0"), Ok(("", Param::Immediate(0))));
+        assert_eq!(parse("1"), Ok(("", Param::Immediate(1))));
+        assert_eq!(parse("0x1"), Ok(("", Param::Immediate(1))));
+        assert_eq!(parse("-0x1"), Ok(("", Param::Immediate(-1))));
         assert_eq!(
             parse("stupid_function"),
-            Ok(("", ParsedParam::Symbol("stupid_function".to_string())))
+            Ok(("", Param::Symbol("stupid_function".to_string())))
         );
         assert!(parse(",").is_err());
     }

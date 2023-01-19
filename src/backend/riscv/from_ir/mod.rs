@@ -47,7 +47,7 @@ impl Context {
 
 /// Emit assembly code for ir.
 pub fn emit_asm(ir: &[ir::IR]) -> String {
-    let mut code = String::new();
+    let mut code = ".section .text\n".to_string();
     let mut ctx = Context {
         struct_definitions: HashMap::new(),
     };

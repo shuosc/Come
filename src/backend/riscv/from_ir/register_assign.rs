@@ -32,7 +32,7 @@ pub enum RegisterAssign {
 impl fmt::Display for RegisterAssign {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RegisterAssign::Register(register) => write!(f, "{}", register),
+            RegisterAssign::Register(register) => write!(f, "{register}"),
             RegisterAssign::MultipleRegisters(registers) => write!(
                 f,
                 "{}",
@@ -42,8 +42,8 @@ impl fmt::Display for RegisterAssign {
                     .collect_vec()
                     .join(",")
             ),
-            RegisterAssign::StackRef(offset) => write!(f, "alias to {}(sp)", offset),
-            RegisterAssign::StackValue(offset) => write!(f, "{}(sp)", offset),
+            RegisterAssign::StackRef(offset) => write!(f, "alias to {offset}(sp)"),
+            RegisterAssign::StackValue(offset) => write!(f, "{offset}(sp)"),
         }
     }
 }
@@ -116,11 +116,11 @@ pub fn assign_register(
             let current_temporary_register_id = next_temporary_register_id;
             next_temporary_register_id += need_registers;
             if need_registers == 1 {
-                RegisterAssign::Register(format!("t{}", current_temporary_register_id))
+                RegisterAssign::Register(format!("t{current_temporary_register_id}"))
             } else {
                 RegisterAssign::MultipleRegisters(
                     (current_temporary_register_id..current_temporary_register_id + need_registers)
-                        .map(|it| format!("t{}", it))
+                        .map(|it| format!("t{it}"))
                         .collect(),
                 )
             }
@@ -144,11 +144,11 @@ fn assign_param(params: &[Parameter], ctx: &Context) -> HashMap<ir::RegisterName
         let type_bytes = (param.data_type.size(ctx) + 7) / 8;
         let need_registers = type_bytes / 4;
         let assigned_to_register = if need_registers == 1 {
-            RegisterAssign::Register(format!("a{}", current_used_id))
+            RegisterAssign::Register(format!("a{current_used_id}"))
         } else {
             RegisterAssign::MultipleRegisters(
                 (current_used_id..current_used_id + need_registers)
-                    .map(|it| format!("a{}", it))
+                    .map(|it| format!("a{it}"))
                     .collect(),
             )
         };

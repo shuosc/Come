@@ -1,5 +1,5 @@
 use crate::{
-    asm::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign},
+    backend::riscv::from_ir::{function::FunctionCompileContext, register_assign::RegisterAssign},
     ir::{quantity::Quantity, statement::Ret},
 };
 
@@ -10,22 +10,22 @@ pub fn emit_code(ret: &Ret, ctx: &mut FunctionCompileContext) -> String {
             Quantity::RegisterName(local) => {
                 let logical_register_assign = ctx.local_assign.get(local).unwrap();
                 match logical_register_assign {
-                    RegisterAssign::Register(register) => format!("    mv a0, {}\n", register),
+                    RegisterAssign::Register(register) => format!("    mv a0, {register}\n"),
                     RegisterAssign::StackValue(stack_offset) => {
-                        format!("    lw a0, {}(sp)\n", stack_offset)
+                        format!("    lw a0, {stack_offset}(sp)\n")
                     }
                     RegisterAssign::StackRef(_) => unreachable!(),
                     RegisterAssign::MultipleRegisters(_) => todo!(),
                 }
             }
-            Quantity::NumberLiteral(n) => format!("    li a0, {}\n", n),
+            Quantity::NumberLiteral(n) => format!("    li a0, {n}\n"),
             Quantity::GlobalVariableName(_) => todo!(),
         }
     } else {
         String::new()
     };
     if let Some(cleanup_label) = &ctx.cleanup_label {
-        result.push_str(&format!("    j {}\n", cleanup_label));
+        result.push_str(&format!("    j {cleanup_label}\n"));
     } else {
         result.push_str("    ret\n");
     }
