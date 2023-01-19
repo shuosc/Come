@@ -41,10 +41,10 @@ impl BasicBlock {
 impl fmt::Display for BasicBlock {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(name) = &self.name {
-            writeln!(f, "  {}:", name)?;
+            writeln!(f, "  {name}:")?;
         }
         for statement in &self.content {
-            writeln!(f, "    {}", statement)?;
+            writeln!(f, "    {statement}")?;
         }
         Ok(())
     }

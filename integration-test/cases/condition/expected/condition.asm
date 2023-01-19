@@ -1,3 +1,5 @@
+.section .text
+.global test_condition
 test_condition:
     addi sp, sp, -8
 test_condition_entry:

@@ -116,7 +116,7 @@ impl EditActionBatch {
         from.sort();
         from.dedup();
         Phi {
-            to: RegisterName(format!("{}_{}", variable_name, to_be_putted_block_name)),
+            to: RegisterName(format!("{variable_name}_{to_be_putted_block_name}")),
             data_type: variable_type,
             from,
         }

@@ -20,7 +20,7 @@ impl FunctionOptimizer {
         Self { passes }
     }
 
-    /// Add a [`Pass`] to [`Optimizer`].
+    /// Add a [`Pass`] to [`FunctionOptimizer`].
     pub fn add_pass(&mut self, pass: Pass) {
         self.passes.push(pass);
     }

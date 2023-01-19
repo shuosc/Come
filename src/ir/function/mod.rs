@@ -134,7 +134,7 @@ impl fmt::Display for FunctionDefinition {
         }
         writeln!(f, ") -> {} {{", self.header.return_type)?;
         for basic_block in &self.content {
-            write!(f, "{}", basic_block)?;
+            write!(f, "{basic_block}")?;
         }
         write!(f, "}}")
     }

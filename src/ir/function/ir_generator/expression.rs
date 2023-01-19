@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-/// Generate IR from an [`ast::expression::RValue`] AST node.
+/// Generate IR from an [`RValue`] AST node.
 /// Return the register where the result is stored.
 pub fn rvalue_from_ast(ast: &RValue, ctx: &mut IRGeneratingContext) -> Quantity {
     match ast {

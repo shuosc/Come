@@ -1,5 +1,5 @@
 use crate::{
-    backend::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign},
+    backend::riscv::from_ir::{function::FunctionCompileContext, register_assign::RegisterAssign},
     ir::{quantity::Quantity, statement::Call},
 };
 
@@ -27,38 +27,38 @@ fn store_u32(to_address: &Quantity, value: &Quantity, ctx: &mut FunctionCompileC
             let assign = ctx.local_assign.get(logical_register).unwrap();
             match assign {
                 RegisterAssign::Register(physical_register) => {
-                    result.push_str(&format!("    mv a1, {}\n", physical_register));
+                    result.push_str(&format!("    mv a1, {physical_register}\n"));
                 }
                 RegisterAssign::StackRef(offset) => {
-                    result.push_str(&format!("    lw a1, {}(sp)\n", offset));
+                    result.push_str(&format!("    lw a1, {offset}(sp)\n"));
                 }
                 RegisterAssign::StackValue(offset) => {
-                    result.push_str(&format!("    lw a1, {}(sp)\n", offset));
+                    result.push_str(&format!("    lw a1, {offset}(sp)\n"));
                 }
                 RegisterAssign::MultipleRegisters(_) => todo!(),
             }
         }
         Quantity::GlobalVariableName(_) => todo!(),
-        Quantity::NumberLiteral(constant) => result.push_str(&format!("    li a1, {}\n", constant)),
+        Quantity::NumberLiteral(constant) => result.push_str(&format!("    li a1, {constant}\n")),
     }
     match to_address {
         Quantity::RegisterName(to_address_register) => {
             let assign = ctx.local_assign.get(to_address_register).unwrap();
             match assign {
                 RegisterAssign::Register(physical_register) => {
-                    result.push_str(&format!("    mv a0, {}\n", physical_register));
+                    result.push_str(&format!("    mv a0, {physical_register}\n"));
                 }
                 RegisterAssign::StackRef(offset) => {
-                    result.push_str(&format!("    lw a0, {}(sp)\n", offset));
+                    result.push_str(&format!("    lw a0, {offset}(sp)\n"));
                 }
                 RegisterAssign::StackValue(offset) => {
-                    result.push_str(&format!("    lw a0, {}(sp)\n", offset));
+                    result.push_str(&format!("    lw a0, {offset}(sp)\n"));
                 }
                 RegisterAssign::MultipleRegisters(_) => todo!(),
             }
         }
         Quantity::GlobalVariableName(_) => todo!(),
-        Quantity::NumberLiteral(constant) => result.push_str(&format!("    li a0, {}\n", constant)),
+        Quantity::NumberLiteral(constant) => result.push_str(&format!("    li a0, {constant}\n")),
     }
     result.push_str("    sw a1, 0(a0)\n");
     result
@@ -74,15 +74,15 @@ fn load_u32(
         Quantity::RegisterName(register) => {
             let register_assign = ctx.local_assign.get(register).unwrap();
             let load_addr = match register_assign {
-                RegisterAssign::Register(register) => format!("    mv a0, {}\n", register),
-                RegisterAssign::StackRef(offset) => format!("    lw a0, {}(sp)\n", offset),
-                RegisterAssign::StackValue(offset) => format!("    lw a0, {}(sp)\n", offset),
+                RegisterAssign::Register(register) => format!("    mv a0, {register}\n"),
+                RegisterAssign::StackRef(offset) => format!("    lw a0, {offset}(sp)\n"),
+                RegisterAssign::StackValue(offset) => format!("    lw a0, {offset}(sp)\n"),
                 RegisterAssign::MultipleRegisters(_) => todo!(),
             };
             result.push_str(&load_addr);
         }
         Quantity::NumberLiteral(constant) => {
-            result.push_str(&format!("    li a0, {}\n", constant));
+            result.push_str(&format!("    li a0, {constant}\n"));
         }
         Quantity::GlobalVariableName(_) => todo!(),
     }
@@ -91,13 +91,13 @@ fn load_u32(
         let register_assign = ctx.local_assign.get(to_register).unwrap();
         match register_assign {
             RegisterAssign::Register(register) => {
-                result.push_str(&format!("    mv {}, a0\n", register))
+                result.push_str(&format!("    mv {register}, a0\n"))
             }
             RegisterAssign::StackRef(offset) => {
-                result.push_str(&format!("    sw a0, {}(sp)\n", offset));
+                result.push_str(&format!("    sw a0, {offset}(sp)\n"));
             }
             RegisterAssign::StackValue(offset) => {
-                result.push_str(&format!("    sw a0, {}(sp)\n", offset));
+                result.push_str(&format!("    sw a0, {offset}(sp)\n"));
             }
             RegisterAssign::MultipleRegisters(_) => todo!(),
         };

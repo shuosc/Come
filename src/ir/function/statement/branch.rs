@@ -30,7 +30,7 @@ pub enum BranchType {
 
 impl Display for BranchType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", format!("{:?}", self).to_ascii_lowercase())
+        write!(f, "{}", format!("{self:?}").to_ascii_lowercase())
     }
 }
 

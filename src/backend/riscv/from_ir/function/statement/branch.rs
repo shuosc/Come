@@ -1,5 +1,5 @@
 use crate::{
-    backend::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign},
+    backend::riscv::from_ir::{function::FunctionCompileContext, register_assign::RegisterAssign},
     ir::{
         quantity::Quantity,
         statement::{branch::BranchType, Branch},
@@ -28,7 +28,7 @@ pub fn emit_code(branch: &Branch, ctx: &mut FunctionCompileContext) -> String {
             match logical_register_assign {
                 RegisterAssign::Register(register) => register.clone(),
                 RegisterAssign::StackValue(stack_offset) => {
-                    result.push_str(&format!("    lw t0, {}(sp)\n", stack_offset));
+                    result.push_str(&format!("    lw t0, {stack_offset}(sp)\n"));
                     "t0".to_string()
                 }
                 RegisterAssign::StackRef(_) => unreachable!(),
@@ -37,7 +37,7 @@ pub fn emit_code(branch: &Branch, ctx: &mut FunctionCompileContext) -> String {
         }
         Quantity::GlobalVariableName(_) => todo!(),
         Quantity::NumberLiteral(n) => {
-            result.push_str(&format!("    li t0, {}\n", n));
+            result.push_str(&format!("    li t0, {n}\n"));
             "t0".to_string()
         }
     };
@@ -47,7 +47,7 @@ pub fn emit_code(branch: &Branch, ctx: &mut FunctionCompileContext) -> String {
             match logical_register_assign {
                 RegisterAssign::Register(register) => register.clone(),
                 RegisterAssign::StackValue(stack_offset) => {
-                    result.push_str(&format!("    lw t1, {}(sp)\n", stack_offset));
+                    result.push_str(&format!("    lw t1, {stack_offset}(sp)\n"));
                     "t1".to_string()
                 }
                 RegisterAssign::StackRef(_) => unreachable!(),
@@ -56,14 +56,13 @@ pub fn emit_code(branch: &Branch, ctx: &mut FunctionCompileContext) -> String {
         }
         Quantity::GlobalVariableName(_) => todo!(),
         Quantity::NumberLiteral(n) => {
-            result.push_str(&format!("    li t1, {}\n", n));
+            result.push_str(&format!("    li t1, {n}\n"));
             "t1".to_string()
         }
     };
     result.push_str(&format!(
-        "    {} {}, {}, {}\n",
-        branch_command, operand1_register, operand2_register, success_label
+        "    {branch_command} {operand1_register}, {operand2_register}, {success_label}\n"
     ));
-    result.push_str(&format!("    j {}\n", failure_label));
+    result.push_str(&format!("    j {failure_label}\n"));
     result
 }

@@ -64,7 +64,7 @@ pub fn parse(code: &str) -> IResult<&str, IR> {
 }
 
 /// Parses all the ir code to get a list of [`IR`].
-pub fn from_source(source: &str) -> IResult<&str, Vec<IR>> {
+pub fn from_ir_code(source: &str) -> IResult<&str, Vec<IR>> {
     many0(delimited(multispace0, parse, multispace0))(source)
 }
 
@@ -139,7 +139,13 @@ impl IRGeneratingContext {
     pub fn next_register(&mut self) -> RegisterName {
         let register_id = self.next_register_id;
         self.next_register_id += 1;
-        RegisterName(format!("{}", register_id))
+        RegisterName(format!("{register_id}"))
+    }
+}
+
+impl Default for IRGeneratingContext {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

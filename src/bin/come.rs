@@ -1,21 +1,14 @@
-#![feature(once_cell)]
-#![feature(let_chains)]
+use std::path::PathBuf;
+
 use clap::Parser;
-use ezio::prelude::*;
-use ir::optimize::optimize;
-use std::{io::Write, path::PathBuf};
-
-/// Definitions of AST nodes and their parser.
-mod ast;
-/// Functions for generating assembly code from ir.
-mod backend;
-/// Definitions of IR nodes and their parser, and ir generator functions for generating ir from ast.
-mod ir;
-/// Utilities shared among modules.
-mod utility;
-
+use come::{
+    ast,
+    backend::riscv,
+    ir::{self, optimize},
+};
+use ezio::file;
 use shadow_rs::shadow;
-
+use std::io::Write;
 shadow!(build);
 
 /// Come language compiler.
@@ -43,13 +36,13 @@ fn main() {
     let code = file::read(args.input);
     let ast = ast::from_source(&code).unwrap().1;
     let ir = ir::from_ast(&ast);
-    let ir = optimize(ir, args.optimize);
+    let ir = optimize::optimize(ir, args.optimize);
     if let Some(emit_ir_path) = args.emit_ir_path {
         let mut w = file::writer(emit_ir_path);
         for ir in ir.iter() {
-            writeln!(w, "{}", ir).unwrap();
+            writeln!(w, "{ir}").unwrap();
         }
     }
-    let code = backend::riscv::emit_code(&ir);
+    let code = riscv::from_ir::emit_asm(&ir);
     file::write(args.output, &code);
 }

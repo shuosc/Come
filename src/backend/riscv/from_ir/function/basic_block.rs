@@ -1,5 +1,6 @@
+use crate::{backend::riscv::from_ir::register_assign::RegisterAssign, ir};
+
 use super::{statement, FunctionCompileContext};
-use crate::{backend::riscv::register_assign::RegisterAssign, ir};
 
 /// Emit assembly code for a [`ir::function::basic_block::BasicBlock`].
 pub fn emit_code(
@@ -9,7 +10,7 @@ pub fn emit_code(
     let ir::function::basic_block::BasicBlock { name, content } = basic_block;
     let mut result = String::new();
     if let Some(name) = name {
-        result.push_str(format!("{}:\n", name).as_str());
+        result.push_str(format!("{name}:\n").as_str());
     }
     if let Some((terminator, content)) = content.split_last() {
         for statement in content {
@@ -37,15 +38,15 @@ fn append_phi_insert(
         for (register_assign, constant) in phi_insert {
             match register_assign {
                 RegisterAssign::Register(register) => {
-                    result.push_str(format!("    li {}, {}\n", register, constant).as_str());
+                    result.push_str(format!("    li {register}, {constant}\n").as_str());
                 }
                 RegisterAssign::StackRef(offset) => {
-                    result.push_str(format!("    li t0, {}\n", constant).as_str());
-                    result.push_str(format!("    sw t0, {}(sp)\n", offset).as_str());
+                    result.push_str(format!("    li t0, {constant}\n").as_str());
+                    result.push_str(format!("    sw t0, {offset}(sp)\n").as_str());
                 }
                 RegisterAssign::StackValue(offset) => {
-                    result.push_str(format!("    li t0, {}\n", constant).as_str());
-                    result.push_str(format!("    sw t0, {}(sp)\n", offset).as_str());
+                    result.push_str(format!("    li t0, {constant}\n").as_str());
+                    result.push_str(format!("    sw t0, {offset}(sp)\n").as_str());
                 }
                 RegisterAssign::MultipleRegisters(_) => {
                     unreachable!()
@@ -64,9 +65,7 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        backend::riscv::{
-            function::FunctionCompileContext, register_assign::RegisterAssign, Context,
-        },
+        backend::riscv::from_ir::{register_assign::RegisterAssign, Context},
         ir::{
             self,
             function::{basic_block::BasicBlock, test_util::*},

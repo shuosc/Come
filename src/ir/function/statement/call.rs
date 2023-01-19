@@ -69,7 +69,7 @@ impl IsIRStatement for Call {
 impl Display for Call {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if let Some(to_register) = &self.to {
-            write!(f, "{} = ", to_register)?;
+            write!(f, "{to_register} = ")?;
         }
         write!(f, "call {} {}(", self.data_type, self.name)?;
         write!(
@@ -77,7 +77,7 @@ impl Display for Call {
             "{}",
             self.params
                 .iter()
-                .map(|it| format!("{}", it))
+                .map(|it| format!("{it}"))
                 .collect::<Vec<_>>()
                 .join(",")
         )?;

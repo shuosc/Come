@@ -48,7 +48,7 @@ impl fmt::Display for LoadField {
             self.source,
             self.field_chain
                 .iter()
-                .map(|(t, i)| format!("{}.{}", t, i))
+                .map(|(t, i)| format!("{t}.{i}"))
                 .collect::<Vec<_>>()
                 .join(", "),
         )
@@ -75,7 +75,7 @@ impl IsIRStatement for LoadField {
 fn parse_field(code: &str) -> IResult<&str, (Type, usize)> {
     map(
         tuple((data_type::parse, tag("."), parsing::integer)),
-        |(t, _, i)| (t, i as usize),
+        |(t, _, i)| (t, i),
     )(code)
 }
 

@@ -31,7 +31,10 @@ where
 
 /// Parse source code to get an integer literal.
 /// Supports hex (startes with 0x) or dec.
-pub fn integer(code: &str) -> IResult<&str, i64> {
+pub fn integer<T: TryFrom<i64>>(code: &str) -> IResult<&str, T>
+where
+    <T as TryFrom<i64>>::Error: std::fmt::Debug,
+{
     map(
         pair(
             opt(tag("-")),
@@ -42,7 +45,13 @@ pub fn integer(code: &str) -> IResult<&str, i64> {
                 map(digit1, |digits: &str| digits.parse::<i64>().unwrap()),
             )),
         ),
-        |(neg, n)| if neg.is_some() { -n } else { n },
+        |(neg, n)| {
+            if neg.is_some() {
+                T::try_from(-n).unwrap()
+            } else {
+                T::try_from(n).unwrap()
+            }
+        },
     )(code)
 }
 
@@ -62,13 +71,13 @@ mod tests {
 
     #[test]
     fn can_parse_integer() {
-        let result = integer("0x40000000").unwrap().1;
+        let result: i32 = integer("0x40000000").unwrap().1;
         assert_eq!(result, 0x40000000);
-        let result = integer("99").unwrap().1;
+        let result: i32 = integer("99").unwrap().1;
         assert_eq!(result, 99);
-        let result = integer("-0x40000000").unwrap().1;
+        let result: i32 = integer("-0x40000000").unwrap().1;
         assert_eq!(result, -0x40000000);
-        let result = integer("-99").unwrap().1;
+        let result: i32 = integer("-99").unwrap().1;
         assert_eq!(result, -99);
     }
 }

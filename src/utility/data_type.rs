@@ -32,7 +32,7 @@ impl fmt::Display for Type {
         match self {
             Type::Integer(i) => i.fmt(f),
             Type::Address => write!(f, "address"),
-            Type::StructRef(name) => write!(f, "{}", name),
+            Type::StructRef(name) => write!(f, "{name}"),
             Type::None => write!(f, "()"),
         }
     }

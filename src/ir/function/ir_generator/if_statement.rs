@@ -14,9 +14,9 @@ pub fn from_ast(ast: &ast::statement::If, ctx: &mut IRGeneratingContext) {
 
     let if_id = ctx.parent_context.next_if_id;
     ctx.parent_context.next_if_id += 1;
-    let success_label = format!("if_{}_success", if_id);
-    let fail_label = format!("if_{}_fail", if_id);
-    let end_label = format!("if_{}_end", if_id);
+    let success_label = format!("if_{if_id}_success");
+    let fail_label = format!("if_{if_id}_fail");
+    let end_label = format!("if_{if_id}_end");
     let condition = expression::rvalue_from_ast(condition, ctx);
     ctx.end_current_basic_block_with(Branch {
         branch_type: BranchType::NE,

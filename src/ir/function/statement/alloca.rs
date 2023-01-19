@@ -70,7 +70,7 @@ pub mod test_util {
 
     pub fn new(variable_name: &str) -> Alloca {
         Alloca {
-            to: RegisterName(format!("{}_addr", variable_name)),
+            to: RegisterName(format!("{variable_name}_addr")),
             alloc_type: data_type::I32.clone(),
         }
     }

@@ -97,7 +97,7 @@ pub mod test_util {
         Store {
             data_type: data_type::I32.clone(),
             source: 1.into(),
-            target: RegisterName(format!("{}_addr", variable_name)).into(),
+            target: RegisterName(format!("{variable_name}_addr")).into(),
         }
     }
 
@@ -105,7 +105,7 @@ pub mod test_util {
         Store {
             data_type: data_type::I32.clone(),
             source: RegisterName(reg.to_string()).into(),
-            target: RegisterName(format!("{}_addr", variable_name)).into(),
+            target: RegisterName(format!("{variable_name}_addr")).into(),
         }
     }
 }

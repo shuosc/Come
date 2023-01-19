@@ -1,5 +1,5 @@
 use crate::{
-    backend::riscv::{function::FunctionCompileContext, register_assign::RegisterAssign},
+    backend::riscv::from_ir::{function::FunctionCompileContext, register_assign::RegisterAssign},
     ir,
 };
 
@@ -22,7 +22,7 @@ pub fn emit_code(
             match logical_register_assign {
                 RegisterAssign::Register(physical_register) => physical_register.clone(),
                 RegisterAssign::StackValue(offset) => {
-                    result.push_str(&format!("    lw t0, {}(sp)\n", offset));
+                    result.push_str(&format!("    lw t0, {offset}(sp)\n"));
                     "t0".to_string()
                 }
                 RegisterAssign::MultipleRegisters(_) => unreachable!(),
@@ -31,7 +31,7 @@ pub fn emit_code(
         }
         ir::quantity::Quantity::GlobalVariableName(_global) => todo!(),
         ir::quantity::Quantity::NumberLiteral(literal) => {
-            result.push_str(&format!("    li t0, {}\n", literal));
+            result.push_str(&format!("    li t0, {literal}\n"));
             "t0".to_string()
         }
     };
@@ -41,7 +41,7 @@ pub fn emit_code(
             if let RegisterAssign::Register(physical_register) = logical_register_assign {
                 physical_register.clone()
             } else if let RegisterAssign::StackValue(offset) = logical_register_assign {
-                result.push_str(&format!("    lw t1, {}(sp)\n", offset));
+                result.push_str(&format!("    lw t1, {offset}(sp)\n"));
                 "t1".to_string()
             } else {
                 unreachable!()
@@ -49,7 +49,7 @@ pub fn emit_code(
         }
         ir::quantity::Quantity::GlobalVariableName(_global) => todo!(),
         ir::quantity::Quantity::NumberLiteral(literal) => {
-            result.push_str(&format!("    li t1, {}\n", literal));
+            result.push_str(&format!("    li t1, {literal}\n"));
             "t1".to_string()
         }
     };
@@ -63,14 +63,12 @@ pub fn emit_code(
     match operation {
         ir::statement::calculate::binary::BinaryOperation::Add => {
             result.push_str(&format!(
-                "    add {}, {}, {}\n",
-                to_register, operand1_register, operand2_register
+                "    add {to_register}, {operand1_register}, {operand2_register}\n"
             ));
         }
         ir::statement::calculate::binary::BinaryOperation::LessThan => {
             result.push_str(&format!(
-                "    slt {}, {}, {}\n",
-                to_register, operand1_register, operand2_register
+                "    slt {to_register}, {operand1_register}, {operand2_register}\n"
             ));
         }
         ir::statement::calculate::binary::BinaryOperation::LessOrEqualThan => todo!(),
@@ -78,10 +76,9 @@ pub fn emit_code(
         ir::statement::calculate::binary::BinaryOperation::GreaterOrEqualThan => todo!(),
         ir::statement::calculate::binary::BinaryOperation::Equal => {
             result.push_str(&format!(
-                "    sub {}, {}, {}\n",
-                to_register, operand1_register, operand2_register
+                "    sub {to_register}, {operand1_register}, {operand2_register}\n"
             ));
-            result.push_str(&format!("    seqz {}, {}\n", to_register, to_register));
+            result.push_str(&format!("    seqz {to_register}, {to_register}\n"));
         }
         ir::statement::calculate::binary::BinaryOperation::NotEqual => todo!(),
         ir::statement::calculate::binary::BinaryOperation::Sub => todo!(),
@@ -93,7 +90,7 @@ pub fn emit_code(
         ir::statement::calculate::binary::BinaryOperation::AthematicShiftRight => todo!(),
     }
     if let RegisterAssign::StackValue(stack_offset) = to_register_assign {
-        result.push_str(&format!("    sw {}, {}(sp)\n", to_register, stack_offset));
+        result.push_str(&format!("    sw {to_register}, {stack_offset}(sp)\n"));
     }
     result
 }

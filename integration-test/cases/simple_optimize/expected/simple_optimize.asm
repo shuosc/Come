@@ -1,3 +1,5 @@
+.section .text
+.global test_code
 test_code:
 test_code_entry:
     li t1, 2
