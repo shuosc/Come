@@ -1,8 +1,8 @@
-use crate::backend::riscv::instruction::{self, ParsedParam};
+use crate::backend::riscv::instruction::ParsedParam;
 use bitvec::prelude::*;
 use nom::{bytes::complete::tag, combinator::map, IResult};
 
-use super::{bits_at, IsParamTransformer};
+use super::IsParamTransformer;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct JalForm;
@@ -11,14 +11,10 @@ impl JalForm {
     pub const fn new() -> Self {
         Self
     }
-    pub fn parse(code: &str) -> IResult<&str, Self> {
-        map(tag("jal_form"), |_| Self::new())(code)
-    }
-    pub const fn bit_count(&self) -> usize {
-        20
-    }
 }
-
+pub fn parse(code: &str) -> IResult<&str, JalForm> {
+    map(tag("jal_form"), |_| JalForm::new())(code)
+}
 impl IsParamTransformer for JalForm {
     fn param_to_instruction_part(&self, _address: u64, param: &ParsedParam) -> BitVec<u32> {
         let param_bits_store = param.unwrap_immediate() as u64;
@@ -46,6 +42,9 @@ impl IsParamTransformer for JalForm {
     fn default_param(&self) -> ParsedParam {
         ParsedParam::Immediate(0)
     }
+    fn bit_count(&self) -> usize {
+        20
+    }
 }
 
 #[cfg(test)]
@@ -59,26 +58,17 @@ mod tests {
         let bits = transformer.param_to_instruction_part(0, &ParsedParam::Immediate(-4));
         assert_eq!(
             bits,
-            vec![
-                true, true, true, true, true, true, true, true, true, false, true, true, true,
-                true, true, true, true, true, true, true
-            ]
+            bits![u32, Lsb0; 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
         );
         let bits = transformer.param_to_instruction_part(0, &ParsedParam::Immediate(4));
         assert_eq!(
             bits,
-            vec![
-                false, false, false, false, false, false, false, false, false, false, true, false,
-                false, false, false, false, false, false, false, false
-            ]
+            bits![u32, Lsb0;0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         );
         let bits = transformer.param_to_instruction_part(0, &ParsedParam::Immediate(0x998));
         assert_eq!(
             bits,
-            vec![
-                false, false, false, false, false, false, false, false, true, false, false, true,
-                true, false, false, true, true, false, false, false
-            ]
+            bits![u32, Lsb0; 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0]
         );
     }
 
@@ -87,10 +77,7 @@ mod tests {
         let transformer = JalForm::new();
         let mut param = ParsedParam::Immediate(0);
         transformer.update_param(
-            &[
-                false, false, false, false, false, false, false, false, true, false, false, true,
-                true, false, false, true, true, false, false, false,
-            ],
+            bits![u32, Lsb0; 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0],
             &mut param,
         );
         assert_eq!(param, ParsedParam::Immediate(0b0000_0000_1001_1001_1000));

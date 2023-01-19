@@ -163,7 +163,7 @@ mod tests {
                 "",
                 Template {
                     parts: vec![
-                        Part::BitPattern(vec![false, false, true]),
+                        Part::BitPattern(bitvec![u32, Lsb0; 0, 0, 1]),
                         Part::ParamTransformer((0, BitsAt::new(0, 5).into())),
                     ]
                 }
@@ -175,20 +175,20 @@ mod tests {
     fn test_render() {
         let template = Template {
             parts: vec![
-                Part::BitPattern(vec![false, false, true]),
+                Part::BitPattern(bitvec![u32, Lsb0; 0, 0, 1]),
                 Part::ParamTransformer((0, BitsAt::new(0, 5).into())),
             ],
         };
         assert_eq!(
             template.render(&[ParsedParam::Immediate(0b11101)], 0),
-            vec![false, false, true, true, false, true, true, true]
+            bits![0, 0, 1, 1, 0, 1, 1, 1]
         );
 
         let template = Template {
             parts: vec![
-                Part::BitPattern(vec![true, false, true, true, false]),
+                Part::BitPattern(bitvec![u32, Lsb0; 1, 0, 1, 1, 0]),
                 Part::ParamTransformer((1, BitsAt::new(5, 8).into())),
-                Part::BitPattern(vec![false, false, true]),
+                Part::BitPattern(bitvec![u32, Lsb0; 0, 0, 1]),
                 Part::ParamTransformer((0, Register.into())),
             ],
         };
@@ -200,10 +200,7 @@ mod tests {
                 ],
                 0
             ),
-            vec![
-                true, false, true, true, false, true, false, false, false, false, true, true,
-                false, true, true, true
-            ]
+            bits![1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1]
         );
     }
 }

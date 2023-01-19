@@ -1,6 +1,6 @@
-use super::{bits_at, IsParamTransformer};
+use super::IsParamTransformer;
 use crate::{
-    backend::riscv::instruction::{param, ParsedParam},
+    backend::riscv::instruction::ParsedParam,
     utility::parsing::{self, in_multispace},
 };
 use bitvec::{prelude::*, vec::BitVec, view::BitView};
@@ -21,19 +21,17 @@ impl BitsAt {
     pub const fn new(start: u8, end: u8) -> Self {
         Self { start, end }
     }
-    pub fn parse(code: &str) -> IResult<&str, Self> {
-        map(
-            delimited(
-                tag("bits_at("),
-                tuple((parsing::integer, in_multispace(tag(",")), parsing::integer)),
-                tag(")"),
-            ),
-            |(start, _, end)| Self::new(start, end),
-        )(code)
-    }
-    pub const fn bit_count(&self) -> usize {
-        (self.end - self.start) as _
-    }
+}
+
+pub fn parse(code: &str) -> IResult<&str, BitsAt> {
+    map(
+        delimited(
+            tag("bits_at("),
+            tuple((parsing::integer, in_multispace(tag(",")), parsing::integer)),
+            tag(")"),
+        ),
+        |(start, _, end)| BitsAt::new(start, end),
+    )(code)
 }
 
 impl IsParamTransformer for BitsAt {
@@ -54,6 +52,10 @@ impl IsParamTransformer for BitsAt {
     fn default_param(&self) -> ParsedParam {
         ParsedParam::Immediate(0)
     }
+
+    fn bit_count(&self) -> usize {
+        (self.end - self.start) as _
+    }
 }
 
 #[cfg(test)]
@@ -61,11 +63,8 @@ mod tests {
     use super::*;
     #[test]
     fn test_parse() {
-        assert_eq!(
-            BitsAt::parse("bits_at(0, 12)").unwrap().1,
-            BitsAt::new(0, 12)
-        );
-        assert!(BitsAt::parse("bit_at(0)").is_err());
+        assert_eq!(parse("bits_at(0, 12)").unwrap().1, BitsAt::new(0, 12));
+        assert!(parse("bit_at(0)").is_err());
     }
 
     #[test]
@@ -74,17 +73,17 @@ mod tests {
         let param = ParsedParam::Immediate(0b1010);
         assert_eq!(
             transformer.param_to_instruction_part(0, &param),
-            vec![false, true]
+            bits![u32, Lsb0; 0, 1]
         );
         let transformer = BitsAt::new(1, 3);
         assert_eq!(
             transformer.param_to_instruction_part(0, &param),
-            vec![true, false]
+            bits![u32, Lsb0; 1, 0]
         );
         let transformer = BitsAt::new(3, 8);
         assert_eq!(
             transformer.param_to_instruction_part(0, &param),
-            vec![true, false, false, false, false]
+            bits![u32, Lsb0; 1, 0, 0, 0, 0]
         );
     }
 
@@ -92,20 +91,17 @@ mod tests {
     fn update_param() {
         let transformer = BitsAt::new(0, 3);
         let mut param = ParsedParam::Immediate(0);
-        transformer.update_param(&[true, false, true], &mut param);
+        transformer.update_param(bits![u32, Lsb0; 1, 0, 1], &mut param);
         assert_eq!(param, ParsedParam::Immediate(0b101));
 
         let transformer = BitsAt::new(1, 3);
         let mut param = ParsedParam::Immediate(0);
-        transformer.update_param(&[false, true], &mut param);
+        transformer.update_param(bits![u32, Lsb0; 0, 1], &mut param);
         assert_eq!(param, ParsedParam::Immediate(0b100));
 
         let transformer = BitsAt::new(24, 32);
         let mut param = ParsedParam::Immediate(0);
-        transformer.update_param(
-            &[true, false, true, false, false, false, false, false],
-            &mut param,
-        );
+        transformer.update_param(bits![u32, Lsb0; 1, 0, 1, 0, 0, 0, 0, 0], &mut param);
         assert_eq!(
             param,
             ParsedParam::Immediate(0b0000_0101_0000_0000_0000_0000_0000_0000)

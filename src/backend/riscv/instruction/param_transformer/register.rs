@@ -2,7 +2,7 @@ use crate::backend::riscv::instruction::param::ParsedParam;
 use bitvec::prelude::*;
 use nom::{bytes::complete::tag, combinator::map, IResult};
 
-use super::{bits_at, IsParamTransformer};
+use super::IsParamTransformer;
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct Register;
@@ -11,12 +11,10 @@ impl Register {
     pub const fn new() -> Self {
         Self
     }
-    pub fn parse(code: &str) -> IResult<&str, Self> {
-        map(tag("register"), |_| Self::new())(code)
-    }
-    pub const fn bit_count(&self) -> usize {
-        5
-    }
+}
+
+pub fn parse(code: &str) -> IResult<&str, Register> {
+    map(tag("register"), |_| Register::new())(code)
 }
 
 impl IsParamTransformer for Register {
@@ -38,6 +36,9 @@ impl IsParamTransformer for Register {
     fn default_param(&self) -> ParsedParam {
         ParsedParam::Register(0)
     }
+    fn bit_count(&self) -> usize {
+        5
+    }
 }
 
 #[cfg(test)]
@@ -48,14 +49,14 @@ mod tests {
     fn test_argument_to_bits() {
         let transformer = Register::new();
         let bits = transformer.param_to_instruction_part(0, &ParsedParam::Register(0x1f));
-        assert_eq!(bits, vec![true, true, true, true, true]);
+        assert_eq!(bits, bits![1, 1, 1, 1, 1]);
     }
 
     #[test]
     fn test_update_argument() {
         let transformer = Register::new();
         let mut param = ParsedParam::Register(0);
-        transformer.update_param(&[true, true, true, true, true], &mut param);
+        transformer.update_param(bits![u32, Lsb0; 1, 1, 1, 1, 1], &mut param);
         assert_eq!(param, ParsedParam::Register(0x1f));
     }
 }

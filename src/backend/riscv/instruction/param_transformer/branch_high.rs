@@ -1,9 +1,9 @@
 use crate::backend::riscv::instruction::ParsedParam;
 use bitvec::{vec::BitVec, view::BitView};
-use itertools::Itertools;
+
 use nom::{bytes::complete::tag, combinator::map, IResult};
 
-use super::{bits_at, IsParamTransformer};
+use super::IsParamTransformer;
 use bitvec::prelude::*;
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct BranchHigh;
@@ -12,12 +12,10 @@ impl BranchHigh {
     pub const fn new() -> Self {
         Self
     }
-    pub fn parse(code: &str) -> IResult<&str, Self> {
-        map(tag("branch_high"), |_| Self::new())(code)
-    }
-    pub const fn bit_count(&self) -> usize {
-        7
-    }
+}
+
+pub fn parse(code: &str) -> IResult<&str, BranchHigh> {
+    map(tag("branch_high"), |_| BranchHigh::new())(code)
 }
 
 impl IsParamTransformer for BranchHigh {
@@ -44,6 +42,10 @@ impl IsParamTransformer for BranchHigh {
     fn default_param(&self) -> ParsedParam {
         ParsedParam::Immediate(0)
     }
+
+    fn bit_count(&self) -> usize {
+        7
+    }
 }
 
 #[cfg(test)]
@@ -67,7 +69,7 @@ mod tests {
         let transformer = BranchHigh::new();
         let mut param = ParsedParam::Immediate(0);
         let instruction_part = bits![u32, Lsb0; 0, 0, 1, 1, 0, 0, 0];
-        transformer.update_param(&instruction_part, &mut param);
+        transformer.update_param(instruction_part, &mut param);
         assert_eq!(param, ParsedParam::Immediate(0b0001_1000_0000));
     }
 }

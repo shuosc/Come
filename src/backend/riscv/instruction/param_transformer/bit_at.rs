@@ -11,17 +11,13 @@ impl BitAt {
     pub const fn new(index: u8) -> Self {
         Self(index)
     }
+}
 
-    pub fn parse(code: &str) -> IResult<&str, Self> {
-        map(
-            delimited(tag("bit_at("), parsing::integer, tag(")")),
-            Self::new,
-        )(code)
-    }
-
-    pub const fn bit_count(&self) -> usize {
-        1
-    }
+pub fn parse(code: &str) -> IResult<&str, BitAt> {
+    map(
+        delimited(tag("bit_at("), parsing::integer, tag(")")),
+        BitAt::new,
+    )(code)
 }
 
 impl IsParamTransformer for BitAt {
@@ -47,6 +43,10 @@ impl IsParamTransformer for BitAt {
     fn default_param(&self) -> ParsedParam {
         ParsedParam::Immediate(0)
     }
+
+    fn bit_count(&self) -> usize {
+        1
+    }
 }
 
 #[cfg(test)]
@@ -54,11 +54,11 @@ mod tests {
     use super::*;
     #[test]
     fn test_parse() {
-        let result = BitAt::parse("bit_at(0)").unwrap().1;
+        let result = parse("bit_at(0)").unwrap().1;
         assert_eq!(result, BitAt(0));
-        let result = BitAt::parse("bit_at(1)").unwrap().1;
+        let result = parse("bit_at(1)").unwrap().1;
         assert_eq!(result, BitAt(1));
-        assert!(BitAt::parse("bits_at(0, 7)").is_err());
+        assert!(parse("bits_at(0, 7)").is_err());
     }
 
     #[test]
@@ -67,14 +67,17 @@ mod tests {
         let param = ParsedParam::Immediate(0b1010);
         assert_eq!(
             transformer.param_to_instruction_part(0, &param),
-            vec![false]
+            bits![u32, Lsb0; 0]
         );
         let transformer = BitAt(1);
-        assert_eq!(transformer.param_to_instruction_part(0, &param), vec![true]);
+        assert_eq!(
+            transformer.param_to_instruction_part(0, &param),
+            bits![u32, Lsb0; 1]
+        );
         let transformer = BitAt(7);
         assert_eq!(
             transformer.param_to_instruction_part(0, &param),
-            vec![false]
+            bits![u32, Lsb0; 0]
         );
     }
 
@@ -82,22 +85,22 @@ mod tests {
     fn update_param() {
         let transformer = BitAt(0);
         let mut param = ParsedParam::Immediate(0);
-        transformer.update_param(&[true], &mut param);
+        transformer.update_param(bits![u32, Lsb0; 1], &mut param);
         assert_eq!(param, ParsedParam::Immediate(1));
 
         let transformer = BitAt(1);
         let mut param = ParsedParam::Immediate(0);
-        transformer.update_param(&[false], &mut param);
+        transformer.update_param(bits![u32, Lsb0; 0], &mut param);
         assert_eq!(param, ParsedParam::Immediate(0));
 
         let transformer = BitAt(30);
         let mut param = ParsedParam::Immediate(0);
-        transformer.update_param(&[true], &mut param);
+        transformer.update_param(bits![u32, Lsb0; 1], &mut param);
         assert_eq!(param, ParsedParam::Immediate(0x40000000));
 
         let transformer = BitAt(31);
         let mut param = ParsedParam::Immediate(0);
-        transformer.update_param(&[true], &mut param);
+        transformer.update_param(bits![u32, Lsb0; 1], &mut param);
         assert_eq!(param, ParsedParam::Immediate(-0x8000_0000));
     }
 }

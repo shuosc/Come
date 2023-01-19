@@ -2,7 +2,7 @@ use crate::backend::riscv::instruction::ParsedParam;
 use bitvec::{vec::BitVec, view::BitView};
 use nom::{bytes::complete::tag, combinator::map, IResult};
 
-use super::{bits_at, IsParamTransformer};
+use super::IsParamTransformer;
 use bitvec::prelude::*;
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct BranchLow;
@@ -11,18 +11,16 @@ impl BranchLow {
     pub const fn new() -> Self {
         Self
     }
-    pub fn parse(code: &str) -> IResult<&str, Self> {
-        map(tag("branch_low"), |_| Self::new())(code)
-    }
-    pub const fn bit_count(&self) -> usize {
-        5
-    }
+}
+
+pub fn parse(code: &str) -> IResult<&str, BranchLow> {
+    map(tag("branch_low"), |_| BranchLow::new())(code)
 }
 
 impl IsParamTransformer for BranchLow {
     fn param_to_instruction_part(&self, address: u64, param: &ParsedParam) -> BitVec<u32> {
-        let mut param_bits_store = (param.unwrap_immediate() as i64 - address as i64) as u32;
-        let mut param_bits = param_bits_store.view_bits::<Lsb0>();
+        let param_bits_store = (param.unwrap_immediate() as i64 - address as i64) as u32;
+        let param_bits = param_bits_store.view_bits::<Lsb0>();
         let mut instruction_part = BitVec::new();
         instruction_part.push(param_bits[11]);
         instruction_part.extend_from_bitslice(&param_bits[1..5]);
@@ -42,6 +40,9 @@ impl IsParamTransformer for BranchLow {
     fn default_param(&self) -> ParsedParam {
         ParsedParam::Immediate(0)
     }
+    fn bit_count(&self) -> usize {
+        5
+    }
 }
 
 #[cfg(test)]
@@ -53,18 +54,18 @@ mod tests {
     fn test_argument_to_bits() {
         let transformer = BranchLow::new();
         let bits = transformer.param_to_instruction_part(0, &ParsedParam::Immediate(-4));
-        assert_eq!(bits, vec![true, false, true, true, true]);
+        assert_eq!(bits, bits![u32, Lsb0; 1, 0, 1, 1, 1]);
         let bits = transformer.param_to_instruction_part(0, &ParsedParam::Immediate(4));
-        assert_eq!(bits, vec![false, false, true, false, false]);
+        assert_eq!(bits, bits![u32, Lsb0; 0, 0, 1, 0, 0]);
         let bits = transformer.param_to_instruction_part(0, &ParsedParam::Immediate(0x998));
-        assert_eq!(bits, vec![true, false, false, true, true]);
+        assert_eq!(bits, bits![u32, Lsb0; 1, 0, 0, 1, 1]);
     }
 
     #[test]
     fn test_update_argument() {
         let transformer = BranchLow::new();
         let mut param = ParsedParam::Immediate(0);
-        transformer.update_param(&[true, false, true, true, true], &mut param);
+        transformer.update_param(bits![u32, Lsb0; 1, 0, 1, 1, 1], &mut param);
         assert_eq!(param, ParsedParam::Immediate(0b1000_0001_1100));
     }
 }

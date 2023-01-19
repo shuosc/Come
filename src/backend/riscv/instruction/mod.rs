@@ -138,12 +138,8 @@ mod tests {
     #[test]
     fn test_parse_bin() {
         let instruction = 0x009980b7u32;
-        let instruction_bits: Vec<_> = instruction
-            .view_bits::<Lsb0>()
-            .into_iter()
-            .by_vals()
-            .collect();
-        let parsed = parse_bin(&instruction_bits).unwrap().1;
+        let instruction_bits = instruction.view_bits::<Lsb0>();
+        let parsed = parse_bin(instruction_bits).unwrap().1;
         assert_eq!(
             parsed,
             Parsed {

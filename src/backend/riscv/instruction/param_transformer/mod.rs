@@ -21,12 +21,10 @@ use super::param::ParsedParam;
 
 #[enum_dispatch]
 pub trait IsParamTransformer {
-    // It suppose to have something like
-    // `const fn bit_count(&self) -> usize;`
-    // But it's not possible to have const fn in trait
     fn param_to_instruction_part(&self, address: u64, argument: &ParsedParam) -> BitVec<u32>;
     fn update_param(&self, instruction_part: &BitSlice<u32>, param: &mut ParsedParam);
     fn default_param(&self) -> ParsedParam;
+    fn bit_count(&self) -> usize;
 }
 
 #[enum_dispatch(IsParamTransformer)]
@@ -41,28 +39,14 @@ pub enum ParamTransformer {
     BranchLow,
 }
 
-impl ParamTransformer {
-    pub const fn bit_count(&self) -> usize {
-        match self {
-            ParamTransformer::BitAt(x) => x.bit_count(),
-            ParamTransformer::BitsAt(x) => x.bit_count(),
-            ParamTransformer::Register(x) => x.bit_count(),
-            ParamTransformer::Csr(x) => x.bit_count(),
-            ParamTransformer::JalForm(x) => x.bit_count(),
-            ParamTransformer::BranchHigh(x) => x.bit_count(),
-            ParamTransformer::BranchLow(x) => x.bit_count(),
-        }
-    }
-}
-
 pub fn parse(code: &str) -> IResult<&str, ParamTransformer> {
     alt((
-        map(BitAt::parse, ParamTransformer::BitAt),
-        map(BitsAt::parse, ParamTransformer::BitsAt),
-        map(Register::parse, ParamTransformer::Register),
-        map(Csr::parse, ParamTransformer::Csr),
-        map(JalForm::parse, ParamTransformer::JalForm),
-        map(BranchHigh::parse, ParamTransformer::BranchHigh),
-        map(BranchLow::parse, ParamTransformer::BranchLow),
+        map(bit_at::parse, ParamTransformer::BitAt),
+        map(bits_at::parse, ParamTransformer::BitsAt),
+        map(register::parse, ParamTransformer::Register),
+        map(csr::parse, ParamTransformer::Csr),
+        map(jal_form::parse, ParamTransformer::JalForm),
+        map(branch_high::parse, ParamTransformer::BranchHigh),
+        map(branch_low::parse, ParamTransformer::BranchLow),
     ))(code)
 }
