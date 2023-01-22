@@ -1,4 +1,7 @@
-use crate::utility::parsing::{self, in_multispace};
+use crate::{
+    binary_format::clef::PendingSymbol,
+    utility::parsing::{self, in_multispace},
+};
 use bitvec::prelude::*;
 use itertools::Itertools;
 use nom::{
@@ -71,11 +74,17 @@ impl Template {
         let mut current_result = 0;
         for part in &self.parts {
             match part {
+                // todo: handle these fucking things better
                 Part::ParamTransformer((id, ParamTransformer::BitsAt(bits_at)))
                     if param_id == *id =>
                 {
                     if bits_at.end as usize > current_result {
                         current_result = bits_at.end as usize;
+                    }
+                }
+                Part::ParamTransformer((id, ParamTransformer::JalForm(_))) if param_id == *id => {
+                    if 20usize > current_result {
+                        current_result = 20;
                     }
                 }
                 _ => (),
@@ -130,6 +139,61 @@ impl Template {
                         .get_or_insert(transformer.default_param());
                     transformer.update_param(&bits[0..transformer.bit_count()], param);
                     bits = &bits[transformer.bit_count()..];
+                }
+            }
+        }
+        let mut params = params.into_iter().map(|it| it.unwrap()).collect_vec();
+        for (param_id, param) in params.iter_mut().enumerate() {
+            if let Param::Immediate(imm) = param {
+                let imm_bits = *imm as u32;
+                let bits = imm_bits.view_bits::<Lsb0>();
+                *imm = bits[0..self.param_bit_count(param_id)].load_le();
+            }
+        }
+        Ok((bits, params))
+    }
+
+    pub fn parse_binary_with_pending_symbol<'a>(
+        &'a self,
+        bits: &'a BitSlice<u32>,
+        pending_symbol: &PendingSymbol,
+    ) -> IResult<&'a BitSlice<u32>, Vec<Param>> {
+        let mut bits = bits;
+        let mut params = Vec::new();
+        for part in &self.parts {
+            match part {
+                Part::BitPattern(bit_pattern) => {
+                    if bits.len() < bit_pattern.len() {
+                        return Err(nom::Err::Error(nom::error::Error::new(
+                            bits,
+                            nom::error::ErrorKind::Tag,
+                        )));
+                    }
+                    if bits[0..bit_pattern.len()] != bit_pattern[..] {
+                        return Err(nom::Err::Error(nom::error::Error::new(
+                            bits,
+                            nom::error::ErrorKind::Tag,
+                        )));
+                    }
+                    bits = &bits[bit_pattern.len()..];
+                }
+                Part::ParamTransformer((param_id, transformer)) => {
+                    while params.len() <= *param_id {
+                        params.push(None);
+                    }
+                    if !matches!(
+                        transformer,
+                        ParamTransformer::Csr(_) | ParamTransformer::Register(_)
+                    ) {
+                        params[*param_id] = Some(Param::Symbol(pending_symbol.name.clone()));
+                    } else {
+                        let param = params
+                            .get_mut(*param_id)
+                            .unwrap()
+                            .get_or_insert(transformer.default_param());
+                        transformer.update_param(&bits[0..transformer.bit_count()], param);
+                        bits = &bits[transformer.bit_count()..];
+                    }
                 }
             }
         }

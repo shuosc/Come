@@ -7,7 +7,7 @@ mod section;
 
 use self::section::parse_section;
 use crate::{
-    binary_format::clef::{self, Architecture, Clef, Os, SectionMeta, Symbol},
+    binary_format::clef::{self, Architecture, Clef, Os, PendingSymbol, SectionMeta, Symbol},
     utility::parsing,
 };
 use bitvec::prelude::*;
@@ -177,6 +177,23 @@ fn replace_simple_pseudo(complex_replaced: &[Line]) -> Vec<Line> {
     result
 }
 
+pub fn decide_instruction_symbol(
+    pending_symbol: &PendingSymbol,
+    symbol: &Symbol,
+    content: &mut BitVec<u32>,
+) {
+    for offset in &pending_symbol.pending_instruction_offsets {
+        dbg!(content[(*offset * 8) as usize..(*offset * 8 + 32) as usize].load_le::<u32>());
+        let (_rest, mut instruction) =
+            instruction::parse_bin_with_pending(&content[(*offset * 8) as usize..], pending_symbol)
+                .unwrap();
+        instruction.fill_symbol(*offset, symbol);
+        let bin = instruction.binary(*offset as _);
+        content[(*offset * 8) as usize..(*offset * 8) as usize + bin.len()]
+            .copy_from_bitslice(&bin);
+    }
+}
+
 /// Emit clef file from an asm file.
 pub fn emit_clef(asm_code: &str) -> Clef {
     let mut result = Clef::new(Architecture::RiscV, Os::BareMetal);
@@ -222,8 +239,9 @@ pub fn emit_clef(asm_code: &str) -> Clef {
                             meta: SectionMeta {
                                 name: current_section_name.clone(),
                                 symbols: vec![],
-                                linkable_or_loadable: clef::LinkableOrLoadable::Linkable,
                                 pending_symbols: vec![],
+                                linkable: true,
+                                loadable: None,
                             },
                             content: BitVec::new(),
                         });

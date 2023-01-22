@@ -5,7 +5,11 @@ mod param;
 mod param_transformer;
 /// Instruction template information, parser and related functions.
 mod template;
-use std::{collections::HashMap, fmt::Display, sync::OnceLock};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    fmt::Display,
+    sync::OnceLock,
+};
 
 use bitvec::prelude::*;
 use nom::{
@@ -18,7 +22,10 @@ use nom::{
     IResult,
 };
 
-use crate::utility::parsing::{ident, in_multispace};
+use crate::{
+    binary_format::clef::{PendingSymbol, Symbol},
+    utility::parsing::{ident, in_multispace},
+};
 
 use param::Param;
 
@@ -31,6 +38,19 @@ pub struct Parsed {
     pub name: String,
     /// The parameters of the instruction.
     pub params: Vec<Param>,
+}
+
+impl Parsed {
+    pub fn fill_symbol(&mut self, instruction_offset: u32, symbol: &Symbol) {
+        for param in self.params.iter_mut() {
+            if let Param::Symbol(s) = param && s == &symbol.name {
+                // todo: offset calculation maybe depend on the address
+                *param = Param::Immediate(symbol.offset as i32 - instruction_offset as i32);
+            } else if let Param::Immediate(x) = param && *x == 0 {
+                *param = Param::Immediate(symbol.offset as i32 - instruction_offset as i32);
+            }
+        }
+    }
 }
 
 /// An unparsed instruction.
@@ -110,6 +130,29 @@ pub fn parse(code: &str) -> IResult<&str, Parsed> {
 }
 
 /// Parse binary instruction into parsed instruction.
+pub fn parse_bin_with_pending<'a>(
+    bin: &'a BitSlice<u32>,
+    pending_symbol: &'a PendingSymbol,
+) -> IResult<&'a BitSlice<u32>, Parsed> {
+    if let Some((name, (rest, params))) = templates().iter().find_map(|(name, template)| {
+        template
+            .parse_binary_with_pending_symbol(bin, pending_symbol)
+            .ok()
+            .map(|it| (name, it))
+    }) {
+        Ok((
+            rest,
+            Parsed {
+                name: name.to_string(),
+                params,
+            },
+        ))
+    } else {
+        unreachable!()
+    }
+}
+
+/// Parse binary instruction into parsed instruction.
 pub fn parse_bin(bin: &BitSlice<u32>) -> IResult<&BitSlice<u32>, Parsed> {
     // todo: speed up matching process
     if let Some((name, (rest, params))) = templates()
@@ -129,7 +172,7 @@ pub fn parse_bin(bin: &BitSlice<u32>) -> IResult<&BitSlice<u32>, Parsed> {
 }
 
 impl Parsed {
-    pub fn binary(&self, address: u64) -> BitVec {
+    pub fn binary(&self, address: u64) -> BitVec<u32> {
         let template = templates().get(self.name.as_str()).unwrap();
         template.render(&self.params, address).into_iter().collect()
     }
