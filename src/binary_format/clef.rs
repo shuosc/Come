@@ -240,7 +240,7 @@ impl Clef {
 mod tests {
     use std::collections::BTreeMap;
 
-    use crate::backend::riscv::instruction;
+    use crate::backend::riscv::instruction::{self, instruction};
 
     use super::*;
 
@@ -299,7 +299,6 @@ mod tests {
         clef1.sections.push(section1);
         clef2.sections.push(section2);
         let clef = clef1.merge(clef2);
-        dbg!(&clef.sections[0].meta);
         let mut offset_pending_symbol_map = BTreeMap::new();
         for pending_symbol in &clef.sections[0].meta.pending_symbols {
             for pending_instruction_offset in &pending_symbol.pending_instruction_offsets {
@@ -308,6 +307,14 @@ mod tests {
         }
         let mut content: &BitSlice<u32> = &clef.sections[0].content;
         let mut offset = 0usize;
+        let mut expected = vec![
+            instruction!(jal, x0, 16),
+            instruction!(addi, x1, x1, 2),
+            instruction!(addi, x1, x1, 2),
+            instruction!(addi, x2, x2, 3),
+            instruction!(jal, x0, -12),
+        ];
+        expected.reverse();
         while !content.is_empty() {
             let hex = content[0..32].load_le::<u32>();
             let (rest, result) = if let Some((offset_bytes, pending_symbol)) =
@@ -322,7 +329,8 @@ mod tests {
             } else {
                 instruction::parse_bin(content).unwrap()
             };
-            println!("{hex:08x}  {result}");
+            let expected_instruction = expected.pop().unwrap();
+            assert_eq!(expected_instruction, result);
             content = rest;
             offset += 32;
         }

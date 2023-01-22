@@ -183,7 +183,6 @@ pub fn decide_instruction_symbol(
     content: &mut BitVec<u32>,
 ) {
     for offset in &pending_symbol.pending_instruction_offsets {
-        dbg!(content[(*offset * 8) as usize..(*offset * 8 + 32) as usize].load_le::<u32>());
         let (_rest, mut instruction) =
             instruction::parse_bin_with_pending(&content[(*offset * 8) as usize..], pending_symbol)
                 .unwrap();

@@ -1,5 +1,5 @@
 /// Parameter information and parser.
-mod param;
+pub(crate) mod param;
 /// Parameter transformers are used to convert back and forth from a parameter to fields in
 /// a binary form of instruction.
 mod param_transformer;
@@ -181,19 +181,19 @@ impl Parsed {
 /// Macro for easily constructing an instruction.
 macro_rules! instruction {
     ($name:ident) => {
-        Parsed {
+        crate::binary_format::clef::tests::instruction::Parsed {
             name: stringify!($name).to_string(),
             params: vec![],
         }
     };
     ($name:ident, $param1:expr) => {
-        Parsed {
+        crate::binary_format::clef::tests::instruction::Parsed {
             name: stringify!($name).to_string(),
             params: vec![crate::backend::riscv::instruction::param::AsParam::as_param(&$param1)],
         }
     };
     ($name:ident, $param1:ident) => {
-        Parsed {
+        crate::binary_format::clef::tests::instruction::Parsed {
             name: stringify!($name).to_string(),
             params: vec![
                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
@@ -201,7 +201,7 @@ macro_rules! instruction {
         }
     };
     ($name:ident, $param1:ident, $param2:expr) => {
-        Parsed {
+        crate::binary_format::clef::tests::instruction::Parsed {
             name: stringify!($name).to_string(),
             params: vec![
                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
@@ -210,7 +210,7 @@ macro_rules! instruction {
         }
     };
     ($name:ident, $param1:ident, $param2:expr, $param3:ident) => {
-        Parsed {
+        crate::binary_format::clef::tests::instruction::Parsed {
             name: stringify!($name).to_string(),
             params: vec![
                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
@@ -220,7 +220,7 @@ macro_rules! instruction {
         }
     };
     ($name:ident, $param1:ident, $param2:ident, $param3:expr) => {
-        Parsed {
+        crate::binary_format::clef::tests::instruction::Parsed {
             name: stringify!($name).to_string(),
             params: vec![
                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
@@ -230,7 +230,7 @@ macro_rules! instruction {
         }
     };
     ($name:ident, $param1:ident, $param2:ident, $param3:ident) => {
-        Parsed {
+        crate::binary_format::clef::tests::instruction::Parsed {
             name: stringify!($name).to_string(),
             params: vec![
                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
@@ -240,6 +240,8 @@ macro_rules! instruction {
         }
     };
 }
+
+pub(crate) use instruction;
 
 #[cfg(test)]
 mod tests {
