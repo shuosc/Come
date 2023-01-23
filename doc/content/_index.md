@@ -5,10 +5,10 @@ title = "Come compiler toolchain"
 # The homepage contents
 [extra]
 lead = 'A toy language and its compiler toolchain.'
-# url = "/docs/getting-started/introduction/"
-# url_button = "Get started"
-repo_version = "GitHub v0.1.0"
-repo_license = "The unlicense."
+url = "/docs/getting-started/introduction/"
+url_button = "Get started"
+repo_version = "GitHub v0.1.0 WIP"
+repo_license = "The Unlicense"
 repo_url = "https://github.com/shuosc/Come"
 
 # Menu items
@@ -17,6 +17,12 @@ name = "Docs"
 section = "docs"
 url = "/docs/getting-started/introduction/"
 weight = 10
+
+[[extra.menu.main]]
+name = "Crate doc"
+section = "crate-doc"
+url = "/come/"
+weight = 0
 
 [[extra.menu.main]]
 name = "Concepts"
