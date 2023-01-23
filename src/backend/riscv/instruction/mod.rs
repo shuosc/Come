@@ -6,7 +6,7 @@ mod param_transformer;
 /// Instruction template information, parser and related functions.
 mod template;
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashMap},
     fmt::Display,
     sync::OnceLock,
 };
@@ -31,6 +31,16 @@ use param::Param;
 
 use self::template::Template;
 
+/// An unparsed instruction.
+/// "Unparsed" means we regard all parts of this instruction as string.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Unparsed {
+    /// The name of the instruction.
+    pub name: String,
+    /// The parameters of the instruction.
+    pub params: Vec<String>,
+}
+
 /// A parsed instruction.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parsed {
@@ -44,23 +54,11 @@ impl Parsed {
     pub fn fill_symbol(&mut self, instruction_offset: u32, symbol: &Symbol) {
         for param in self.params.iter_mut() {
             if let Param::Symbol(s) = param && s == &symbol.name {
-                // todo: offset calculation maybe depend on the address
-                *param = Param::Immediate(symbol.offset as i32 - instruction_offset as i32);
-            } else if let Param::Immediate(x) = param && *x == 0 {
+                // fixme: use direct offset calculation here maybe incorrect
                 *param = Param::Immediate(symbol.offset as i32 - instruction_offset as i32);
             }
         }
     }
-}
-
-/// An unparsed instruction.
-/// "Unparsed" means we regard all parts of this instruction as string.
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Unparsed {
-    /// The name of the instruction.
-    pub name: String,
-    /// The parameters of the instruction.
-    pub params: Vec<String>,
 }
 
 impl From<Unparsed> for Parsed {
@@ -152,6 +150,35 @@ pub fn parse_bin_with_pending<'a>(
     }
 }
 
+pub fn parse_whole_binary(bin: &BitSlice<u32>, pending_symbols: &[PendingSymbol]) -> Vec<Parsed> {
+    let mut content = bin;
+    let mut result = Vec::new();
+    let mut offset_pending_symbol_map = BTreeMap::new();
+    for pending_symbol in pending_symbols {
+        for pending_instruction_offset in &pending_symbol.pending_instruction_offsets {
+            offset_pending_symbol_map.insert(*pending_instruction_offset, pending_symbol);
+        }
+    }
+    let mut offset = 0;
+    while !content.is_empty() {
+        let (rest, result_instruction) =
+            if let Some((offset_bytes, pending_symbol)) = offset_pending_symbol_map.pop_first() {
+                if offset_bytes * 8 == offset as _ {
+                    parse_bin_with_pending(content, pending_symbol).unwrap()
+                } else {
+                    offset_pending_symbol_map.insert(offset_bytes, pending_symbol);
+                    parse_bin(content).unwrap()
+                }
+            } else {
+                parse_bin(content).unwrap()
+            };
+        content = rest;
+        result.push(result_instruction);
+        offset += bin.len() - rest.len();
+    }
+    result
+}
+
 /// Parse binary instruction into parsed instruction.
 pub fn parse_bin(bin: &BitSlice<u32>) -> IResult<&BitSlice<u32>, Parsed> {
     // todo: speed up matching process
@@ -179,6 +206,8 @@ impl Parsed {
 }
 
 /// Macro for easily constructing an instruction.
+/// Currently used only in tests, but hopefully will be used in the asm generator the future.
+#[cfg(test)]
 macro_rules! instruction {
     ($name:ident) => {
         crate::binary_format::clef::tests::instruction::Parsed {
@@ -241,6 +270,7 @@ macro_rules! instruction {
     };
 }
 
+#[cfg(test)]
 pub(crate) use instruction;
 
 #[cfg(test)]

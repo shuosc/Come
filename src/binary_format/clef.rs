@@ -17,7 +17,7 @@ pub struct Symbol {
 
 impl Display for Symbol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: 0x{:x}", self.name, self.offset)
+        write!(f, "{}: 0x{:08x}", self.name, self.offset)
     }
 }
 
@@ -105,19 +105,19 @@ pub struct Section {
 impl Section {
     fn merge(mut self, mut other: Self, architecture: Architecture) -> Self {
         assert!(self.meta.name == other.meta.name);
-        // we presume the entry offset of all sections is 0
+        // we presume the "entry" offset of all sections is 0
         // thus, if we link a loadable section with a non-loadable section,
         // we keep the loadable section at the front
         if other.meta.loadable.is_some() {
             (other, self) = (self, other);
         }
         // "chain" other to self
-        // add offsets to symbols in other
+        // add offsets to symbols in `other`
         let self_bytes = self.content.len() as u32 / 8;
         other.meta.symbols.iter_mut().for_each(|symbol| {
             symbol.offset += self_bytes;
         });
-        // add offsets to pending instructions in other
+        // add offsets to pending instructions in `other`
         other
             .meta
             .pending_symbols
@@ -132,14 +132,14 @@ impl Section {
             });
         // merge content
         self.content.extend_from_bitslice(&other.content);
-        // fill pending symbols with known symbols in other
+        // fill pending symbols with known symbols in `other`
         self.meta.pending_symbols = update_pending_symbols_in_content(
             self.meta.pending_symbols,
             &other.meta.symbols,
             &mut self.content,
             architecture,
         );
-        // fill pending symbols with known symbols in self
+        // fill pending symbols with known symbols in `self`
         other.meta.pending_symbols = update_pending_symbols_in_content(
             other.meta.pending_symbols,
             &self.meta.symbols,
@@ -189,6 +189,7 @@ fn update_pending_symbols_in_content(
         })
         .collect()
 }
+
 /// A clef file.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Clef {
@@ -238,8 +239,6 @@ impl Clef {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use crate::backend::riscv::instruction::{self, instruction};
 
     use super::*;
@@ -299,44 +298,23 @@ mod tests {
         clef1.sections.push(section1);
         clef2.sections.push(section2);
         let clef = clef1.merge(clef2);
-        let mut offset_pending_symbol_map = BTreeMap::new();
-        for pending_symbol in &clef.sections[0].meta.pending_symbols {
-            for pending_instruction_offset in &pending_symbol.pending_instruction_offsets {
-                offset_pending_symbol_map.insert(*pending_instruction_offset, pending_symbol);
-            }
-        }
-        let mut content: &BitSlice<u32> = &clef.sections[0].content;
-        let mut offset = 0usize;
-        let mut expected = vec![
+        let expected = vec![
             instruction!(jal, x0, 16),
             instruction!(addi, x1, x1, 2),
             instruction!(addi, x1, x1, 2),
             instruction!(addi, x2, x2, 3),
             instruction!(jal, x0, -12),
         ];
-        expected.reverse();
-        while !content.is_empty() {
-            let hex = content[0..32].load_le::<u32>();
-            let (rest, result) = if let Some((offset_bytes, pending_symbol)) =
-                offset_pending_symbol_map.pop_first()
-            {
-                if offset_bytes * 8 == offset as _ {
-                    instruction::parse_bin_with_pending(content, pending_symbol).unwrap()
-                } else {
-                    offset_pending_symbol_map.insert(offset_bytes, pending_symbol);
-                    instruction::parse_bin(content).unwrap()
-                }
-            } else {
-                instruction::parse_bin(content).unwrap()
-            };
-            let expected_instruction = expected.pop().unwrap();
-            assert_eq!(expected_instruction, result);
-            content = rest;
-            offset += 32;
+        let instructions = instruction::parse_whole_binary(
+            &clef.sections[0].content,
+            &clef.sections[0].meta.pending_symbols,
+        );
+        for (instruction, expected) in instructions.into_iter().zip(expected) {
+            assert_eq!(expected, instruction);
         }
-        // assert_eq!(clef.sections.len(), 1);
-        // assert_eq!(clef.sections[0].meta.symbols.len(), 2);
-        // assert_eq!(clef.sections[0].meta.symbols[0].offset, 0);
-        // assert_eq!(clef.sections[0].meta.symbols[1].offset, 32);
+        assert_eq!(clef.sections.len(), 1);
+        assert_eq!(clef.sections[0].meta.name, "text");
+        assert!(clef.sections[0].meta.pending_symbols.is_empty());
+        assert_eq!(clef.sections[0].meta.symbols.len(), 4);
     }
 }
