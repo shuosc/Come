@@ -24,10 +24,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Build
+    - name: Build only 
+      uses: shalzz/zola-deploy-action@v0.16.1
+      env:
+        BUILD_DIR: docs
+        BUILD_ONLY: true
+    - name: Build crate doc
       run: cargo doc --workspace --document-private-items --all-features -r
-    - name: Polyfill
-      run: echo "<meta http-equiv=\"refresh\" content=\"0; url=come/index.html\">" > ./target/doc/index.html
+    - name: Move crate doc
+      run: mv -r ./target/doc ./doc/public/crate-doc/
     - name: Setup Pages
       uses: actions/configure-pages@v2
     - name: Upload artifact
