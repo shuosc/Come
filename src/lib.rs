@@ -1,5 +1,7 @@
 #![feature(once_cell)]
 #![feature(let_chains)]
+#![feature(hash_drain_filter)]
+#![feature(exact_size_is_empty)]
 /// Definitions of AST nodes and their parser.
 pub mod ast;
 /// Functions for generating assembly and binary code from ir.

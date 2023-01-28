@@ -9,29 +9,45 @@ use nom::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::utility::parsing;
+use crate::{binary_format::clef::Symbol, utility::parsing};
 
-/// Parameter of an instruction.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub enum Param {
-    /// An unresolved symbol.
-    Symbol(String),
+pub enum Decided {
+    /// An immediate value.
+    Immediate(i32),
     /// A register.
     Register(u8),
     /// A csr.
     Csr(u16),
-    /// An immediate value.
-    Immediate(i32),
+}
+
+impl Display for Decided {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            // todo: mapping csr/register -> name
+            Decided::Register(r) => write!(f, "x{r}"),
+            Decided::Csr(c) => write!(f, "0x{c:04x}"),
+            Decided::Immediate(i) => write!(f, "{i}"),
+        }
+    }
+}
+
+/// Parameter of an instruction.
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub enum Param {
+    Decided(Decided),
+    /// An unresolved symbol.
+    Unresolved(String),
+    /// A resolved symbol.
+    Resolved(String, Decided),
 }
 
 impl Display for Param {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Param::Symbol(s) => write!(f, "{s}"),
-            // todo: mapping csr/register -> name
-            Param::Register(r) => write!(f, "x{r}"),
-            Param::Csr(c) => write!(f, "0x{c:04x}"),
-            Param::Immediate(i) => write!(f, "{i}"),
+            Param::Unresolved(s) => write!(f, "{s}"),
+            Param::Resolved(s, content) => write!(f, "{s} <{}>", content),
+            Param::Decided(x) => write!(f, "{x}"),
         }
     }
 }
@@ -39,21 +55,40 @@ impl Display for Param {
 impl Param {
     pub fn unwrap_immediate(&self) -> i32 {
         match self {
-            Param::Immediate(i) => *i,
+            Param::Decided(Decided::Immediate(i)) => *i,
+            Param::Resolved(_, Decided::Immediate(i)) => *i,
+            Param::Unresolved(_) => 0,
             _ => panic!("Expected immediate!"),
         }
     }
     pub fn unwrap_register(&self) -> u8 {
         match self {
-            Param::Register(r) => *r,
+            Param::Decided(Decided::Register(r)) => *r,
             _ => panic!("Expected register!"),
         }
     }
     pub fn unwrap_csr(&self) -> u16 {
         match self {
-            Param::Csr(r) => *r,
+            Param::Decided(Decided::Csr(r)) => *r,
             _ => panic!("Expected CSR!"),
         }
+    }
+    pub fn unwrap_symbol(&self) -> &str {
+        match self {
+            Param::Unresolved(s) => s,
+            Param::Resolved(s, _) => s,
+            _ => panic!("Expected symbol!"),
+        }
+    }
+    pub fn fill_symbol(&mut self, symbol: &Symbol, instruction_offset_bytes: u32) {
+        let symbol_offset_bytes = symbol.offset_bytes as i64;
+        let instruction_offset_bytes = instruction_offset_bytes as i64;
+        let distance_from_instruction_to_symbol = symbol_offset_bytes - instruction_offset_bytes;
+        assert_eq!(self.unwrap_symbol(), symbol.name);
+        *self = Param::Resolved(
+            symbol.name.clone(),
+            Decided::Immediate(distance_from_instruction_to_symbol as _),
+        );
     }
 }
 
@@ -134,10 +169,12 @@ fn parse_register(code: &str) -> IResult<&str, u8> {
 /// Parses asm code to get a [`Param`] instance.
 pub fn parse(code: &str) -> IResult<&str, Param> {
     alt((
-        map(parse_register, Param::Register),
-        map(parse_csr, Param::Csr),
-        map(parsing::in_multispace(parsing::integer), Param::Immediate),
-        map(parsing::ident, Param::Symbol),
+        map(parse_register, |it| Param::Decided(Decided::Register(it))),
+        map(parse_csr, |it| Param::Decided(Decided::Csr(it))),
+        map(parsing::in_multispace(parsing::integer), |it| {
+            Param::Decided(Decided::Immediate(it))
+        }),
+        map(parsing::ident, Param::Unresolved),
     ))(code)
 }
 
@@ -149,7 +186,7 @@ pub trait AsParam {
 
 impl AsParam for i32 {
     fn as_param(&self) -> Param {
-        Param::Immediate(*self)
+        Param::Decided(Decided::Immediate(*self))
     }
 }
 
@@ -185,23 +222,44 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        assert_eq!(parse("x0"), Ok(("", Param::Register(0))));
-        assert_eq!(parse("x1"), Ok(("", Param::Register(1))));
-        assert_eq!(parse("x8"), Ok(("", Param::Register(8))));
-        assert_eq!(parse("s0"), Ok(("", Param::Register(8))));
-        assert_eq!(parse("fp"), Ok(("", Param::Register(8))));
-        assert_eq!(parse("zero"), Ok(("", Param::Register(0))));
-        assert_eq!(parse("x26"), Ok(("", Param::Register(26))));
-        assert_eq!(parse("s10"), Ok(("", Param::Register(26))));
-        assert_eq!(parse("cycle"), Ok(("", Param::Csr(0xc00))));
-        assert_eq!(parse("cycleh"), Ok(("", Param::Csr(0xc80))));
-        assert_eq!(parse("0"), Ok(("", Param::Immediate(0))));
-        assert_eq!(parse("1"), Ok(("", Param::Immediate(1))));
-        assert_eq!(parse("0x1"), Ok(("", Param::Immediate(1))));
-        assert_eq!(parse("-0x1"), Ok(("", Param::Immediate(-1))));
+        assert_eq!(parse("x0"), Ok(("", Param::Decided(Decided::Register(0)))));
+        assert_eq!(parse("x1"), Ok(("", Param::Decided(Decided::Register(1)))));
+        assert_eq!(parse("x8"), Ok(("", Param::Decided(Decided::Register(8)))));
+        assert_eq!(parse("s0"), Ok(("", Param::Decided(Decided::Register(8)))));
+        assert_eq!(parse("fp"), Ok(("", Param::Decided(Decided::Register(8)))));
+        assert_eq!(
+            parse("zero"),
+            Ok(("", Param::Decided(Decided::Register(0))))
+        );
+        assert_eq!(
+            parse("x26"),
+            Ok(("", Param::Decided(Decided::Register(26))))
+        );
+        assert_eq!(
+            parse("s10"),
+            Ok(("", Param::Decided(Decided::Register(26))))
+        );
+        assert_eq!(
+            parse("cycle"),
+            Ok(("", Param::Decided(Decided::Csr(0xc00))))
+        );
+        assert_eq!(
+            parse("cycleh"),
+            Ok(("", Param::Decided(Decided::Csr(0xc80))))
+        );
+        assert_eq!(parse("0"), Ok(("", Param::Decided(Decided::Immediate(0)))));
+        assert_eq!(parse("1"), Ok(("", Param::Decided(Decided::Immediate(1)))));
+        assert_eq!(
+            parse("0x1"),
+            Ok(("", Param::Decided(Decided::Immediate(1))))
+        );
+        assert_eq!(
+            parse("-0x1"),
+            Ok(("", Param::Decided(Decided::Immediate(-1))))
+        );
         assert_eq!(
             parse("stupid_function"),
-            Ok(("", Param::Symbol("stupid_function".to_string())))
+            Ok(("", Param::Unresolved("stupid_function".to_string())))
         );
         assert!(parse(",").is_err());
     }

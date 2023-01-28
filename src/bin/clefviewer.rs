@@ -2,7 +2,7 @@ use std::{fs::File, path::PathBuf};
 
 use bincode::Options;
 use clap::Parser;
-use come::{backend::riscv::instruction, binary_format::clef::Clef};
+use come::{backend::riscv::simple_instruction, binary_format::clef::Clef};
 
 use shadow_rs::shadow;
 shadow!(build);
@@ -35,7 +35,7 @@ fn main() {
             }
         );
         println!("symbols:");
-        for symbol in section.meta.symbols {
+        for symbol in &section.meta.symbols {
             println!("  {symbol}");
         }
         println!("pending symbols:");
@@ -44,7 +44,7 @@ fn main() {
         }
         println!("content:",);
         let instructions =
-            instruction::parse_whole_binary(&section.content, &section.meta.pending_symbols);
+            simple_instruction::parse_whole_binary(&section.content, &section.meta.pending_symbols);
         for instruction in instructions {
             println!("  {instruction}");
         }
