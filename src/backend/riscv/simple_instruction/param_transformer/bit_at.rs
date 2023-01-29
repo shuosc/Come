@@ -1,4 +1,7 @@
-use crate::{backend::riscv::instruction::Param, utility::parsing};
+use crate::{
+    backend::riscv::simple_instruction::{param::Decided, Param},
+    utility::parsing,
+};
 use bitvec::prelude::*;
 use nom::{bytes::complete::tag, combinator::map, sequence::delimited, IResult};
 
@@ -22,7 +25,7 @@ pub fn parse(code: &str) -> IResult<&str, BitAt> {
 }
 
 impl IsParamTransformer for BitAt {
-    fn param_to_instruction_part(&self, _address: u64, param: &Param) -> BitVec<u32> {
+    fn param_to_instruction_part(&self, _offset: u64, param: &Param) -> BitVec<u32> {
         // // it is ok to use `as u32` here, see
         // // https://doc.rust-lang.org/reference/expressions/operator-expr.html#type-cast-expressions
         let param = param.unwrap_immediate() as u32;
@@ -33,7 +36,9 @@ impl IsParamTransformer for BitAt {
     }
 
     fn update_param(&self, instruction_part: &BitSlice<u32>, param: &mut Param) {
-        if let Param::Immediate(param_value) = param {
+        if let Param::Decided(Decided::Immediate(param_value))
+        | Param::Resolved(_, Decided::Immediate(param_value)) = param
+        {
             let mut param_bits_store = *param_value as u32;
             let param_bits = param_bits_store.view_bits_mut::<Lsb0>();
             param_bits.set(self.0 as usize, instruction_part[0]);
@@ -42,7 +47,7 @@ impl IsParamTransformer for BitAt {
     }
 
     fn default_param(&self) -> Param {
-        Param::Immediate(0)
+        Param::Decided(Decided::Immediate(0))
     }
 
     fn bit_count(&self) -> usize {
@@ -65,7 +70,7 @@ mod tests {
     #[test]
     fn param_to_instruction_part() {
         let transformer = BitAt(0);
-        let param = Param::Immediate(0b1010);
+        let param = Param::Decided(Decided::Immediate(0b1010));
         assert_eq!(
             transformer.param_to_instruction_part(0, &param),
             bits![u32, Lsb0; 0]
@@ -85,23 +90,23 @@ mod tests {
     #[test]
     fn update_param() {
         let transformer = BitAt(0);
-        let mut param = Param::Immediate(0);
+        let mut param = Param::Decided(Decided::Immediate(0));
         transformer.update_param(bits![u32, Lsb0; 1], &mut param);
-        assert_eq!(param, Param::Immediate(1));
+        assert_eq!(param, Param::Decided(Decided::Immediate(1)));
 
         let transformer = BitAt(1);
-        let mut param = Param::Immediate(0);
+        let mut param = Param::Decided(Decided::Immediate(0));
         transformer.update_param(bits![u32, Lsb0; 0], &mut param);
-        assert_eq!(param, Param::Immediate(0));
+        assert_eq!(param, Param::Decided(Decided::Immediate(0)));
 
         let transformer = BitAt(30);
-        let mut param = Param::Immediate(0);
+        let mut param = Param::Decided(Decided::Immediate(0));
         transformer.update_param(bits![u32, Lsb0; 1], &mut param);
-        assert_eq!(param, Param::Immediate(0x40000000));
+        assert_eq!(param, Param::Decided(Decided::Immediate(0x40000000)));
 
         let transformer = BitAt(31);
-        let mut param = Param::Immediate(0);
+        let mut param = Param::Decided(Decided::Immediate(0));
         transformer.update_param(bits![u32, Lsb0; 1], &mut param);
-        assert_eq!(param, Param::Immediate(-0x8000_0000));
+        assert_eq!(param, Param::Decided(Decided::Immediate(-0x8000_0000)));
     }
 }

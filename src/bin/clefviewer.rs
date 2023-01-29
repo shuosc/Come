@@ -1,9 +1,8 @@
 use std::{fs::File, path::PathBuf};
 
 use bincode::Options;
-use bitvec::prelude::*;
 use clap::Parser;
-use come::{backend::riscv::instruction, binary_format::clef::Clef};
+use come::{backend::riscv::simple_instruction, binary_format::clef::Clef};
 
 use shadow_rs::shadow;
 shadow!(build);
@@ -26,24 +25,28 @@ fn main() {
     println!("os: {}", clef.os);
     for section in clef.sections {
         println!("section: {}", section.meta.name);
+        println!("linkable: {}", section.meta.linkable);
         println!(
-            "linkable or loadable: {}",
-            section.meta.linkable_or_loadable
+            "loadable: {}",
+            if let Some(address) = section.meta.loadable {
+                format!("should be loaded to {address}")
+            } else {
+                "no".to_string()
+            }
         );
         println!("symbols:");
-        for symbol in section.meta.symbols {
+        for symbol in &section.meta.symbols {
             println!("  {symbol}");
         }
         println!("pending symbols:");
-        for pending_symbol in section.meta.pending_symbols {
+        for pending_symbol in &section.meta.pending_symbols {
             println!("{pending_symbol}");
         }
         println!("content:",);
-        let mut content: &BitSlice<u32> = &section.content;
-        while !content.is_empty() {
-            let (rest, result) = instruction::parse_bin(content).unwrap();
-            println!("  {result}");
-            content = rest;
+        let instructions =
+            simple_instruction::parse_whole_binary(&section.content, &section.meta.pending_symbols);
+        for instruction in instructions {
+            println!("  {instruction}");
         }
     }
 }

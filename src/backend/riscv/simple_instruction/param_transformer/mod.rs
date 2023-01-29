@@ -21,7 +21,7 @@ use super::param::Param;
 
 #[enum_dispatch]
 pub trait IsParamTransformer {
-    fn param_to_instruction_part(&self, address: u64, argument: &Param) -> BitVec<u32>;
+    fn param_to_instruction_part(&self, offset: u64, argument: &Param) -> BitVec<u32>;
     fn update_param(&self, instruction_part: &BitSlice<u32>, param: &mut Param);
     fn default_param(&self) -> Param;
     fn bit_count(&self) -> usize;
