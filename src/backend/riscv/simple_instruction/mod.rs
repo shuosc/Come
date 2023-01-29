@@ -39,6 +39,7 @@ pub struct SimpleInstruction {
 
 impl PartialEq for SimpleInstruction {
     fn eq(&self, other: &Self) -> bool {
+        // ignore offset_bytes when comparing SimpleInstructions
         self.template == other.template && self.params == other.params
     }
 }
@@ -128,6 +129,7 @@ pub fn parse(code: &str) -> IResult<&str, SimpleInstruction> {
 pub fn parse_binary<'a>(
     bits_and_offset: (&'a BitSlice<u32>, usize),
     // todo: symbols: &'a [Symbol],
+    // needs a way to find used symbol by offset
     pending_symbols: &'a [PendingSymbol],
 ) -> IResult<(&'a BitSlice<u32>, usize), SimpleInstruction> {
     let offset_bytes = (bits_and_offset.1 / 8) as u32;

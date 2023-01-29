@@ -201,6 +201,8 @@ fn parse<'a>(code: &'a str, name: &'static str) -> IResult<&'a str, Template> {
     })(code)
 }
 
+// todo: make it an object?
+/// All [`Template`]s for simple instructions in RISC-V
 pub fn templates() -> &'static HashMap<&'static str, Template> {
     static TEMPLATE_MAPPING: OnceLock<HashMap<&'static str, Template>> = OnceLock::new();
     TEMPLATE_MAPPING.get_or_init(|| {

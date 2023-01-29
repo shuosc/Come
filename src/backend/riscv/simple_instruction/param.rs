@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{binary_format::clef::Symbol, utility::parsing};
 
+/// A decided param.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum Decided {
     /// An immediate value.
@@ -35,6 +36,7 @@ impl Display for Decided {
 /// Parameter of an instruction.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum Param {
+    /// A decided parameter.
     Decided(Decided),
     /// An unresolved symbol.
     Unresolved(String),
@@ -57,6 +59,7 @@ impl Param {
         match self {
             Param::Decided(Decided::Immediate(i)) => *i,
             Param::Resolved(_, Decided::Immediate(i)) => *i,
+            // todo: maybe create a separated function and panic here when meet up with Unresolved
             Param::Unresolved(_) => 0,
             _ => panic!("Expected immediate!"),
         }

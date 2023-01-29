@@ -48,7 +48,7 @@ pub struct UnparsedInstruction {
 enum Line {
     /// A tag.
     Tag(String),
-    /// An instruction.
+    /// An (unparsed) instruction.
     Instruction(UnparsedInstruction),
     /// A directive.
     Directive(Directive),
@@ -184,7 +184,7 @@ fn replace_simple_pseudo(complex_replaced: &[Line]) -> Vec<Line> {
     result
 }
 
-// todo: test?
+// todo: test
 fn parse_single_section(
     simple_replaced: impl IntoIterator<Item = Line>,
 ) -> (Vec<SimpleInstruction>, Vec<Symbol>, Vec<PendingSymbol>) {
@@ -253,7 +253,7 @@ fn parse_single_section(
     (simple_instructions, exported_symbols, pending_symbols)
 }
 
-pub fn fill_pending_symbol(
+pub fn resolve_pending_symbol(
     symbols: &[Symbol],
     pending_symbols: &[PendingSymbol],
     content: &mut BitVec<u32>,
@@ -286,71 +286,6 @@ pub fn fill_pending_symbol(
     }
     remaining_pending_symbols
 }
-
-// pub fn fill_pending_symbol<'a>(
-//     pending_symbols: &'a HashMap<u32, &'a PendingSymbol>,
-//     symbol_offsets: &'a HashMap<String, u32>,
-//     pending_symbol: &'a PendingSymbol,
-//     symbol: &Symbol,
-//     content: &mut BitVec<u32>,
-// ) {
-//     for offset_bytes in &pending_symbol.pending_instruction_offset_bytes {
-//         let offset_bits = *offset_bytes as usize * 8;
-//         let current_content = (&content[offset_bits..], offset_bits);
-//         let (_rest, mut instruction) =
-//             instruction::parse_binary(current_content, pending_symbols).unwrap();
-//         instruction.fill_symbol(*offset_bytes, symbol);
-//         let bin = instruction.binary(*offset_bytes as _, symbol_offsets);
-//         content[offset_bits..offset_bits + bin.len()].copy_from_bitslice(&bin);
-//     }
-// }
-
-// pub fn fill_pending_symbols(meta: &mut SectionMeta, content: &mut BitVec<u32>) {
-//     let pending_symbols = meta.offset_pending_symbol_map();
-//     let symbol_offsets = meta.symbol_offsets();
-//     let mut new_pending_symbols = Vec::new();
-//     for current_pending_symbol in meta.pending_symbols.iter() {
-//         if let Some(symbol) = meta
-//             .symbols
-//             .iter()
-//             .find(|it| it.name == current_pending_symbol.name)
-//         {
-//             fill_pending_symbol(
-//                 &pending_symbols,
-//                 &symbol_offsets,
-//                 current_pending_symbol,
-//                 symbol,
-//                 content,
-//             );
-//         } else {
-//             new_pending_symbols.push(current_pending_symbol.clone());
-//         }
-//     }
-//     meta.pending_symbols = new_pending_symbols;
-// }
-
-// fn get_offsets(replace_simple_pseudo_done: &[Line]) -> HashMap<String, u32> {
-//     let mut result = HashMap::new();
-//     let mut current_offset_bytes = 0;
-//     for line in replace_simple_pseudo_done {
-//         match line {
-//             Line::Tag(tag) => {
-//                 result.insert(tag.clone(), current_offset_bytes);
-//             }
-//             Line::Instruction(_instruction) => {
-//                 // todo: handle none 4 byte instructions
-//                 current_offset_bytes += 4;
-//             }
-//             Line::Directive(Directive::Section(_)) => {
-//                 current_offset_bytes = 0;
-//             }
-//             Line::Directive(_) => {
-//                 // todo: ("handle .data type directives")
-//             }
-//         }
-//     }
-//     result
-// }
 
 // Emit clef file from an asm file.
 pub fn emit_clef(asm_code: &str) -> Clef {

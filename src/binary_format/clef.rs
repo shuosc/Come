@@ -78,15 +78,6 @@ impl SectionMeta {
             .map(|it| (it.name.clone(), it.offset_bytes))
             .collect()
     }
-    pub fn offset_pending_symbol_map(&self) -> HashMap<u32, &PendingSymbol> {
-        let mut offset_pending_symbol_map = HashMap::new();
-        for pending_symbol in &self.pending_symbols {
-            for pending_instruction_offset in &pending_symbol.pending_instructions_offset_bytes {
-                offset_pending_symbol_map.insert(*pending_instruction_offset, pending_symbol);
-            }
-        }
-        offset_pending_symbol_map
-    }
 }
 
 /// Target architecture of the binary.
@@ -161,20 +152,23 @@ impl Section {
         // merge symbols and pending_symbols
         self.meta.symbols.extend(other.meta.symbols);
         self.meta.pending_symbols.extend(other.meta.pending_symbols);
-        fill_pending_symbols(&mut self.meta, &mut self.content, architecture);
+        resolve_pending_symbols(&mut self.meta, &mut self.content, architecture);
         self
     }
 }
 
-fn fill_pending_symbols(
+fn resolve_pending_symbols(
     meta: &mut SectionMeta,
     content: &mut BitVec<u32>,
     architecture: Architecture,
 ) {
     match architecture {
         Architecture::RiscV => {
-            let remaining_pending =
-                backend::riscv::fill_pending_symbol(&meta.symbols, &meta.pending_symbols, content);
+            let remaining_pending = backend::riscv::resolve_pending_symbol(
+                &meta.symbols,
+                &meta.pending_symbols,
+                content,
+            );
             meta.pending_symbols = remaining_pending;
         }
         Architecture::Arm => todo!(),
