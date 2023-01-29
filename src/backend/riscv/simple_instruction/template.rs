@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::OnceLock};
 
 use crate::{
     backend::riscv::simple_instruction::template,
-    binary_format::clef::{PendingSymbol, Symbol},
+    binary_format::clef::PendingSymbol,
     utility::parsing::{self, in_multispace},
 };
 use bitvec::prelude::*;
@@ -102,7 +102,7 @@ impl Template {
             .iter()
             .map(|part| match part {
                 Part::BitPattern(bit_pattern) => bit_pattern.len(),
-                Part::ParamTransformer((param_id, _)) => self.param_bit_count(*param_id),
+                Part::ParamTransformer((_, transformer)) => transformer.bit_count(),
             })
             .sum()
     }
@@ -152,9 +152,16 @@ impl Template {
                     // the param is a symbol
                     let offset_bits = offset_bits as u32;
                     let offset_bytes = offset_bits / 8;
-                    let symbol_param = pending_symbols
-                        .iter()
-                        .find(|it| it.used_by_instruction_at_offset(offset_bytes));
+                    let symbol_param = if !matches!(
+                        transformer,
+                        ParamTransformer::Register(_) | ParamTransformer::Csr(_)
+                    ) {
+                        pending_symbols
+                            .iter()
+                            .find(|it| it.used_by_instruction_at_offset(offset_bytes))
+                    } else {
+                        None
+                    };
                     if let Some(pending_symbol) = symbol_param {
                         let param = Param::Unresolved(pending_symbol.name.clone());
                         params[param_id] = Some(param);
@@ -205,7 +212,10 @@ pub fn templates() -> &'static HashMap<&'static str, Template> {
             .filter(|it| !it.is_empty());
         for template in templates {
             let (name, template) = template.split_once(' ').unwrap();
-            mapping.insert(name, template::parse(template.trim(), name).unwrap().1);
+            mapping.insert(
+                name.trim(),
+                template::parse(template.trim(), name).unwrap().1,
+            );
         }
         mapping
     })

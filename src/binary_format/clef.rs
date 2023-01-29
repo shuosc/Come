@@ -231,84 +231,82 @@ impl Clef {
 
 #[cfg(test)]
 mod tests {
-    use crate::backend::riscv::simple_instruction;
+    use crate::backend::riscv::simple_instruction::{self, instruction};
 
     use super::*;
 
-    // #[test]
-    // fn test_merge() {
-    //     let mut clef1 = Clef::new(Architecture::RiscV, Os::BareMetal);
-    //     let mut clef2 = Clef::new(Architecture::RiscV, Os::BareMetal);
-    //     let section1_content = [0x0000006fu32, 0x00208093].as_bits::<Lsb0>().to_bitvec();
-    //     let section1 = Section {
-    //         meta: SectionMeta {
-    //             name: "text".to_string(),
-    //             loadable: Some(0),
-    //             symbols: vec![
-    //                 Symbol {
-    //                     name: "main".to_string(),
-    //                     offset_bytes: 0,
-    //                 },
-    //                 Symbol {
-    //                     name: "f".to_string(),
-    //                     offset_bytes: 4,
-    //                 },
-    //             ],
-    //             pending_symbols: vec![PendingSymbol {
-    //                 name: "test1".to_string(),
-    //                 pending_instructions_offset_bytes: vec![0],
-    //             }],
-    //             linkable: true,
-    //         },
-    //         content: section1_content,
-    //     };
-    //     let section2_content = [0x00208093u32, 0x00310113, 0xff9ff06f]
-    //         .as_bits::<Lsb0>()
-    //         .to_bitvec();
-    //     let section2 = Section {
-    //         meta: SectionMeta {
-    //             name: "text".to_string(),
-    //             loadable: None,
-    //             symbols: vec![
-    //                 Symbol {
-    //                     name: "dumb".to_string(),
-    //                     offset_bytes: 0,
-    //                 },
-    //                 Symbol {
-    //                     name: "test1".to_string(),
-    //                     offset_bytes: 8,
-    //                 },
-    //             ],
-    //             pending_symbols: vec![PendingSymbol {
-    //                 name: "f".to_string(),
-    //                 pending_instructions_offset_bytes: vec![8],
-    //             }],
-    //             linkable: true,
-    //         },
-    //         content: section2_content,
-    //     };
-    //     clef1.sections.push(section1);
-    //     clef2.sections.push(section2);
-    //     let clef = clef1.merge(clef2);
-    //     let expected = vec![
-    //         simple_instruction!(jal, x0, 16),
-    //         simple_instruction!(addi, x1, x1, 2),
-    //         simple_instruction!(addi, x1, x1, 2),
-    //         simple_instruction!(addi, x2, x2, 3),
-    //         simple_instruction!(jal, x0, -12),
-    //     ];
-    //     let offset_pending_symbol_map = clef.sections[0].meta.offset_pending_symbol_map();
-    //     let instructions = simple_instruction::parse_whole_binary(
-    //         &clef.sections[0].content,
-    //         &offset_pending_symbol_map,
-    //     );
-    //     dbg!(&instructions);
-    //     for (instruction, expected) in instructions.into_iter().zip(expected) {
-    //         assert_eq!(expected, instruction);
-    //     }
-    //     assert_eq!(clef.sections.len(), 1);
-    //     assert_eq!(clef.sections[0].meta.name, "text");
-    //     assert!(clef.sections[0].meta.pending_symbols.is_empty());
-    //     assert_eq!(clef.sections[0].meta.symbols.len(), 4);
-    // }
+    #[test]
+    fn test_merge() {
+        let mut clef1 = Clef::new(Architecture::RiscV, Os::BareMetal);
+        let mut clef2 = Clef::new(Architecture::RiscV, Os::BareMetal);
+        let section1_content = [0x0000006fu32, 0x00208093].as_bits::<Lsb0>().to_bitvec();
+        let section1 = Section {
+            meta: SectionMeta {
+                name: "text".to_string(),
+                loadable: Some(0),
+                symbols: vec![
+                    Symbol {
+                        name: "main".to_string(),
+                        offset_bytes: 0,
+                    },
+                    Symbol {
+                        name: "f".to_string(),
+                        offset_bytes: 4,
+                    },
+                ],
+                pending_symbols: vec![PendingSymbol {
+                    name: "test1".to_string(),
+                    pending_instructions_offset_bytes: vec![0],
+                }],
+                linkable: true,
+            },
+            content: section1_content,
+        };
+        let section2_content = [0x00208093u32, 0x00310113, 0xff9ff06f]
+            .as_bits::<Lsb0>()
+            .to_bitvec();
+        let section2 = Section {
+            meta: SectionMeta {
+                name: "text".to_string(),
+                loadable: None,
+                symbols: vec![
+                    Symbol {
+                        name: "dumb".to_string(),
+                        offset_bytes: 0,
+                    },
+                    Symbol {
+                        name: "test1".to_string(),
+                        offset_bytes: 8,
+                    },
+                ],
+                pending_symbols: vec![PendingSymbol {
+                    name: "f".to_string(),
+                    pending_instructions_offset_bytes: vec![8],
+                }],
+                linkable: true,
+            },
+            content: section2_content,
+        };
+        clef1.sections.push(section1);
+        clef2.sections.push(section2);
+        let clef = clef1.merge(clef2);
+        let expected = vec![
+            instruction!(jal, x0, 16),
+            instruction!(addi, x1, x1, 2),
+            instruction!(addi, x1, x1, 2),
+            instruction!(addi, x2, x2, 3),
+            instruction!(jal, x0, -12),
+        ];
+        let instructions = simple_instruction::parse_whole_binary(
+            &clef.sections[0].content,
+            &clef.sections[0].meta.pending_symbols,
+        );
+        for (instruction, expected) in instructions.into_iter().zip(expected) {
+            assert_eq!(expected, instruction);
+        }
+        assert_eq!(clef.sections.len(), 1);
+        assert_eq!(clef.sections[0].meta.name, "text");
+        assert!(clef.sections[0].meta.pending_symbols.is_empty());
+        assert_eq!(clef.sections[0].meta.symbols.len(), 4);
+    }
 }

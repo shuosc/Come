@@ -4,15 +4,11 @@ pub(crate) mod param;
 /// a binary form of instruction.
 mod param_transformer;
 /// Instruction template information, parser and related functions.
-mod template;
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    fmt::Display,
-    sync::OnceLock,
-};
+pub mod template;
+use std::fmt::Display;
 
 use bitvec::prelude::*;
-use itertools::Itertools;
+
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -34,11 +30,17 @@ use self::template::Template;
 
 use super::UnparsedInstruction;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Eq, Clone)]
 pub struct SimpleInstruction {
-    template: &'static Template,
-    params: Vec<Param>,
-    offset_bytes: Option<u32>,
+    pub template: &'static Template,
+    pub params: Vec<Param>,
+    pub offset_bytes: Option<u32>,
+}
+
+impl PartialEq for SimpleInstruction {
+    fn eq(&self, other: &Self) -> bool {
+        self.template == other.template && self.params == other.params
+    }
 }
 
 impl Display for SimpleInstruction {
@@ -130,7 +132,7 @@ pub fn parse_binary<'a>(
 ) -> IResult<(&'a BitSlice<u32>, usize), SimpleInstruction> {
     let offset_bytes = (bits_and_offset.1 / 8) as u32;
     // todo: speed up matching process
-    for (_name, template) in template::templates() {
+    for template in template::templates().values() {
         if let Ok((rest, params)) = template.parse_binary(bits_and_offset, pending_symbols) {
             return Ok((
                 rest,
@@ -164,214 +166,107 @@ pub fn parse_whole_binary(
     }
     result
 }
+/// Macro for easily constructing an instruction.
+/// Currently used only in tests, but hopefully will be used in the asm generator the future.
+#[cfg(test)]
+macro_rules! instruction {
+    ($name:ident) => {
+        crate::backend::riscv::simple_instruction::SimpleInstruction {
+            template: &crate::backend::riscv::simple_instruction::template::templates()
+                [stringify!($name)],
+            params: vec![],
+            offset_bytes: None,
+        }
+    };
+    ($name:ident, $param1:expr) => {
+        crate::backend::riscv::simple_instruction::SimpleInstruction {
+            template: &crate::backend::riscv::simple_instruction::template::templates()
+                [stringify!($name)],
+            params: vec![
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&$param1),
+            ],
+            offset_bytes: None,
+        }
+    };
+    ($name:ident, $param1:ident) => {
+        crate::backend::riscv::simple_instruction::SimpleInstruction {
+            template: &crate::backend::riscv::simple_instruction::template::templates()
+                [stringify!($name)],
+            params: vec![
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&stringify!(
+                    $param1
+                )),
+            ],
+            offset_bytes: None,
+        }
+    };
+    ($name:ident, $param1:ident, $param2:expr) => {
+        crate::backend::riscv::simple_instruction::SimpleInstruction {
+            template: &crate::backend::riscv::simple_instruction::template::templates()
+                [stringify!($name)],
+            params: vec![
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&stringify!(
+                    $param1
+                )),
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&$param2),
+            ],
+            offset_bytes: None,
+        }
+    };
+    ($name:ident, $param1:ident, $param2:expr, $param3:ident) => {
+        crate::backend::riscv::simple_instruction::SimpleInstruction {
+            template: &crate::backend::riscv::simple_instruction::template::templates()
+                [stringify!($name)],
+            params: vec![
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&stringify!(
+                    $param1
+                )),
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&$param2),
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&stringify!(
+                    $param3
+                )),
+            ],
+            offset_bytes: None,
+        }
+    };
+    ($name:ident, $param1:ident, $param2:ident, $param3:expr) => {
+        crate::backend::riscv::simple_instruction::SimpleInstruction {
+            template: &crate::backend::riscv::simple_instruction::template::templates()
+                [stringify!($name)],
+            params: vec![
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&stringify!(
+                    $param1
+                )),
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&stringify!(
+                    $param2
+                )),
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&$param3),
+            ],
+            offset_bytes: None,
+        }
+    };
+    ($name:ident, $param1:ident, $param2:ident, $param3:ident) => {
+        crate::backend::riscv::simple_instruction::SimpleInstruction {
+            template: &crate::backend::riscv::simple_instruction::template::templates()
+                [stringify!($name)],
+            params: vec![
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&stringify!(
+                    $param1
+                )),
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&stringify!(
+                    $param2
+                )),
+                crate::backend::riscv::simple_instruction::param::AsParam::as_param(&stringify!(
+                    $param3
+                )),
+            ],
+            offset_bytes: None,
+        }
+    };
+}
 
-// /// An unparsed instruction.
-// /// "Unparsed" means we regard all parts of this instruction as string.
-// #[derive(Debug, PartialEq, Eq, Clone)]
-// pub struct Unparsed {
-//     /// The name of the instruction.
-//     pub name: String,
-//     /// The parameters of the instruction.
-//     pub params: Vec<String>,
-// }
-
-// /// A parsed instruction.
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct Parsed {
-//     /// The name of the instruction.
-//     pub name: String,
-//     /// The parameters of the instruction.
-//     pub params: Vec<Param>,
-// }
-
-// impl Parsed {
-//     pub fn fill_symbol(&mut self, instruction_offset_bytes: u32, symbol: &Symbol) {
-//         for param in self.params.iter_mut() {
-//             if let Param::Symbol(s) = param && s == &symbol.name {
-//                 // fixme: use direct offset calculation here maybe incorrect
-//                 *param = Param::Decided(Decided::Immediate(symbol.offset_bytes as i32 - instruction_offset_bytes as i32);
-//             }
-//         }
-//     }
-
-//     pub fn binary(&self, offset: u64, symbol_offsets: &HashMap<String, u32>) -> BitVec<u32> {
-//         let template = templates().get(self.name.as_str()).unwrap();
-//         dbg!(&self);
-//         let params = self
-//             .params
-//             .iter()
-//             .map(|it| {
-//                 if let Param::Symbol(symbol_name) = it {
-//                     let symbol_offset = symbol_offsets[symbol_name];
-//                     Param::Decided(Decided::Immediate(symbol_offset as _)
-//                 } else {
-//                     it.clone()
-//                 }
-//             })
-//             .collect_vec();
-//         template.render(&params, offset).into_iter().collect()
-//     }
-// }
-
-// impl From<Unparsed> for Parsed {
-//     fn from(unparsed: Unparsed) -> Self {
-//         Parsed {
-//             name: unparsed.name,
-//             params: unparsed
-//                 .params
-//                 .into_iter()
-//                 .map(|it| param::parse(&it).unwrap().1)
-//                 .collect(),
-//         }
-//     }
-// }
-
-// impl Display for Parsed {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{} ", self.name)?;
-//         // todo: find a better way to handle `offset(register)` format
-//         const MEMORY_INSTRUCTIONS: [&str; 8] = ["lb", "lh", "lw", "lbu", "lhu", "sb", "sh", "sw"];
-//         if MEMORY_INSTRUCTIONS.contains(&self.name.as_str()) {
-//             write!(
-//                 f,
-//                 "{}, {}({})",
-//                 self.params[0], self.params[1], self.params[2]
-//             )?;
-//         } else {
-//             for (i, param) in self.params.iter().enumerate() {
-//                 if i != 0 {
-//                     write!(f, ", ")?;
-//                 }
-//                 write!(f, "{param}")?;
-//             }
-//         }
-//         Ok(())
-//     }
-// }
-
-// fn templates() -> &'static HashMap<&'static str, Template> {
-//     static TEMPLATE_MAPPING: OnceLock<HashMap<&'static str, Template>> = OnceLock::new();
-//     TEMPLATE_MAPPING.get_or_init(|| {
-//         let mut mapping = HashMap::new();
-//         let templates_str = include_str!("../spec/instructions.spec");
-//         let templates = templates_str
-//             .split('\n')
-//             .map(|it| it.trim())
-//             .filter(|it| !it.is_empty());
-//         for template in templates {
-//             let (name, template) = template.split_once(' ').unwrap();
-//             mapping.insert(name, template::parse(template.trim()).unwrap().1);
-//         }
-//         mapping
-//     })
-// }
-
-// pub fn parse_whole_binary(
-//     bin: &BitSlice<u32>,
-//     offset_pending_symbol_map: &HashMap<u32, &PendingSymbol>,
-// ) -> Vec<Parsed> {
-//     let mut content = (bin, 0usize);
-//     let mut result = Vec::new();
-//     let mut offset = 0;
-//     while !content.0.is_empty() {
-//         let (rest, result_instruction) = parse_bin(content, &offset_pending_symbol_map).unwrap();
-//         content = rest;
-//         result.push(result_instruction);
-//     }
-//     result
-// }
-
-// /// Parse binary instruction into parsed instruction.
-// pub fn parse_bin<'a>(
-//     bits_and_offset: (&'a BitSlice<u32>, usize),
-//     pending_symbols: &'a HashMap<u32, &'a PendingSymbol>,
-// ) -> IResult<(&'a BitSlice<u32>, usize), Parsed> {
-//     // todo: speed up matching process
-//     if let Some((name, (rest, params))) = templates().iter().find_map(|(name, template)| {
-//         template
-//             .parse_binary(bits_and_offset, pending_symbols)
-//             .ok()
-//             .map(|it| (name, it))
-//     }) {
-//         Ok((
-//             rest,
-//             Parsed {
-//                 name: name.to_string(),
-//                 params,
-//             },
-//         ))
-//     } else {
-//         unreachable!()
-//     }
-// }
-
-// /// Macro for easily constructing an instruction.
-// /// Currently used only in tests, but hopefully will be used in the asm generator the future.
-// #[cfg(test)]
-// macro_rules! instruction {
-//     ($name:ident) => {
-//         crate::binary_format::clef::tests::instruction::Parsed {
-//             name: stringify!($name).to_string(),
-//             params: vec![],
-//         }
-//     };
-//     ($name:ident, $param1:expr) => {
-//         crate::binary_format::clef::tests::instruction::Parsed {
-//             name: stringify!($name).to_string(),
-//             params: vec![crate::backend::riscv::instruction::param::AsParam::as_param(&$param1)],
-//         }
-//     };
-//     ($name:ident, $param1:ident) => {
-//         crate::binary_format::clef::tests::instruction::Parsed {
-//             name: stringify!($name).to_string(),
-//             params: vec![
-//                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
-//             ],
-//         }
-//     };
-//     ($name:ident, $param1:ident, $param2:expr) => {
-//         crate::binary_format::clef::tests::instruction::Parsed {
-//             name: stringify!($name).to_string(),
-//             params: vec![
-//                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
-//                 crate::backend::riscv::instruction::param::AsParam::as_param(&$param2),
-//             ],
-//         }
-//     };
-//     ($name:ident, $param1:ident, $param2:expr, $param3:ident) => {
-//         crate::binary_format::clef::tests::instruction::Parsed {
-//             name: stringify!($name).to_string(),
-//             params: vec![
-//                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
-//                 crate::backend::riscv::instruction::param::AsParam::as_param(&$param2),
-//                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param3)),
-//             ],
-//         }
-//     };
-//     ($name:ident, $param1:ident, $param2:ident, $param3:expr) => {
-//         crate::binary_format::clef::tests::instruction::Parsed {
-//             name: stringify!($name).to_string(),
-//             params: vec![
-//                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
-//                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param2)),
-//                 crate::backend::riscv::instruction::param::AsParam::as_param(&$param3),
-//             ],
-//         }
-//     };
-//     ($name:ident, $param1:ident, $param2:ident, $param3:ident) => {
-//         crate::binary_format::clef::tests::instruction::Parsed {
-//             name: stringify!($name).to_string(),
-//             params: vec![
-//                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param1)),
-//                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param2)),
-//                 crate::backend::riscv::instruction::param::AsParam::as_param(&stringify!($param3)),
-//             ],
-//         }
-//     };
-// }
-
-// #[cfg(test)]
-// pub(crate) use instruction;
+#[cfg(test)]
+pub(crate) use instruction;
 
 // #[cfg(test)]
 // mod tests {

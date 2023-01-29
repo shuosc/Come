@@ -46,7 +46,7 @@ impl Display for Param {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Param::Unresolved(s) => write!(f, "{s}"),
-            Param::Resolved(s, content) => write!(f, "{s} <{}>", content),
+            Param::Resolved(s, content) => write!(f, "{s} <{content}>"),
             Param::Decided(x) => write!(f, "{x}"),
         }
     }

@@ -7,15 +7,13 @@ pub mod simple_instruction;
 
 use self::{section::parse_section, simple_instruction::SimpleInstruction};
 use crate::{
-    binary_format::clef::{
-        self, Architecture, Clef, Os, PendingSymbol, Section, SectionMeta, Symbol,
-    },
+    binary_format::clef::{Architecture, Clef, Os, PendingSymbol, Section, SectionMeta, Symbol},
     utility::parsing,
 };
 use bitvec::prelude::*;
 use itertools::Itertools;
 use section::SectionName;
-use std::{collections::HashMap, hash::Hash, mem, sync::OnceLock};
+use std::{collections::HashMap, sync::OnceLock};
 
 /// Directive in an asm file.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -187,7 +185,7 @@ fn replace_simple_pseudo(complex_replaced: &[Line]) -> Vec<Line> {
 }
 
 // todo: test?
-fn parse_single_section<'a>(
+fn parse_single_section(
     simple_replaced: impl IntoIterator<Item = Line>,
 ) -> (Vec<SimpleInstruction>, Vec<Symbol>, Vec<PendingSymbol>) {
     let mut current_offset_bytes = 0u32;
@@ -245,7 +243,7 @@ fn parse_single_section<'a>(
     let pending_symbols = pending_symbols
         .into_iter()
         .map(|(name, offset_bytes)| PendingSymbol {
-            name: name.clone(),
+            name,
             pending_instructions_offset_bytes: offset_bytes
                 .into_iter()
                 .map(|index| simple_instructions[index].offset_bytes())
