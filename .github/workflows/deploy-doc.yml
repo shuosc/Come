@@ -24,19 +24,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: recursive
     - name: Build only 
-      uses: shalzz/zola-deploy-action@v0.16.1
-      env:
-        BUILD_DIR: ./doc
-        BUILD_ONLY: true
+      run: docker run -u "$(id -u):$(id -g)" -v $PWD/doc:/app --workdir /app ghcr.io/getzola/zola:v0.16.0 build
     - name: Build crate doc
       run: cargo doc --workspace --document-private-items --all-features -r
-    - name: Tree
-      run: tree -L 3
     - name: Move crate doc
       run: sudo mv ./target/doc/* ./doc/public/
-    - name: Tree
-      run: tree -L 4
     - name: Setup Pages
       uses: actions/configure-pages@v2
     - name: Upload artifact
