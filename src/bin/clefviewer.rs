@@ -29,7 +29,7 @@ fn main() {
         println!(
             "loadable: {}",
             if let Some(address) = section.meta.loadable {
-                format!("should be loaded to {address}")
+                format!("should be loaded to 0x{address:0x}")
             } else {
                 "no".to_string()
             }
@@ -39,8 +39,12 @@ fn main() {
             println!("  {symbol}");
         }
         println!("pending symbols:");
-        for pending_symbol in &section.meta.pending_symbols {
-            println!("{pending_symbol}");
+        if section.meta.pending_symbols.is_empty() {
+            println!("    <none>")
+        } else {
+            for pending_symbol in &section.meta.pending_symbols {
+                println!("  {pending_symbol}");
+            }
         }
         println!("content:",);
         let instructions =
