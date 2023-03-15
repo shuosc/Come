@@ -1,4 +1,7 @@
-use crate::ir::{analyzer::Analyzer, optimize::action::EditActionBatch};
+use crate::ir::{
+    analyzer::Analyzer,
+    optimize::action::{Actions, RemoveStatement, RenameLocal},
+};
 
 use super::IsPass;
 
@@ -10,8 +13,8 @@ use super::IsPass;
 pub struct RemoveOnlyOnceStore;
 
 impl IsPass for RemoveOnlyOnceStore {
-    fn run(&self, analyzer: &Analyzer) -> EditActionBatch {
-        let mut result = EditActionBatch::default();
+    fn run(&self, analyzer: &Analyzer) -> Actions {
+        let mut result = Actions::default();
         for variable in analyzer.memory_usage.memory_access_variables() {
             let memory_access_info = analyzer.memory_usage.memory_access_info(variable);
             // todo: it is possible that the basic block the store statement in
@@ -23,11 +26,14 @@ impl IsPass for RemoveOnlyOnceStore {
                 let stored_value = store_statement.source.clone();
                 for load_statement_index in &memory_access_info.load {
                     let load_statement = analyzer.content[load_statement_index.clone()].as_load();
-                    result.replace(load_statement.to.clone(), stored_value.clone());
-                    result.remove(load_statement_index.clone());
+                    result.push(RemoveStatement::new(load_statement_index.clone()));
+                    result.push(RenameLocal::new(
+                        load_statement.to.clone(),
+                        stored_value.clone(),
+                    ));
                 }
-                result.remove(store_statement_index.clone());
-                result.remove(memory_access_info.alloca.clone());
+                result.push(RemoveStatement::new(store_statement_index.clone()));
+                result.push(RemoveStatement::new(memory_access_info.alloca.clone()));
             }
         }
         result

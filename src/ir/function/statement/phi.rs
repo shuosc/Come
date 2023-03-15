@@ -22,7 +22,7 @@ use std::fmt;
 /// [`Phi`]'s source.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct PhiSource {
-    pub name: Quantity,
+    pub value: Quantity,
     pub block: String,
 }
 
@@ -45,7 +45,7 @@ fn parse_phi_source(code: &str) -> IResult<&str, PhiSource> {
             tuple((quantity::parse, space0, tag(","), space0, parsing::ident)),
             tag("]"),
         ),
-        |(name, _, _, _, block)| PhiSource { name, block },
+        |(name, _, _, _, block)| PhiSource { value: name, block },
     )(code)
 }
 
@@ -66,7 +66,7 @@ impl IsIRStatement for Phi {
             self.to = to.clone().unwrap_local();
         }
         for source in &mut self.from {
-            if let Quantity::RegisterName(local) = &mut source.name {
+            if let Quantity::RegisterName(local) = &mut source.value {
                 if local == from {
                     *local = to.clone().unwrap_local();
                 }
@@ -80,7 +80,7 @@ impl IsIRStatement for Phi {
     fn use_register(&self) -> Vec<RegisterName> {
         self.from
             .iter()
-            .filter_map(|PhiSource { name, .. }| name.as_local())
+            .filter_map(|PhiSource { value: name, .. }| name.as_local())
             .cloned()
             .collect()
     }
@@ -93,7 +93,7 @@ impl fmt::Display for Phi {
             if i != 0 {
                 write!(f, ", ")?;
             }
-            write!(f, "[{}, {}]", source.block, source.name)?;
+            write!(f, "[{}, {}]", source.block, source.value)?;
         }
         Ok(())
     }
@@ -138,11 +138,11 @@ pub mod test_util {
             data_type: data_type::I32.clone(),
             from: vec![
                 PhiSource {
-                    name: RegisterName(source1.to_string()).into(),
+                    value: RegisterName(source1.to_string()).into(),
                     block: source1_bb.to_string(),
                 },
                 PhiSource {
-                    name: RegisterName(source2.to_string()).into(),
+                    value: RegisterName(source2.to_string()).into(),
                     block: source2_bb.to_string(),
                 },
             ],
@@ -165,11 +165,11 @@ mod tests {
                 data_type: data_type::I32.clone(),
                 from: vec![
                     PhiSource {
-                        name: RegisterName("2".to_string()).into(),
+                        value: RegisterName("2".to_string()).into(),
                         block: "bb1".to_string(),
                     },
                     PhiSource {
-                        name: RegisterName("4".to_string()).into(),
+                        value: RegisterName("4".to_string()).into(),
                         block: "bb2".to_string(),
                     },
                 ],

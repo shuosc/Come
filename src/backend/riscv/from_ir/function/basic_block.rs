@@ -103,11 +103,11 @@ mod tests {
                         data_type: data_type::I32.clone(),
                         from: vec![
                             PhiSource {
-                                name: 1.into(),
+                                value: 1.into(),
                                 block: "bb1".to_string(),
                             },
                             PhiSource {
-                                name: 2.into(),
+                                value: 2.into(),
                                 block: "bb2".to_string(),
                             },
                         ],

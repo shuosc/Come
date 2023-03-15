@@ -2,12 +2,15 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
-use crate::ir::{
-    analyzer::{control_flow::ControlFlowGraph, memory_usage::MemoryUsageAnalyzer, Analyzer},
-    optimize::action::EditActionBatch,
-    quantity::Quantity,
-    statement::{IRStatement, Load, Store},
-    FunctionDefinition, RegisterName,
+use crate::{
+    ir::{
+        analyzer::{control_flow::ControlFlowGraph, memory_usage::MemoryUsageAnalyzer, Analyzer},
+        optimize::action::{Actions, InsertStatement, RemoveStatement, RenameLocal},
+        quantity::Quantity,
+        statement::{phi::PhiSource, IRStatement, Load, Phi, Store},
+        FunctionDefinition, RegisterName,
+    },
+    utility::data_type::Type,
 };
 
 use super::{
@@ -20,7 +23,37 @@ use super::{
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct MemoryToRegister;
 
+impl IsPass for MemoryToRegister {
+    fn run(&self, analyzer: &Analyzer) -> Actions {
+        let insert_phis_at =
+            insert_phi_positions(&analyzer.memory_usage, &analyzer.control_flow_graph);
+        // There exists two parts of actions:
+        // - The first part will remove the load and store statements, and replace the load targets with the "phi"ed results
+        // - The second part will insert the phi nodes
+        let (remove_memory_access_actions, subnodes) = decide_values(
+            analyzer.content,
+            &analyzer.control_flow_graph,
+            &insert_phis_at,
+        );
+        let insert_phi_actions = create_phi_node_insertion_actions(
+            subnodes,
+            &analyzer.memory_usage.memory_access_variables_and_types(),
+            analyzer.content,
+        );
+        Actions::merge(remove_memory_access_actions, insert_phi_actions)
+    }
+
+    fn need(&self) -> Vec<super::Pass> {
+        vec![RemoveOnlyOnceStore.into()]
+    }
+
+    fn invalidate(&self) -> Vec<super::Pass> {
+        vec![RemoveUnusedRegister.into()]
+    }
+}
+
 /// Find out where should we insert phi positions.
+/// Return a vector which contains (VariableName, BasicBlockIndex)
 fn insert_phi_positions(
     memory_usage: &MemoryUsageAnalyzer,
     control_flow_graph: &ControlFlowGraph,
@@ -28,6 +61,8 @@ fn insert_phi_positions(
     let mut result = Vec::new();
     for variable_name in memory_usage.memory_access_variables() {
         let memory_access_info = memory_usage.memory_access_info(variable_name);
+        // for each store to this variable,
+        // we find the dominance_frontier of the basic block it is in
         let mut pending_bb_indexes = memory_access_info.store.iter().map(|it| it.0).collect_vec();
         pending_bb_indexes.dedup();
         let mut done_bb_index = Vec::new();
@@ -70,41 +105,52 @@ fn decide_variable_value(
     unreachable!()
 }
 
+// We need to know all incoming "arrows" to a phi node before we can construct it.
+// So we created this data structure to store the "unfinished" phi nodes.
+struct PhiSubNode {
+    basic_block_index: usize,
+    variable_name: String,
+    value_from: usize,
+    value: Quantity,
+}
+
+/// Returns (Actions to edit the statements, PhiSubNodes to insert)
 fn decide_values_start_from(
     function: &FunctionDefinition,
     control_flow_graph: &ControlFlowGraph,
-    consider_block: usize,
+    consider_block_index: usize,
     inserted_phi: &[(String, usize)],
     visited: &mut Vec<usize>,
     current_variable_value: &mut Vec<HashMap<String, (usize, Quantity)>>,
-) -> EditActionBatch {
-    let mut result = EditActionBatch::default();
-    let block = &function[consider_block];
+) -> (Actions, Vec<PhiSubNode>) {
+    let mut result = Actions::default();
+    let mut subnodes = Vec::new();
+    let block = &function[consider_block_index];
     let phied_variables = inserted_phi
         .iter()
-        .filter(|(_, bb_id)| bb_id == &consider_block)
+        .filter(|(_, bb_id)| bb_id == &consider_block_index)
         .map(|(variable_name, _)| variable_name);
     for variable_name in phied_variables {
         let (from_basic_block_index, value) =
             decide_variable_value(variable_name, current_variable_value);
-        result.insert_phi(
-            consider_block,
-            variable_name.clone(),
-            from_basic_block_index,
+        subnodes.push(PhiSubNode {
+            basic_block_index: consider_block_index,
+            variable_name: variable_name.clone(),
+            value_from: from_basic_block_index,
             value,
-        );
+        });
         current_variable_value.last_mut().unwrap().insert(
             variable_name.clone(),
             (
-                consider_block,
+                consider_block_index,
                 RegisterName(format!("{}_{}", variable_name, block.name.clone().unwrap())).into(),
             ),
         );
     }
-    if visited.contains(&consider_block) {
-        return result;
+    if visited.contains(&consider_block_index) {
+        return (result, subnodes);
     }
-    visited.push(consider_block);
+    visited.push(consider_block_index);
     for (statement_index, statement) in block.content.iter().enumerate() {
         match statement {
             IRStatement::Load(Load {
@@ -114,8 +160,11 @@ fn decide_values_start_from(
             }) => {
                 let (_, replace_with_value) =
                     decide_variable_value(&local.0, current_variable_value);
-                result.replace(to.clone(), replace_with_value);
-                result.remove((consider_block, statement_index));
+                result.push(RemoveStatement::new((
+                    consider_block_index,
+                    statement_index,
+                )));
+                result.push(RenameLocal::new(to.clone(), replace_with_value));
             }
             IRStatement::Store(Store {
                 source,
@@ -125,14 +174,17 @@ fn decide_values_start_from(
                 current_variable_value
                     .last_mut()
                     .unwrap()
-                    .insert(local.0.clone(), (consider_block, source.clone()));
-                result.remove((consider_block, statement_index));
+                    .insert(local.0.clone(), (consider_block_index, source.clone()));
+                result.push(RemoveStatement::new((
+                    consider_block_index,
+                    statement_index,
+                )));
             }
             IRStatement::Branch(branch) => {
                 let success_block =
                     control_flow_graph.basic_block_index_by_name(&branch.success_label);
                 current_variable_value.push(HashMap::new());
-                let result_success = decide_values_start_from(
+                let (result_success, mut subnodes_on_success) = decide_values_start_from(
                     function,
                     control_flow_graph,
                     success_block,
@@ -140,12 +192,13 @@ fn decide_values_start_from(
                     visited,
                     current_variable_value,
                 );
+                subnodes.append(&mut subnodes_on_success);
                 result = result.merge(result_success);
                 current_variable_value.pop();
                 current_variable_value.push(HashMap::new());
                 let failure_block =
                     control_flow_graph.basic_block_index_by_name(&branch.failure_label);
-                let result_failure = decide_values_start_from(
+                let (result_failure, mut subnodes_on_failure) = decide_values_start_from(
                     function,
                     control_flow_graph,
                     failure_block,
@@ -153,12 +206,13 @@ fn decide_values_start_from(
                     visited,
                     current_variable_value,
                 );
+                subnodes.append(&mut subnodes_on_failure);
                 result = result.merge(result_failure);
                 current_variable_value.pop();
             }
             IRStatement::Jump(jump) => {
                 let jump_to_block = control_flow_graph.basic_block_index_by_name(&jump.label);
-                let result_jump_to = decide_values_start_from(
+                let (result_jump_to, mut subnodes_on_jump) = decide_values_start_from(
                     function,
                     control_flow_graph,
                     jump_to_block,
@@ -166,19 +220,20 @@ fn decide_values_start_from(
                     visited,
                     current_variable_value,
                 );
+                subnodes.append(&mut subnodes_on_jump);
                 result = result.merge(result_jump_to);
             }
             _ => (),
         }
     }
-    result
+    (result, subnodes)
 }
 
 fn decide_values(
     function: &FunctionDefinition,
     control_flow_graph: &ControlFlowGraph,
     inserted_phi: &[(String, usize)],
-) -> EditActionBatch {
+) -> (Actions, Vec<PhiSubNode>) {
     let mut visited = Vec::new();
     let mut current_variable_value = vec![HashMap::new()];
     decide_values_start_from(
@@ -191,23 +246,64 @@ fn decide_values(
     )
 }
 
-impl IsPass for MemoryToRegister {
-    fn run(&self, analyzer: &Analyzer) -> EditActionBatch {
-        let insert_phis_at =
-            insert_phi_positions(&analyzer.memory_usage, &analyzer.control_flow_graph);
-        decide_values(
-            analyzer.content,
-            &analyzer.control_flow_graph,
-            &insert_phis_at,
-        )
-    }
+fn create_phi_node_insertion_actions(
+    mut subnodes: Vec<PhiSubNode>,
+    memory_access_variables_and_types: &HashMap<RegisterName, Type>,
+    function: &FunctionDefinition,
+) -> Actions {
+    subnodes
+        .sort_unstable_by_key(|subnode| (subnode.basic_block_index, subnode.variable_name.clone()));
+    subnodes
+        .into_iter()
+        .group_by(|subnode| subnode.basic_block_index)
+        .into_iter()
+        .flat_map(|(basicblock_index, subnodes_in_basicblock)| {
+            subnodes_in_basicblock
+                .into_iter()
+                .group_by(|subnode| subnode.variable_name.clone())
+                .into_iter()
+                .map(move |(variable_name, subnodes_for_variable)| {
+                    let phi_node = create_phi_node(
+                        &variable_name,
+                        basicblock_index,
+                        subnodes_for_variable,
+                        memory_access_variables_and_types,
+                        function,
+                    );
+                    InsertStatement::front_of(basicblock_index, phi_node).into()
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
 
-    fn need(&self) -> Vec<super::Pass> {
-        vec![RemoveOnlyOnceStore.into()]
-    }
-
-    fn invalidate(&self) -> Vec<super::Pass> {
-        vec![RemoveUnusedRegister.into()]
+fn create_phi_node(
+    variable_name: &str,
+    basic_block_index: usize,
+    subnodes_for_variable: impl IntoIterator<Item = PhiSubNode>,
+    memory_access_variables_and_types: &HashMap<RegisterName, Type>,
+    function: &FunctionDefinition,
+) -> Phi {
+    let from_basic_block_name = function[basic_block_index].name.clone().unwrap();
+    let register_name = RegisterName(format!("{variable_name}_{from_basic_block_name}"));
+    let data_type = memory_access_variables_and_types
+        .get(&RegisterName(variable_name.to_string()))
+        .unwrap()
+        .clone();
+    let from = subnodes_for_variable
+        .into_iter()
+        .map(|entry| {
+            let from_basic_block_name = function[entry.value_from].name.clone().unwrap();
+            PhiSource {
+                value: entry.value,
+                block: from_basic_block_name,
+            }
+        })
+        .collect();
+    Phi {
+        to: register_name,
+        data_type,
+        from,
     }
 }
 
@@ -287,11 +383,11 @@ mod tests {
         assert_eq!(the_phi_statement.to, RegisterName("c_addr_bb3".to_string()));
         assert_eq!(the_phi_statement.from.len(), 2);
         assert!(the_phi_statement.from.contains(&PhiSource {
-            name: RegisterName("t_0".to_string()).into(),
+            value: RegisterName("t_0".to_string()).into(),
             block: "bb1".to_string()
         }));
         assert!(the_phi_statement.from.contains(&PhiSource {
-            name: RegisterName("t_1".to_string()).into(),
+            value: RegisterName("t_1".to_string()).into(),
             block: "bb2".to_string()
         }));
     }
@@ -354,11 +450,11 @@ mod tests {
         assert_eq!(the_phi_statement.to, RegisterName("c_addr_bb3".to_string()));
         assert_eq!(the_phi_statement.from.len(), 2);
         assert!(the_phi_statement.from.contains(&PhiSource {
-            name: RegisterName("t_0".to_string()).into(),
+            value: RegisterName("t_0".to_string()).into(),
             block: "bb1".to_string()
         }));
         assert!(the_phi_statement.from.contains(&PhiSource {
-            name: RegisterName("t_1".to_string()).into(),
+            value: RegisterName("t_1".to_string()).into(),
             block: "bb2".to_string()
         }));
     }
@@ -441,15 +537,15 @@ mod tests {
         assert_eq!(generated_phi.to, RegisterName("c_addr_bb4".to_string()));
         assert_eq!(generated_phi.from.len(), 3);
         assert!(generated_phi.from.contains(&PhiSource {
-            name: RegisterName("t_3".to_string()).into(),
+            value: RegisterName("t_3".to_string()).into(),
             block: "bb3".to_string()
         }));
         assert!(generated_phi.from.contains(&PhiSource {
-            name: RegisterName("t_1".to_string()).into(),
+            value: RegisterName("t_1".to_string()).into(),
             block: "bb2".to_string()
         }));
         assert!(generated_phi.from.contains(&PhiSource {
-            name: RegisterName("t_0".to_string()).into(),
+            value: RegisterName("t_0".to_string()).into(),
             block: "bb1".to_string()
         }));
     }
@@ -510,11 +606,11 @@ mod tests {
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb7".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
-            name: 1.into(),
+            value: 1.into(),
             block: "bb4".to_string()
         }));
         assert!(generated_phi.from.contains(&PhiSource {
-            name: 1.into(),
+            value: 1.into(),
             block: "bb3".to_string()
         }));
 
@@ -522,11 +618,11 @@ mod tests {
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb6".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
-            name: RegisterName("t_0".to_string()).into(),
+            value: RegisterName("t_0".to_string()).into(),
             block: "bb5".to_string()
         }));
         assert!(generated_phi.from.contains(&PhiSource {
-            name: RegisterName("a_addr_bb7".to_string()).into(),
+            value: RegisterName("a_addr_bb7".to_string()).into(),
             block: "bb7".to_string()
         }));
     }
@@ -586,11 +682,11 @@ mod tests {
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb7".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
-            name: 1.into(),
+            value: 1.into(),
             block: "bb3".to_string()
         }));
         assert!(generated_phi.from.contains(&PhiSource {
-            name: 1.into(),
+            value: 1.into(),
             block: "bb4".to_string()
         }));
 
@@ -598,11 +694,11 @@ mod tests {
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb5".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
-            name: 1.into(),
+            value: 1.into(),
             block: "f_entry".to_string()
         }));
         assert!(generated_phi.from.contains(&PhiSource {
-            name: RegisterName("t_0".to_string()).into(),
+            value: RegisterName("t_0".to_string()).into(),
             block: "bb5".to_string()
         }));
 
@@ -610,11 +706,11 @@ mod tests {
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb6".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
-            name: RegisterName("a_addr_bb7".to_string()).into(),
+            value: RegisterName("a_addr_bb7".to_string()).into(),
             block: "bb7".to_string()
         }));
         assert!(generated_phi.from.contains(&PhiSource {
-            name: RegisterName("t_0".to_string()).into(),
+            value: RegisterName("t_0".to_string()).into(),
             block: "bb5".to_string()
         }));
     }
@@ -683,11 +779,11 @@ mod tests {
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb2".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
-            name: 1.into(),
+            value: 1.into(),
             block: "f_entry".to_string()
         }));
         assert!(generated_phi.from.contains(&PhiSource {
-            name: RegisterName("t_1".to_string()).into(),
+            value: RegisterName("t_1".to_string()).into(),
             block: "bb3".to_string()
         }));
 
@@ -695,11 +791,11 @@ mod tests {
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb7".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
-            name: 1.into(),
+            value: 1.into(),
             block: "bb5".to_string()
         }));
         assert!(generated_phi.from.contains(&PhiSource {
-            name: 1.into(),
+            value: 1.into(),
             block: "bb6".to_string()
         }));
 
@@ -707,11 +803,11 @@ mod tests {
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb8".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
-            name: RegisterName("t_1".to_string()).into(),
+            value: RegisterName("t_1".to_string()).into(),
             block: "bb3".to_string()
         }));
         assert!(generated_phi.from.contains(&PhiSource {
-            name: RegisterName("a_addr_bb7".to_string()).into(),
+            value: RegisterName("a_addr_bb7".to_string()).into(),
             block: "bb7".to_string()
         }));
     }

@@ -251,7 +251,7 @@ fn collect_phied_registers(ir_code: &ir::FunctionDefinition) -> Vec<HashSet<ir::
             let mut phied_regs: HashSet<_> = phi
                 .from
                 .iter()
-                .filter_map(|it| it.name.clone().try_into().ok())
+                .filter_map(|it| it.value.clone().try_into().ok())
                 .collect();
             phied_regs.insert(phi.to.clone());
             let mut existed = false;

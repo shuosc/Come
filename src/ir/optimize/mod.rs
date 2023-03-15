@@ -2,7 +2,7 @@ use std::collections::{HashSet, VecDeque};
 
 use pass::{IsPass, Pass};
 
-use super::{analyzer::Analyzer, IR};
+use super::{analyzer::Analyzer, function::formalize, IR};
 
 /// Actions and action batch to edit ir function.
 mod action;
@@ -27,11 +27,8 @@ impl FunctionOptimizer {
 
     /// Run all passes on the ir function.
     pub fn optimize(self, mut ir: super::FunctionDefinition) -> super::FunctionDefinition {
+        ir = formalize(ir);
         let mut executed = HashSet::new();
-        // todo: make it a special `formalize` function
-        //       except fill name for the first block,
-        //       we should also fill the jump statement for blocks
-        //       which don't have a terminator
         let mut current_control_flow_graph = None;
         let mut current_passes: VecDeque<_> = self.passes.iter().cloned().collect();
         while !current_passes.is_empty() {
@@ -53,9 +50,8 @@ impl FunctionOptimizer {
             };
             let pass = current_passes.pop_front().unwrap();
             let edit_action_batch = pass.run(&analyzer);
-            let variable_and_types = analyzer.memory_usage.memory_access_variables_and_types();
             current_control_flow_graph = Some(analyzer.free());
-            ir = edit_action_batch.execute(ir, &variable_and_types);
+            edit_action_batch.perform(&mut ir);
             executed.insert(pass);
         }
         ir
@@ -80,22 +76,15 @@ pub fn optimize(ir: Vec<IR>, passes: Vec<Pass>) -> Vec<IR> {
 
 #[cfg(test)]
 mod test_util {
-    use crate::ir::FunctionDefinition;
+    use crate::ir::{function::formalize, FunctionDefinition};
 
     use super::*;
 
-    pub fn execute_pass(mut ir: FunctionDefinition, pass: Pass) -> FunctionDefinition {
-        // todo: make it a special `formalize` function
-        //       except fill name for the first block,
-        //       we should also fill the jump statement for blocks
-        //       which don't have a terminator
-        if ir.content[0].name.is_none() {
-            ir.content[0].name = Some(format!("{}_entry", ir.header.name));
-        }
-
+    pub fn execute_pass(ir: FunctionDefinition, pass: Pass) -> FunctionDefinition {
+        let mut ir = formalize(ir);
         let analyzer = Analyzer::new(&ir);
         let edit_action_batch = pass.run(&analyzer);
-        let variable_and_types = analyzer.memory_usage.memory_access_variables_and_types();
-        edit_action_batch.execute(ir, &variable_and_types)
+        edit_action_batch.perform(&mut ir);
+        ir
     }
 }
