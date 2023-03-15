@@ -32,7 +32,7 @@ fn collect_phi_constant_assign(
     for statement in function.iter() {
         if let IRStatement::Phi(Phi { to, from, .. }) = statement {
             for from in from {
-                if let Quantity::NumberLiteral(n) = from.name {
+                if let Quantity::NumberLiteral(n) = from.value {
                     result
                         .entry(from.block.clone())
                         .or_default()
@@ -123,11 +123,11 @@ mod tests {
                         data_type: data_type::I32.clone(),
                         from: vec![
                             PhiSource {
-                                name: 1.into(),
+                                value: 1.into(),
                                 block: "bb1".to_string(),
                             },
                             PhiSource {
-                                name: 2.into(),
+                                value: 2.into(),
                                 block: "bb2".to_string(),
                             },
                         ],

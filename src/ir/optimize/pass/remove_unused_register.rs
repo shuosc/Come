@@ -1,6 +1,6 @@
 use crate::ir::{
     analyzer::{register_usage::RegisterDefinePosition, Analyzer},
-    optimize::action::EditActionBatch,
+    optimize::action::{Actions, RemoveStatement},
 };
 
 use super::IsPass;
@@ -10,12 +10,12 @@ use super::IsPass;
 pub struct RemoveUnusedRegister;
 
 impl IsPass for RemoveUnusedRegister {
-    fn run(&self, analyzer: &Analyzer) -> EditActionBatch {
-        let mut result = EditActionBatch::default();
+    fn run(&self, analyzer: &Analyzer) -> Actions {
+        let mut result = Actions::default();
         for usage in analyzer.register_usage.register_usages().values() {
             if !usage.side_effect() && usage.use_indexes.is_empty() {
                 if let RegisterDefinePosition::Body(define_index) = &usage.define_position {
-                    result.remove(define_index.clone());
+                    result.push(RemoveStatement::new(define_index.clone()));
                 }
             }
         }

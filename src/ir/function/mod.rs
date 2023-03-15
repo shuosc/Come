@@ -5,6 +5,7 @@ use crate::{
 };
 use basic_block::BasicBlock;
 use ir_generator::{compound_from_ast, IRGeneratingContext};
+use itertools::Itertools;
 use nom::{
     bytes::complete::tag,
     character::complete::{multispace0, space0},
@@ -204,13 +205,15 @@ pub fn parse(code: &str) -> IResult<&str, FunctionDefinition> {
             multispace0,
             delimited(tag("{"), many0(basic_block::parse), tag("}")),
         )),
-        |(_, _, name, parameters, _, _, _, return_type, _, basic_blocks)| FunctionDefinition {
-            header: FunctionHeader {
-                name,
-                parameters,
-                return_type,
-            },
-            content: basic_blocks,
+        |(_, _, name, parameters, _, _, _, return_type, _, basic_blocks)| {
+            formalize(FunctionDefinition {
+                header: FunctionHeader {
+                    name,
+                    parameters,
+                    return_type,
+                },
+                content: basic_blocks,
+            })
         },
     )(code)
 }
@@ -262,11 +265,16 @@ pub fn from_ast(
     })
 }
 
-fn formalize(mut function: FunctionDefinition) -> FunctionDefinition {
+pub fn formalize(mut function: FunctionDefinition) -> FunctionDefinition {
     if function.content[0].name.is_none() {
         function.content[0].name = Some(format!("{}_entry", function.header.name));
     }
+    for (this_index, next_index) in (0..function.content.len()).tuple_windows() {
+        let next_item_name = function.content[next_index].name.clone().unwrap();
+        let this = &mut function.content[this_index];
+        if let Some(last) = this.content.last() && !matches!(last, IRStatement::Jump(_) | IRStatement::Branch(_)) {
+            this.content.push(Jump { label: next_item_name }.into())
+        }
+    }
     function
 }
-
-// todo: test

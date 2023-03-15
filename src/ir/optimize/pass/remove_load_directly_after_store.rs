@@ -1,4 +1,7 @@
-use crate::ir::{analyzer::Analyzer, optimize::action::EditActionBatch};
+use crate::ir::{
+    analyzer::Analyzer,
+    optimize::action::{Actions, RemoveStatement, RenameLocal},
+};
 
 use super::IsPass;
 
@@ -9,8 +12,8 @@ use super::IsPass;
 pub struct RemoveLoadDirectlyAfterStore;
 
 impl IsPass for RemoveLoadDirectlyAfterStore {
-    fn run(&self, analyzer: &Analyzer) -> EditActionBatch {
-        let mut result = EditActionBatch::default();
+    fn run(&self, analyzer: &Analyzer) -> Actions {
+        let mut result = Actions::default();
         let variables = analyzer.memory_usage.memory_access_variables();
         for variable in variables {
             let memory_access_info = analyzer.memory_usage.memory_access_info(variable);
@@ -21,8 +24,11 @@ impl IsPass for RemoveLoadDirectlyAfterStore {
                     memory_access_info.loads_dorminated_by_store_in_block(store_statement_index)
                 {
                     let load_statement = analyzer.content[load_statement_index.clone()].as_load();
-                    result.replace(load_statement.to.clone(), stored_value.clone());
-                    result.remove(load_statement_index);
+                    result.push(RemoveStatement::new(load_statement_index));
+                    result.push(RenameLocal::new(
+                        load_statement.to.clone(),
+                        stored_value.clone(),
+                    ))
                 }
             }
         }
