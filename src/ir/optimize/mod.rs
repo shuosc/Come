@@ -2,7 +2,7 @@ use std::collections::{HashSet, VecDeque};
 
 use pass::{IsPass, Pass};
 
-use super::{analyzer::Analyzer, IR};
+use super::{analyzer::Analyzer, function::formalize, IR};
 
 /// Actions and action batch to edit ir function.
 mod action;
@@ -27,11 +27,8 @@ impl FunctionOptimizer {
 
     /// Run all passes on the ir function.
     pub fn optimize(self, mut ir: super::FunctionDefinition) -> super::FunctionDefinition {
+        ir = formalize(ir);
         let mut executed = HashSet::new();
-        // todo: make it a special `formalize` function
-        //       except fill name for the first block,
-        //       we should also fill the jump statement for blocks
-        //       which don't have a terminator
         let mut current_control_flow_graph = None;
         let mut current_passes: VecDeque<_> = self.passes.iter().cloned().collect();
         while !current_passes.is_empty() {

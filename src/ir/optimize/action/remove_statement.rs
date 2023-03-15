@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::ir::function::FunctionDefinitionIndex;
 
 use super::{
@@ -5,6 +7,7 @@ use super::{
     Action, IsAction,
 };
 
+#[derive(Debug, Clone)]
 pub struct RemoveStatement {
     pub index: FunctionDefinitionIndex,
 }
@@ -14,6 +17,16 @@ impl RemoveStatement {
         Self {
             index: index.into(),
         }
+    }
+}
+
+impl Display for RemoveStatement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "remove statement at ({}, {})",
+            self.index.0, self.index.1
+        )
     }
 }
 
@@ -29,13 +42,11 @@ impl IsAction for RemoveStatement {
                 Action::InsertStatement(InsertStatement {
                     position: InsertPosition::Index(index),
                     ..
-                }) if index.0 == self.index.0 && index.1 >= self.index.1 && index.1 != 0 => {
+                }) if index.0 == self.index.0 && index.1 > self.index.1 => {
                     index.1 -= 1;
                 }
                 Action::RemoveStatement(other)
-                    if other.index.0 == self.index.0
-                        && other.index.1 >= self.index.1
-                        && other.index.1 != 0 =>
+                    if other.index.0 == self.index.0 && other.index.1 > self.index.1 =>
                 {
                     other.index.1 -= 1;
                 }

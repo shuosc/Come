@@ -296,7 +296,7 @@ fn create_phi_node(
             let from_basic_block_name = function[entry.value_from].name.clone().unwrap();
             PhiSource {
                 value: entry.value,
-                block: from_basic_block_name.clone(),
+                block: from_basic_block_name,
             }
         })
         .collect();

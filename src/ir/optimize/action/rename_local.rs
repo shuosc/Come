@@ -1,7 +1,11 @@
+use std::fmt::Display;
+
 use crate::ir::{quantity::Quantity, RegisterName};
 
 use super::{Action, IsAction};
 use crate::ir::function::statement::IsIRStatement;
+
+#[derive(Debug, Clone)]
 pub struct RenameLocal {
     pub from: RegisterName,
     pub to: Quantity,
@@ -13,6 +17,12 @@ impl RenameLocal {
             from,
             to: to.into(),
         }
+    }
+}
+
+impl Display for RenameLocal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "rename `{}` to `{}`", self.from, self.to)
     }
 }
 

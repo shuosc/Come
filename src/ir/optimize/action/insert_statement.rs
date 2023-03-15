@@ -1,7 +1,10 @@
+use std::fmt::Display;
+
 use crate::ir::{function::FunctionDefinitionIndex, statement::IRStatement};
 
 use super::{remove_statement::RemoveStatement, Action, IsAction};
 
+#[derive(Debug, Clone)]
 pub enum InsertPosition {
     Back(usize),
     Index(FunctionDefinitionIndex),
@@ -24,9 +27,25 @@ impl InsertPosition {
     }
 }
 
+impl Display for InsertPosition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InsertPosition::Back(block_index) => write!(f, "back of block {block_index}"),
+            InsertPosition::Index(index) => write!(f, "({}, {})", index.0, index.1),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct InsertStatement {
     pub position: InsertPosition,
     pub statement: IRStatement,
+}
+
+impl Display for InsertStatement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "insert `{}` at {}", self.statement, self.position)
+    }
 }
 
 impl IsAction for InsertStatement {
@@ -48,11 +67,11 @@ impl IsAction for InsertStatement {
                     Action::InsertStatement(InsertStatement {
                         position: InsertPosition::Index(other_index),
                         ..
-                    }) if other_index.0 == self_index.0 && other_index.1 >= self_index.1 => {
+                    }) if other_index.0 == self_index.0 && other_index.1 > self_index.1 => {
                         other_index.1 += 1;
                     }
                     Action::RemoveStatement(RemoveStatement { index })
-                        if index.0 == self_index.0 && index.1 >= self_index.1 =>
+                        if index.0 == self_index.0 && index.1 > self_index.1 =>
                     {
                         index.1 += 1;
                     }
