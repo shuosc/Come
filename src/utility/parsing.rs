@@ -1,9 +1,9 @@
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{alpha1, alphanumeric1, digit1, hex_digit1, multispace0},
+    character::complete::{alpha1, alphanumeric1, digit1, hex_digit1, multispace0, oct_digit1, one_of},
     combinator::{map, opt, recognize},
-    multi::many0,
+    multi::{many0, many1},
     sequence::{pair, tuple},
     IResult,
 };
@@ -39,10 +39,18 @@ where
         pair(
             opt(tag("-")),
             alt((
-                map(pair(tag("0x"), hex_digit1), |(_, digits)| {
-                    i64::from_str_radix(digits, 16).unwrap()
+                map(pair(tag("0x"), hex_digit1), |(_, hexadecimal)| {
+                    i64::from_str_radix(hexadecimal, 16).unwrap()
                 }),
-                map(digit1, |digits: &str| digits.parse::<i64>().unwrap()),
+                map(pair(tag("0o"), oct_digit1), |(_, octal)| {
+                    i64::from_str_radix(octal, 8).unwrap()
+                }),
+                map(pair(tag("0b"), many1(one_of("01"))), |(_, binary)| {
+                    binary
+                        .iter()
+                        .fold(0, |acc, &b| acc * 2 + b as i64 - '0' as i64)
+                }),
+                map(digit1, |decimal: &str| decimal.parse::<i64>().unwrap()),
             )),
         ),
         |(neg, n)| {
@@ -67,17 +75,32 @@ mod tests {
         assert_eq!(result, "a_b_c".to_string());
         let result = ident("WHILE_0_JUDGE").unwrap().1;
         assert_eq!(result, "WHILE_0_JUDGE".to_string());
+        let result = ident("_").unwrap().1;
+        assert_eq!(result, "_".to_string());
+
+        let result = ident("1a").is_err();
+        assert!(result);
     }
 
     #[test]
     fn can_parse_integer() {
-        let result: i32 = integer("0x40000000").unwrap().1;
-        assert_eq!(result, 0x40000000);
+        let result: i32 = integer("0").unwrap().1;
+        assert_eq!(result, 0);
         let result: i32 = integer("99").unwrap().1;
         assert_eq!(result, 99);
-        let result: i32 = integer("-0x40000000").unwrap().1;
-        assert_eq!(result, -0x40000000);
         let result: i32 = integer("-99").unwrap().1;
         assert_eq!(result, -99);
+        let result: i32 = integer("0x40000000").unwrap().1;
+        assert_eq!(result, 0x40000000);
+        let result: i32 = integer("-0x40000000").unwrap().1;
+        assert_eq!(result, -0x40000000);
+        let result: i32 = integer("0b01101").unwrap().1;
+        assert_eq!(result, 0b01101);
+        let result: i32 = integer("-0b01101").unwrap().1;
+        assert_eq!(result, -0b01101);
+        let result: i32 = integer("0o777").unwrap().1;
+        assert_eq!(result, 0o777);
+        let result: i32 = integer("-0o777").unwrap().1;
+        assert_eq!(result, -0o777);
     }
 }
