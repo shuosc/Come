@@ -2,7 +2,7 @@ use super::{
     binary_operator::{self, BinaryOperatorResult},
     field_access::FieldAccess,
     function_call::FunctionCall,
-    in_brackets::InBrackets,
+    in_brackets::{InBrackets, self},
     integer_literal::IntegerLiteral,
     lvalue::LValue,
     unary_operator::{self, UnaryOperatorResult},
@@ -31,6 +31,7 @@ pub enum RValue {
 /// Parse source code to get a [`RValue`].
 pub fn parse(code: &str) -> IResult<&str, RValue> {
     alt((
+        map(in_brackets::parse, RValue::InBrackets),
         map(binary_operator::parse, RValue::BinaryOperatorResult),
         map(unary_operator::parse, RValue::UnaryOperatorResult),
         unary_operator::higher_than_unary_operator_result,
@@ -46,4 +47,31 @@ impl From<LValue> for RValue {
     }
 }
 
-// todo: test
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn can_parse() {
+        let rvale = super::parse("42").unwrap().1;
+        assert!(matches!(rvale, RValue::IntegerLiteral(_)));
+
+        let rvale = super::parse("a").unwrap().1;
+        assert!(matches!(rvale, RValue::VariableRef(_)));
+
+        let rvalue = super::parse("(a+b)").unwrap().1;
+        assert!(matches!(rvalue, RValue::InBrackets(_)));
+
+        let rvalue = super::parse("a.b").unwrap().1;
+        assert!(matches!(rvalue, RValue::FieldAccess(_)));
+
+        let rvalue = super::parse("f(a, b, c)").unwrap().1;
+        assert!(matches!(rvalue, RValue::FunctionCall(_)));
+
+        let rvalue = super::parse("-a").unwrap().1;
+        assert!(matches!(rvalue, RValue::UnaryOperatorResult(_)));
+
+        let rvalue = super::parse("a + b").unwrap().1;
+        assert!(matches!(rvalue, RValue::BinaryOperatorResult(_)));
+    }
+}
