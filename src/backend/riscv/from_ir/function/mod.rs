@@ -2,13 +2,11 @@ use std::collections::HashMap;
 
 use super::register_assign::{self, RegisterAssign};
 use crate::ir::{
-    self,
-    analyzer::{control_flow::ControlFlowGraph, register_usage::RegisterUsageAnalyzer},
+    self, analyzer,
     quantity::Quantity,
     statement::{IRStatement, Phi},
     RegisterName,
 };
-
 pub mod basic_block;
 pub mod statement;
 
@@ -46,10 +44,8 @@ fn collect_phi_constant_assign(
 
 /// Emit assembly code for a [`ir::FunctionDefinition`].
 pub fn emit_code(function: &ir::FunctionDefinition, ctx: &mut super::Context) -> String {
-    let control_flow_graph = ControlFlowGraph::new(function);
-    let register_usage = RegisterUsageAnalyzer::new(function);
-    let (register_assign, stack_space) =
-        register_assign::assign_register(ctx, function, control_flow_graph, register_usage);
+    let analyzer = analyzer::Analyzer::new();
+    let (register_assign, stack_space) = register_assign::assign_register(ctx, function, &analyzer);
     let phi_constant_assign = collect_phi_constant_assign(function, &register_assign);
     let mut result = format!(
         ".global {}\n{}:\n",

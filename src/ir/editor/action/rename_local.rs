@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::ir::{quantity::Quantity, RegisterName};
 
-use super::{Action, IsAction};
+use super::IsAction;
 use crate::ir::function::statement::IsIRStatement;
 
 #[derive(Debug, Clone)]
@@ -27,13 +27,9 @@ impl Display for RenameLocal {
 }
 
 impl IsAction for RenameLocal {
-    fn perform(self, ir: &mut crate::ir::FunctionDefinition) {
+    fn perform_on_function(self, ir: &mut crate::ir::FunctionDefinition) {
         ir.iter_mut().for_each(|statement| {
             statement.on_register_change(&self.from, self.to.clone());
         });
-    }
-
-    fn affect_others<'a>(&self, _others: impl Iterator<Item = &'a mut Action>) {
-        // nothing to do here
     }
 }

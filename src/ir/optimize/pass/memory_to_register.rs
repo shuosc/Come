@@ -4,8 +4,8 @@ use itertools::Itertools;
 
 use crate::{
     ir::{
-        analyzer::{control_flow::ControlFlowGraph, memory_usage::MemoryUsageAnalyzer, Analyzer},
-        optimize::action::{Actions, InsertStatement, RemoveStatement, RenameLocal},
+        self,
+        editor::{analyzer, Editor},
         quantity::Quantity,
         statement::{phi::PhiSource, IRStatement, Load, Phi, Store},
         FunctionDefinition, RegisterName,
@@ -24,23 +24,30 @@ use super::{
 pub struct MemoryToRegister;
 
 impl IsPass for MemoryToRegister {
-    fn run(&self, analyzer: &Analyzer) -> Actions {
-        let insert_phis_at =
-            insert_phi_positions(&analyzer.memory_usage, &analyzer.control_flow_graph);
+    fn run(&self, editor: &mut Editor) {
+        let insert_phis_at = insert_phi_positions(
+            &editor.content,
+            &editor.analyzer.memory_usage,
+            &editor.analyzer.control_flow_graph,
+        );
         // There exists two parts of actions:
         // - The first part will remove the load and store statements, and replace the load targets with the "phi"ed results
         // - The second part will insert the phi nodes
-        let (remove_memory_access_actions, subnodes) = decide_values(
-            analyzer.content,
-            &analyzer.control_flow_graph,
+        let (to_renames, to_removes, subnodes) = decide_values(
+            &editor.content,
+            &editor.analyzer.control_flow_graph,
             &insert_phis_at,
         );
-        let insert_phi_actions = create_phi_node_insertion_actions(
-            subnodes,
-            &analyzer.memory_usage.memory_access_variables_and_types(),
-            analyzer.content,
-        );
-        Actions::merge(remove_memory_access_actions, insert_phi_actions)
+        editor.remove_statements(to_removes);
+        for (from, to) in to_renames {
+            editor.rename_local(from, to);
+        }
+        // let insert_phi_actions = create_phi_node_insertion_actions(
+        //     subnodes,
+        //     &analyzer.memory_usage.memory_access_variables_and_types(),
+        //     analyzer.content,
+        // );
+        insert_phi_nodes(subnodes, editor);
     }
 
     fn need(&self) -> Vec<super::Pass> {
@@ -55,12 +62,13 @@ impl IsPass for MemoryToRegister {
 /// Find out where should we insert phi positions.
 /// Return a vector which contains (VariableName, BasicBlockIndex)
 fn insert_phi_positions(
-    memory_usage: &MemoryUsageAnalyzer,
-    control_flow_graph: &ControlFlowGraph,
+    function: &ir::FunctionDefinition,
+    memory_usage: &analyzer::MemoryUsage,
+    control_flow_graph: &analyzer::ControlFlowGraph,
 ) -> Vec<(String, usize)> {
     let mut result = Vec::new();
-    for variable_name in memory_usage.memory_access_variables() {
-        let memory_access_info = memory_usage.memory_access_info(variable_name);
+    for variable_name in memory_usage.memory_access_variables(function) {
+        let memory_access_info = memory_usage.memory_access_info(function, variable_name);
         // for each store to this variable,
         // we find the dominance_frontier of the basic block it is in
         let mut pending_bb_indexes = memory_access_info.store.iter().map(|it| it.0).collect_vec();
@@ -70,7 +78,7 @@ fn insert_phi_positions(
             let considering_bb_index = pending_bb_indexes.pop().unwrap();
             done_bb_index.push(considering_bb_index);
             let dominator_frontier_bb_indexes =
-                control_flow_graph.dominance_frontier(considering_bb_index);
+                control_flow_graph.dominance_frontier(function, considering_bb_index);
             for &to_bb_index in dominator_frontier_bb_indexes {
                 result.push((variable_name.0.clone(), to_bb_index));
                 // it's possible we put a phi node to a new block which contains no
@@ -114,16 +122,23 @@ struct PhiSubNode {
     value: Quantity,
 }
 
+type DecideValueResult = (
+    Vec<(RegisterName, Quantity)>,
+    Vec<(usize, usize)>,
+    Vec<PhiSubNode>,
+);
+
 /// Returns (Actions to edit the statements, PhiSubNodes to insert)
 fn decide_values_start_from(
     function: &FunctionDefinition,
-    control_flow_graph: &ControlFlowGraph,
+    control_flow_graph: &analyzer::ControlFlowGraph,
     consider_block_index: usize,
     inserted_phi: &[(String, usize)],
     visited: &mut Vec<usize>,
     current_variable_value: &mut Vec<HashMap<String, (usize, Quantity)>>,
-) -> (Actions, Vec<PhiSubNode>) {
-    let mut result = Actions::default();
+) -> DecideValueResult {
+    let mut to_rename = Vec::new();
+    let mut to_remove = Vec::new();
     let mut subnodes = Vec::new();
     let block = &function[consider_block_index];
     let phied_variables = inserted_phi
@@ -148,7 +163,7 @@ fn decide_values_start_from(
         );
     }
     if visited.contains(&consider_block_index) {
-        return (result, subnodes);
+        return (to_rename, to_remove, subnodes);
     }
     visited.push(consider_block_index);
     for (statement_index, statement) in block.content.iter().enumerate() {
@@ -160,11 +175,8 @@ fn decide_values_start_from(
             }) => {
                 let (_, replace_with_value) =
                     decide_variable_value(&local.0, current_variable_value);
-                result.push(RemoveStatement::new((
-                    consider_block_index,
-                    statement_index,
-                )));
-                result.push(RenameLocal::new(to.clone(), replace_with_value));
+                to_remove.push((consider_block_index, statement_index));
+                to_rename.push((to.clone(), replace_with_value));
             }
             IRStatement::Store(Store {
                 source,
@@ -175,65 +187,69 @@ fn decide_values_start_from(
                     .last_mut()
                     .unwrap()
                     .insert(local.0.clone(), (consider_block_index, source.clone()));
-                result.push(RemoveStatement::new((
-                    consider_block_index,
-                    statement_index,
-                )));
+                to_remove.push((consider_block_index, statement_index));
             }
             IRStatement::Branch(branch) => {
                 let success_block =
-                    control_flow_graph.basic_block_index_by_name(&branch.success_label);
+                    control_flow_graph.basic_block_index_by_name(function, &branch.success_label);
                 current_variable_value.push(HashMap::new());
-                let (result_success, mut subnodes_on_success) = decide_values_start_from(
-                    function,
-                    control_flow_graph,
-                    success_block,
-                    inserted_phi,
-                    visited,
-                    current_variable_value,
-                );
+                let (mut inner_to_rename, mut inner_to_remove, mut subnodes_on_success) =
+                    decide_values_start_from(
+                        function,
+                        control_flow_graph,
+                        success_block,
+                        inserted_phi,
+                        visited,
+                        current_variable_value,
+                    );
                 subnodes.append(&mut subnodes_on_success);
-                result = result.merge(result_success);
+                to_rename.append(&mut inner_to_rename);
+                to_remove.append(&mut inner_to_remove);
                 current_variable_value.pop();
                 current_variable_value.push(HashMap::new());
                 let failure_block =
-                    control_flow_graph.basic_block_index_by_name(&branch.failure_label);
-                let (result_failure, mut subnodes_on_failure) = decide_values_start_from(
-                    function,
-                    control_flow_graph,
-                    failure_block,
-                    inserted_phi,
-                    visited,
-                    current_variable_value,
-                );
+                    control_flow_graph.basic_block_index_by_name(function, &branch.failure_label);
+                let (mut inner_to_rename, mut inner_to_remove, mut subnodes_on_failure) =
+                    decide_values_start_from(
+                        function,
+                        control_flow_graph,
+                        failure_block,
+                        inserted_phi,
+                        visited,
+                        current_variable_value,
+                    );
                 subnodes.append(&mut subnodes_on_failure);
-                result = result.merge(result_failure);
+                to_rename.append(&mut inner_to_rename);
+                to_remove.append(&mut inner_to_remove);
                 current_variable_value.pop();
             }
             IRStatement::Jump(jump) => {
-                let jump_to_block = control_flow_graph.basic_block_index_by_name(&jump.label);
-                let (result_jump_to, mut subnodes_on_jump) = decide_values_start_from(
-                    function,
-                    control_flow_graph,
-                    jump_to_block,
-                    inserted_phi,
-                    visited,
-                    current_variable_value,
-                );
+                let jump_to_block =
+                    control_flow_graph.basic_block_index_by_name(function, &jump.label);
+                let (mut inner_to_rename, mut inner_to_remove, mut subnodes_on_jump) =
+                    decide_values_start_from(
+                        function,
+                        control_flow_graph,
+                        jump_to_block,
+                        inserted_phi,
+                        visited,
+                        current_variable_value,
+                    );
                 subnodes.append(&mut subnodes_on_jump);
-                result = result.merge(result_jump_to);
+                to_rename.append(&mut inner_to_rename);
+                to_remove.append(&mut inner_to_remove);
             }
             _ => (),
         }
     }
-    (result, subnodes)
+    (to_rename, to_remove, subnodes)
 }
 
 fn decide_values(
     function: &FunctionDefinition,
-    control_flow_graph: &ControlFlowGraph,
+    control_flow_graph: &analyzer::ControlFlowGraph,
     inserted_phi: &[(String, usize)],
-) -> (Actions, Vec<PhiSubNode>) {
+) -> DecideValueResult {
     let mut visited = Vec::new();
     let mut current_variable_value = vec![HashMap::new()];
     decide_values_start_from(
@@ -246,11 +262,7 @@ fn decide_values(
     )
 }
 
-fn create_phi_node_insertion_actions(
-    mut subnodes: Vec<PhiSubNode>,
-    memory_access_variables_and_types: &HashMap<RegisterName, Type>,
-    function: &FunctionDefinition,
-) -> Actions {
+fn insert_phi_nodes(mut subnodes: Vec<PhiSubNode>, editor: &mut Editor) {
     subnodes
         .sort_unstable_by_key(|subnode| (subnode.basic_block_index, subnode.variable_name.clone()));
     subnodes
@@ -262,15 +274,18 @@ fn create_phi_node_insertion_actions(
                 .into_iter()
                 .group_by(|subnode| subnode.variable_name.clone())
                 .into_iter()
-                .map(move |(variable_name, subnodes_for_variable)| {
+                .map(|(variable_name, subnodes_for_variable)| {
                     let phi_node = create_phi_node(
                         &variable_name,
                         basicblock_index,
                         subnodes_for_variable,
-                        memory_access_variables_and_types,
-                        function,
+                        &editor
+                            .analyzer
+                            .memory_usage
+                            .memory_access_variables_and_types(&editor.content),
+                        &editor.content,
                     );
-                    InsertStatement::front_of(basicblock_index, phi_node).into()
+                    editor.push_front_statement(basicblock_index, phi_node)
                 })
                 .collect::<Vec<_>>()
         })
@@ -311,19 +326,14 @@ fn create_phi_node(
 mod tests {
     #![allow(clippy::borrow_interior_mutable_const)]
 
+    use super::*;
     use crate::{
         ir::{
-            self,
-            function::basic_block::BasicBlock,
-            optimize::test_util::execute_pass,
-            statement::{phi::PhiSource, Ret},
-            FunctionDefinition,
+            function::{basic_block::BasicBlock, test_util::*},
+            statement::Ret,
         },
         utility::data_type,
     };
-
-    use super::*;
-    use crate::ir::function::test_util::*;
 
     #[test]
     fn simple() {
@@ -378,8 +388,12 @@ mod tests {
                 },
             ],
         };
-        let function_definition = execute_pass(function_definition, MemoryToRegister.into());
-        let the_phi_statement = function_definition.content[3].content[0].as_phi();
+
+        let mut editor = Editor::new(function_definition);
+        let pass = MemoryToRegister;
+        pass.run(&mut editor);
+
+        let the_phi_statement = editor.content[3].content[0].as_phi();
         assert_eq!(the_phi_statement.to, RegisterName("c_addr_bb3".to_string()));
         assert_eq!(the_phi_statement.from.len(), 2);
         assert!(the_phi_statement.from.contains(&PhiSource {
@@ -445,8 +459,10 @@ mod tests {
                 },
             ],
         };
-        let function_definition = execute_pass(function_definition, MemoryToRegister.into());
-        let the_phi_statement = function_definition.content[3].content[0].as_phi();
+        let mut editor = Editor::new(function_definition);
+        let pass = MemoryToRegister;
+        pass.run(&mut editor);
+        let the_phi_statement = editor.content[3].content[0].as_phi();
         assert_eq!(the_phi_statement.to, RegisterName("c_addr_bb3".to_string()));
         assert_eq!(the_phi_statement.from.len(), 2);
         assert!(the_phi_statement.from.contains(&PhiSource {
@@ -532,8 +548,10 @@ mod tests {
                 },
             ],
         };
-        let function_definition = execute_pass(function_definition, MemoryToRegister.into());
-        let generated_phi = function_definition.content[4].content[0].as_phi();
+        let mut editor = Editor::new(function_definition);
+        let pass = MemoryToRegister;
+        pass.run(&mut editor);
+        let generated_phi = editor.content[4].content[0].as_phi();
         assert_eq!(generated_phi.to, RegisterName("c_addr_bb4".to_string()));
         assert_eq!(generated_phi.from.len(), 3);
         assert!(generated_phi.from.contains(&PhiSource {
@@ -601,8 +619,10 @@ mod tests {
             ],
         };
         cov_mark::check!(generated_phi_spread_value);
-        let function_definition = execute_pass(function_definition, MemoryToRegister.into());
-        let generated_phi = function_definition.content[4].content[0].as_phi();
+        let mut editor = Editor::new(function_definition);
+        let pass = MemoryToRegister;
+        pass.run(&mut editor);
+        let generated_phi = editor.content[4].content[0].as_phi();
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb7".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
@@ -614,7 +634,7 @@ mod tests {
             block: "bb3".to_string()
         }));
 
-        let generated_phi = function_definition.content[6].content[0].as_phi();
+        let generated_phi = editor.content[6].content[0].as_phi();
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb6".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
@@ -677,8 +697,10 @@ mod tests {
                 },
             ],
         };
-        let function_definition = execute_pass(function_definition, MemoryToRegister.into());
-        let generated_phi = function_definition.content[4].content[0].as_phi();
+        let mut editor = Editor::new(function_definition);
+        let pass = MemoryToRegister;
+        pass.run(&mut editor);
+        let generated_phi = editor.content[4].content[0].as_phi();
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb7".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
@@ -690,7 +712,7 @@ mod tests {
             block: "bb4".to_string()
         }));
 
-        let generated_phi = function_definition.content[5].content[0].as_phi();
+        let generated_phi = editor.content[5].content[0].as_phi();
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb5".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
@@ -702,7 +724,7 @@ mod tests {
             block: "bb5".to_string()
         }));
 
-        let generated_phi = function_definition.content[6].content[0].as_phi();
+        let generated_phi = editor.content[6].content[0].as_phi();
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb6".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
@@ -774,8 +796,10 @@ mod tests {
                 },
             ],
         };
-        let function_definition = execute_pass(function_definition, MemoryToRegister.into());
-        let generated_phi = function_definition.content[1].content[0].as_phi();
+        let mut editor = Editor::new(function_definition);
+        let pass = MemoryToRegister;
+        pass.run(&mut editor);
+        let generated_phi = editor.content[1].content[0].as_phi();
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb2".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
@@ -787,7 +811,7 @@ mod tests {
             block: "bb3".to_string()
         }));
 
-        let generated_phi = function_definition.content[6].content[0].as_phi();
+        let generated_phi = editor.content[6].content[0].as_phi();
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb7".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {
@@ -799,7 +823,7 @@ mod tests {
             block: "bb6".to_string()
         }));
 
-        let generated_phi = function_definition.content[7].content[0].as_phi();
+        let generated_phi = editor.content[7].content[0].as_phi();
         assert_eq!(generated_phi.to, RegisterName("a_addr_bb8".to_string()));
         assert_eq!(generated_phi.from.len(), 2);
         assert!(generated_phi.from.contains(&PhiSource {

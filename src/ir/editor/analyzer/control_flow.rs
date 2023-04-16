@@ -4,6 +4,7 @@ use std::{
 };
 
 use bimap::BiMap;
+use clap::__macro_refs::once_cell::sync::OnceCell;
 use itertools::Itertools;
 use petgraph::{
     algo::{self, dominators::simple_fast},
@@ -11,20 +12,23 @@ use petgraph::{
 };
 
 use crate::{
-    ir::{statement::IRStatement, FunctionDefinition},
+    ir::{self, editor::action::Action, statement::IRStatement, FunctionDefinition},
     utility,
 };
 
+use super::IsAnalyzer;
+
 /// [`ControlFlowGraph`] is the control flow graph and related infomation of a function.
 #[derive(Debug)]
-pub struct ControlFlowGraph {
+pub struct ControlFlowGraphContent {
     graph: DiGraph<(), (), usize>,
     frontiers: HashMap<usize, Vec<usize>>,
     bb_name_index_map: BiMap<usize, String>,
+    // fixme: remove this refcell!
     from_to_may_pass_blocks: RefCell<HashMap<(usize, usize), Vec<usize>>>,
 }
 
-impl ControlFlowGraph {
+impl ControlFlowGraphContent {
     /// Create a [`ControlFlowGraph`] from a [`FunctionDefinition`].
     pub fn new(function_definition: &FunctionDefinition) -> Self {
         let mut graph = DiGraph::<(), (), usize>::default();
@@ -105,6 +109,49 @@ impl ControlFlowGraph {
         Ref::map(self.from_to_may_pass_blocks.borrow(), |it| {
             it.get(&(from, to)).unwrap()
         })
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct ControlFlowGraph(OnceCell<ControlFlowGraphContent>);
+
+impl ControlFlowGraph {
+    pub fn new() -> Self {
+        Self(OnceCell::new())
+    }
+    fn content(&self, content: &FunctionDefinition) -> &ControlFlowGraphContent {
+        self.0.get_or_init(|| ControlFlowGraphContent::new(content))
+    }
+    pub fn dominance_frontier(
+        &self,
+        content: &ir::FunctionDefinition,
+        bb_index: usize,
+    ) -> &[usize] {
+        self.content(content).dominance_frontier(bb_index)
+    }
+    pub fn basic_block_index_by_name(&self, content: &ir::FunctionDefinition, name: &str) -> usize {
+        self.content(content).basic_block_index_by_name(name)
+    }
+    pub fn basic_block_name_by_index(
+        &self,
+        content: &ir::FunctionDefinition,
+        index: usize,
+    ) -> &str {
+        self.content(content).basic_block_name_by_index(index)
+    }
+    pub fn may_pass_blocks(
+        &self,
+        content: &ir::FunctionDefinition,
+        from: usize,
+        to: usize,
+    ) -> Ref<Vec<usize>> {
+        self.content(content).may_pass_blocks(from, to)
+    }
+}
+
+impl IsAnalyzer for ControlFlowGraph {
+    fn on_action(&mut self, _action: &Action) {
+        self.0.take();
     }
 }
 

@@ -1,31 +1,31 @@
-use crate::ir::{
-    analyzer::{register_usage::RegisterDefinePosition, Analyzer},
-    optimize::action::{Actions, RemoveStatement},
-};
+use crate::ir::editor;
 
 use super::IsPass;
-
+use crate::ir::editor::analyzer::register_usage::RegisterDefinePosition;
 /// This pass will remove the register which are defined but not used.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct RemoveUnusedRegister;
 
 impl IsPass for RemoveUnusedRegister {
-    fn run(&self, analyzer: &Analyzer) -> Actions {
-        let mut result = Actions::default();
-        for usage in analyzer.register_usage.register_usages().values() {
-            if !usage.side_effect() && usage.use_indexes.is_empty() {
+    fn run(&self, editor: &mut editor::Editor) {
+        let mut to_remove = Vec::new();
+        for usage in editor
+            .analyzer
+            .register_usage
+            .register_usages(&editor.content)
+            .values()
+        {
+            if !usage.side_effect(&editor.content) && usage.use_indexes.is_empty() {
                 if let RegisterDefinePosition::Body(define_index) = &usage.define_position {
-                    result.push(RemoveStatement::new(define_index.clone()));
+                    to_remove.push(define_index.clone());
                 }
             }
         }
-        result
+        editor.remove_statements(to_remove);
     }
-
     fn need(&self) -> Vec<super::Pass> {
         Vec::new()
     }
-
     fn invalidate(&self) -> Vec<super::Pass> {
         Vec::new()
     }
@@ -40,7 +40,6 @@ mod tests {
         ir::{
             self,
             function::basic_block::BasicBlock,
-            optimize::test_util::execute_pass,
             statement::{
                 branch::BranchType, calculate::binary::BinaryOperation, BinaryCalculate, Branch,
                 Jump, Load, Ret,
@@ -123,8 +122,8 @@ mod tests {
                 },
             ],
         };
-        let pass = RemoveUnusedRegister;
-        let function = execute_pass(function, pass.into());
-        assert_eq!(function.content[0].content.len(), 3);
+        let mut editor = editor::Editor::new(function);
+        RemoveUnusedRegister.run(&mut editor);
+        assert_eq!(editor.content[0].content.len(), 3);
     }
 }

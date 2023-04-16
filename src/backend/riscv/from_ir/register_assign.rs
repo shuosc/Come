@@ -7,8 +7,7 @@ use std::{
 use itertools::Itertools;
 
 use crate::ir::{
-    self,
-    analyzer::{control_flow::ControlFlowGraph, register_usage::RegisterUsageAnalyzer},
+    self, analyzer,
     function::parameter::Parameter,
     statement::{IRStatement, IsIRStatement},
     RegisterName,
@@ -52,8 +51,7 @@ impl fmt::Display for RegisterAssign {
 pub fn assign_register(
     ctx: &Context,
     ir_code: &ir::FunctionDefinition,
-    control_flow_graph: ControlFlowGraph,
-    register_usage: RegisterUsageAnalyzer,
+    analyzer: &analyzer::Analyzer,
 ) -> (HashMap<ir::RegisterName, RegisterAssign>, usize) {
     let mut register_assign = assign_param(&ir_code.header.parameters, ctx);
     let mut current_used_stack_space = 0;
@@ -65,12 +63,14 @@ pub fn assign_register(
     let alloca_assign = assign_alloca(
         &alloca_registers,
         ctx,
-        &register_usage,
+        ir_code,
+        &analyzer.register_usage,
         &mut current_used_stack_space,
     );
     register_assign.extend(alloca_assign);
-    let consider_registers = register_usage
-        .registers()
+    let consider_registers = analyzer
+        .register_usage
+        .registers(ir_code)
         .iter()
         .filter(|&&it| !alloca_registers.contains(it))
         .filter(|&&it| {
@@ -87,8 +87,9 @@ pub fn assign_register(
         .map(|&it| {
             (
                 it.clone(),
-                register_usage
-                    .register_active_blocks(it, &control_flow_graph)
+                analyzer
+                    .register_usage
+                    .register_active_blocks(ir_code, it, &analyzer.control_flow_graph)
                     .into_iter()
                     .collect(),
             )
@@ -98,8 +99,8 @@ pub fn assign_register(
         &consider_registers,
         ir_code,
         ctx,
-        &control_flow_graph,
-        &register_usage,
+        &analyzer.control_flow_graph,
+        &analyzer.register_usage,
     );
     register_groups.sort_by_cached_key(|group| {
         // todo: can be register usage count
@@ -109,7 +110,10 @@ pub fn assign_register(
     for group in register_groups {
         let sample_register = group.iter().next().unwrap();
 
-        let data_type = register_usage.get(sample_register).data_type();
+        let data_type = analyzer
+            .register_usage
+            .get(ir_code, sample_register)
+            .data_type(ir_code);
         let type_bytes = (data_type.size(ctx) + 7) / 8;
         let need_registers = type_bytes / 4;
         let assigned_to_register = if next_temporary_register_id + need_registers - 1 <= 6 {
@@ -161,16 +165,17 @@ fn assign_param(params: &[Parameter], ctx: &Context) -> HashMap<ir::RegisterName
 fn assign_alloca(
     allocaed_registers: &[RegisterName],
     ctx: &Context,
-    register_usage: &RegisterUsageAnalyzer,
+    ir_code: &ir::FunctionDefinition,
+    register_usage: &analyzer::RegisterUsage,
     current_used_stack_space: &mut usize,
 ) -> HashMap<ir::RegisterName, RegisterAssign> {
     let mut result = HashMap::new();
     for register in allocaed_registers {
         let data_type = register_usage
-            .register_usages()
+            .register_usages(ir_code)
             .get(register)
             .unwrap()
-            .alloca_type();
+            .alloca_type(ir_code);
         let type_bytes = (data_type.size(ctx) + 7) / 8;
         result.insert(
             register.clone(),
@@ -198,13 +203,13 @@ fn register_groups(
     consider_registers: &[&RegisterName],
     ir_code: &ir::FunctionDefinition,
     ctx: &Context,
-    control_flow_graph: &ControlFlowGraph,
-    register_usage: &RegisterUsageAnalyzer,
+    control_flow_graph: &analyzer::ControlFlowGraph,
+    register_usage: &analyzer::RegisterUsage,
 ) -> Vec<HashSet<ir::RegisterName>> {
     let mut registers_active_block = HashMap::new();
     for &register in consider_registers {
         let active_blocks: HashSet<_> = register_usage
-            .register_active_blocks(register, control_flow_graph)
+            .register_active_blocks(ir_code, register, control_flow_graph)
             .into_iter()
             .collect();
         registers_active_block.insert(register.clone(), active_blocks);
@@ -217,13 +222,13 @@ fn register_groups(
                 continue 'a;
             }
         }
-        let data_type = register_usage.get(register).data_type();
+        let data_type = register_usage.get(ir_code, register).data_type(ir_code);
         let type_bytes = (data_type.size(ctx) + 7) / 8;
         let need_registers = type_bytes / 4;
 
         if need_registers == 1 {
             let register_active_block: HashSet<_> = register_usage
-                .register_active_blocks(register, control_flow_graph)
+                .register_active_blocks(ir_code, register, control_flow_graph)
                 .into_iter()
                 .collect();
             for register_group in register_groups.iter_mut() {
@@ -408,14 +413,8 @@ mod tests {
             ],
         };
         let ctx = Context::default();
-        let control_flow_graph = ControlFlowGraph::new(&function_definition);
-        let register_analyzer = RegisterUsageAnalyzer::new(&function_definition);
-        let (assign, stack_usage) = assign_register(
-            &ctx,
-            &function_definition,
-            control_flow_graph,
-            register_analyzer,
-        );
+        let analyzer = analyzer::Analyzer::new();
+        let (assign, stack_usage) = assign_register(&ctx, &function_definition, &analyzer);
         assert_eq!(stack_usage, 8);
         assert_ne!(
             assign[&RegisterName("m".to_string())],
