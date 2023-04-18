@@ -4,7 +4,6 @@ use itertools::Itertools;
 
 use crate::{
     ir::{
-        self,
         editor::{analyzer, Editor},
         quantity::Quantity,
         statement::{phi::PhiSource, IRStatement, Load, Phi, Store},
@@ -26,16 +25,15 @@ pub struct MemoryToRegister;
 impl IsPass for MemoryToRegister {
     fn run(&self, editor: &mut Editor) {
         let insert_phis_at = insert_phi_positions(
-            &editor.content,
-            &editor.analyzer.memory_usage,
-            &editor.analyzer.control_flow_graph,
+            &editor.binded_analyzer().memory_usage(),
+            &editor.binded_analyzer().control_flow_graph(),
         );
         // There exists two parts of actions:
         // - The first part will remove the load and store statements, and replace the load targets with the "phi"ed results
         // - The second part will insert the phi nodes
         let (to_renames, to_removes, subnodes) = decide_values(
             &editor.content,
-            &editor.analyzer.control_flow_graph,
+            &editor.binded_analyzer().control_flow_graph(),
             &insert_phis_at,
         );
         editor.remove_statements(to_removes);
@@ -62,13 +60,12 @@ impl IsPass for MemoryToRegister {
 /// Find out where should we insert phi positions.
 /// Return a vector which contains (VariableName, BasicBlockIndex)
 fn insert_phi_positions(
-    function: &ir::FunctionDefinition,
-    memory_usage: &analyzer::MemoryUsage,
-    control_flow_graph: &analyzer::ControlFlowGraph,
+    memory_usage: &analyzer::BindedMemoryUsage,
+    control_flow_graph: &analyzer::BindedControlFlowGraph,
 ) -> Vec<(String, usize)> {
     let mut result = Vec::new();
-    for variable_name in memory_usage.memory_access_variables(function) {
-        let memory_access_info = memory_usage.memory_access_info(function, variable_name);
+    for variable_name in memory_usage.memory_access_variables() {
+        let memory_access_info = memory_usage.memory_access_info(variable_name);
         // for each store to this variable,
         // we find the dominance_frontier of the basic block it is in
         let mut pending_bb_indexes = memory_access_info.store.iter().map(|it| it.0).collect_vec();
@@ -78,7 +75,7 @@ fn insert_phi_positions(
             let considering_bb_index = pending_bb_indexes.pop().unwrap();
             done_bb_index.push(considering_bb_index);
             let dominator_frontier_bb_indexes =
-                control_flow_graph.dominance_frontier(function, considering_bb_index);
+                control_flow_graph.dominance_frontier(considering_bb_index);
             for &to_bb_index in dominator_frontier_bb_indexes {
                 result.push((variable_name.0.clone(), to_bb_index));
                 // it's possible we put a phi node to a new block which contains no
@@ -131,7 +128,7 @@ type DecideValueResult = (
 /// Returns (Actions to edit the statements, PhiSubNodes to insert)
 fn decide_values_start_from(
     function: &FunctionDefinition,
-    control_flow_graph: &analyzer::ControlFlowGraph,
+    control_flow_graph: &analyzer::BindedControlFlowGraph,
     consider_block_index: usize,
     inserted_phi: &[(String, usize)],
     visited: &mut Vec<usize>,
@@ -191,7 +188,7 @@ fn decide_values_start_from(
             }
             IRStatement::Branch(branch) => {
                 let success_block =
-                    control_flow_graph.basic_block_index_by_name(function, &branch.success_label);
+                    control_flow_graph.basic_block_index_by_name(&branch.success_label);
                 current_variable_value.push(HashMap::new());
                 let (mut inner_to_rename, mut inner_to_remove, mut subnodes_on_success) =
                     decide_values_start_from(
@@ -208,7 +205,7 @@ fn decide_values_start_from(
                 current_variable_value.pop();
                 current_variable_value.push(HashMap::new());
                 let failure_block =
-                    control_flow_graph.basic_block_index_by_name(function, &branch.failure_label);
+                    control_flow_graph.basic_block_index_by_name(&branch.failure_label);
                 let (mut inner_to_rename, mut inner_to_remove, mut subnodes_on_failure) =
                     decide_values_start_from(
                         function,
@@ -224,8 +221,7 @@ fn decide_values_start_from(
                 current_variable_value.pop();
             }
             IRStatement::Jump(jump) => {
-                let jump_to_block =
-                    control_flow_graph.basic_block_index_by_name(function, &jump.label);
+                let jump_to_block = control_flow_graph.basic_block_index_by_name(&jump.label);
                 let (mut inner_to_rename, mut inner_to_remove, mut subnodes_on_jump) =
                     decide_values_start_from(
                         function,
@@ -247,7 +243,7 @@ fn decide_values_start_from(
 
 fn decide_values(
     function: &FunctionDefinition,
-    control_flow_graph: &analyzer::ControlFlowGraph,
+    control_flow_graph: &analyzer::BindedControlFlowGraph,
     inserted_phi: &[(String, usize)],
 ) -> DecideValueResult {
     let mut visited = Vec::new();
@@ -280,9 +276,9 @@ fn insert_phi_nodes(mut subnodes: Vec<PhiSubNode>, editor: &mut Editor) {
                         basicblock_index,
                         subnodes_for_variable,
                         &editor
-                            .analyzer
-                            .memory_usage
-                            .memory_access_variables_and_types(&editor.content),
+                            .binded_analyzer()
+                            .memory_usage()
+                            .memory_access_variables_and_types(),
                         &editor.content,
                     );
                     editor.push_front_statement(basicblock_index, phi_node)
@@ -329,6 +325,7 @@ mod tests {
     use super::*;
     use crate::{
         ir::{
+            self,
             function::{basic_block::BasicBlock, test_util::*},
             statement::Ret,
         },

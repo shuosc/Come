@@ -12,15 +12,13 @@ impl IsPass for RemoveLoadDirectlyAfterStore {
     fn run(&self, editor: &mut Editor) {
         let mut to_remove = Vec::new();
         let mut to_rename = Vec::new();
-        let variables = editor
-            .analyzer
-            .memory_usage
-            .memory_access_variables(&editor.content);
+        let binding = editor.binded_analyzer();
+        let binding = binding.memory_usage();
+        let variables = binding.memory_access_variables();
         for variable in variables {
-            let memory_access_info = editor
-                .analyzer
-                .memory_usage
-                .memory_access_info(&editor.content, variable);
+            let binded_analyzer = editor.binded_analyzer();
+            let memory_usage = binded_analyzer.memory_usage();
+            let memory_access_info = memory_usage.memory_access_info(variable);
             for store_statement_index in &memory_access_info.store {
                 let store_statement = editor.content[store_statement_index.clone()].as_store();
                 let stored_value = store_statement.source.clone();

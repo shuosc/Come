@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use super::register_assign::{self, RegisterAssign};
 use crate::ir::{
-    self, analyzer,
+    self,
+    analyzer::{self, IsAnalyzer},
     quantity::Quantity,
     statement::{IRStatement, Phi},
     RegisterName,
@@ -44,7 +45,8 @@ fn collect_phi_constant_assign(
 
 /// Emit assembly code for a [`ir::FunctionDefinition`].
 pub fn emit_code(function: &ir::FunctionDefinition, ctx: &mut super::Context) -> String {
-    let analyzer = analyzer::Analyzer::new();
+    let binding = analyzer::Analyzer::new();
+    let analyzer = binding.bind(function);
     let (register_assign, stack_space) = register_assign::assign_register(ctx, function, &analyzer);
     let phi_constant_assign = collect_phi_constant_assign(function, &register_assign);
     let mut result = format!(

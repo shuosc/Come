@@ -1,10 +1,9 @@
 use std::{
-    cell::{Ref, RefCell},
+    cell::{OnceCell, Ref, RefCell},
     collections::HashMap,
 };
 
 use bimap::BiMap;
-use clap::__macro_refs::once_cell::sync::OnceCell;
 use itertools::Itertools;
 use petgraph::{
     algo::{self, dominators::simple_fast},
@@ -122,24 +121,16 @@ impl ControlFlowGraph {
     fn content(&self, content: &FunctionDefinition) -> &ControlFlowGraphContent {
         self.0.get_or_init(|| ControlFlowGraphContent::new(content))
     }
-    pub fn dominance_frontier(
-        &self,
-        content: &ir::FunctionDefinition,
-        bb_index: usize,
-    ) -> &[usize] {
+    fn dominance_frontier(&self, content: &ir::FunctionDefinition, bb_index: usize) -> &[usize] {
         self.content(content).dominance_frontier(bb_index)
     }
-    pub fn basic_block_index_by_name(&self, content: &ir::FunctionDefinition, name: &str) -> usize {
+    fn basic_block_index_by_name(&self, content: &ir::FunctionDefinition, name: &str) -> usize {
         self.content(content).basic_block_index_by_name(name)
     }
-    pub fn basic_block_name_by_index(
-        &self,
-        content: &ir::FunctionDefinition,
-        index: usize,
-    ) -> &str {
+    fn basic_block_name_by_index(&self, content: &ir::FunctionDefinition, index: usize) -> &str {
         self.content(content).basic_block_name_by_index(index)
     }
-    pub fn may_pass_blocks(
+    fn may_pass_blocks(
         &self,
         content: &ir::FunctionDefinition,
         from: usize,
@@ -149,9 +140,38 @@ impl ControlFlowGraph {
     }
 }
 
-impl IsAnalyzer for ControlFlowGraph {
+pub struct BindedControlFlowGraph<'item, 'bind: 'item> {
+    bind_on: &'bind FunctionDefinition,
+    item: &'item ControlFlowGraph,
+}
+
+impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
+    pub fn dominance_frontier(&self, bb_index: usize) -> &[usize] {
+        self.item.dominance_frontier(self.bind_on, bb_index)
+    }
+    pub fn basic_block_index_by_name(&self, name: &str) -> usize {
+        self.item.basic_block_index_by_name(self.bind_on, name)
+    }
+    pub fn basic_block_name_by_index(&self, index: usize) -> &str {
+        self.item.basic_block_name_by_index(self.bind_on, index)
+    }
+    pub fn may_pass_blocks(&self, from: usize, to: usize) -> Ref<Vec<usize>> {
+        self.item.may_pass_blocks(self.bind_on, from, to)
+    }
+}
+
+impl<'item, 'bind: 'item> IsAnalyzer<'item, 'bind> for ControlFlowGraph {
+    type Binded = BindedControlFlowGraph<'item, 'bind>;
+
     fn on_action(&mut self, _action: &Action) {
         self.0.take();
+    }
+
+    fn bind(&'item self, content: &'bind ir::FunctionDefinition) -> Self::Binded {
+        BindedControlFlowGraph {
+            bind_on: content,
+            item: self,
+        }
     }
 }
 

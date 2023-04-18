@@ -9,7 +9,7 @@ use crate::{
         function::FunctionDefinitionIndex,
         quantity::Quantity,
         statement::{IRStatement, IsIRStatement},
-        RegisterName,
+        FunctionDefinition, RegisterName,
     },
     utility::data_type::Type,
 };
@@ -96,7 +96,7 @@ impl MemoryUsage {
     }
 
     /// Get the [`MemoryAccessInfo`] of the given variable.
-    pub fn memory_access_info(
+    fn memory_access_info(
         &self,
         function: &ir::FunctionDefinition,
         variable_name: &RegisterName,
@@ -105,7 +105,7 @@ impl MemoryUsage {
     }
 
     /// All variables which are allocated on stack.
-    pub fn memory_access_variables(
+    fn memory_access_variables(
         &self,
         function: &ir::FunctionDefinition,
     ) -> impl Iterator<Item = &RegisterName> {
@@ -113,7 +113,7 @@ impl MemoryUsage {
     }
 
     /// All variables and their type which are allocated on stack.
-    pub fn memory_access_variables_and_types(
+    fn memory_access_variables_and_types(
         &self,
         function: &ir::FunctionDefinition,
     ) -> HashMap<RegisterName, Type> {
@@ -175,9 +175,35 @@ impl MemoryUsage {
     }
 }
 
-impl IsAnalyzer for MemoryUsage {
+pub struct BindedMemoryUsage<'item, 'bind: 'item> {
+    bind_on: &'bind FunctionDefinition,
+    item: &'item MemoryUsage,
+}
+
+impl<'item, 'bind: 'item> BindedMemoryUsage<'item, 'bind> {
+    pub fn memory_access_info(&self, variable_name: &RegisterName) -> &MemoryAccessInfo {
+        self.item.memory_access_info(self.bind_on, variable_name)
+    }
+    pub fn memory_access_variables(&self) -> impl Iterator<Item = &RegisterName> {
+        self.item.memory_access_variables(self.bind_on)
+    }
+    pub fn memory_access_variables_and_types(&self) -> HashMap<RegisterName, Type> {
+        self.item.memory_access_variables_and_types(self.bind_on)
+    }
+}
+
+impl<'item, 'bind: 'item> IsAnalyzer<'item, 'bind> for MemoryUsage {
     fn on_action(&mut self, _action: &Action) {
         // todo: optimization
         self.memory_access.take();
+    }
+
+    type Binded = BindedMemoryUsage<'item, 'bind>;
+
+    fn bind(&'item self, content: &'bind ir::FunctionDefinition) -> Self::Binded {
+        BindedMemoryUsage {
+            bind_on: content,
+            item: self,
+        }
     }
 }

@@ -26,8 +26,8 @@ pub fn parse(code: &str) -> IResult<&str, BitAt> {
 
 impl IsParamTransformer for BitAt {
     fn param_to_instruction_part(&self, _offset: u64, param: &Param) -> BitVec<u32> {
-        // // it is ok to use `as u32` here, see
-        // // https://doc.rust-lang.org/reference/expressions/operator-expr.html#type-cast-expressions
+        // it is ok to use `as u32` here, see
+        // https://doc.rust-lang.org/reference/expressions/operator-expr.html#type-cast-expressions
         let param = param.unwrap_immediate() as u32;
         let param_bits = &param.view_bits::<Lsb0>();
         let mut instruction_part = BitVec::new();

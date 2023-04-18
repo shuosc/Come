@@ -1,6 +1,6 @@
 use self::{
     action::{InsertStatement, IsAction, RemoveStatement, RenameLocal},
-    analyzer::IsAnalyzer,
+    analyzer::{BindedAnalyzer, IsAnalyzer},
 };
 
 use super::{
@@ -67,5 +67,9 @@ impl Editor {
         let action = action.into();
         self.analyzer.on_action(&action);
         action.perform_on_function(&mut self.content);
+    }
+
+    pub fn binded_analyzer(&self) -> BindedAnalyzer {
+        self.analyzer.bind(&self.content)
     }
 }

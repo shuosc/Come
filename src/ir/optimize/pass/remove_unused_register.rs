@@ -10,13 +10,13 @@ impl IsPass for RemoveUnusedRegister {
     fn run(&self, editor: &mut editor::Editor) {
         let mut to_remove = Vec::new();
         for usage in editor
-            .analyzer
-            .register_usage
-            .register_usages(&editor.content)
+            .binded_analyzer()
+            .register_usage()
+            .register_usages()
             .values()
         {
-            if !usage.side_effect(&editor.content) && usage.use_indexes.is_empty() {
-                if let RegisterDefinePosition::Body(define_index) = &usage.define_position {
+            if !usage.side_effect() && usage.use_indexes().is_empty() {
+                if let RegisterDefinePosition::Body(define_index) = &usage.define_position() {
                     to_remove.push(define_index.clone());
                 }
             }

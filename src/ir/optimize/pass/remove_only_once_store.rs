@@ -8,32 +8,6 @@ use super::IsPass;
 pub struct RemoveOnlyOnceStore;
 
 impl IsPass for RemoveOnlyOnceStore {
-    // fn run(&self, analyzer: &Analyzer) -> Actions {
-    //     let mut result = Actions::default();
-    //     for variable in analyzer.memory_usage.memory_access_variables() {
-    //         let memory_access_info = analyzer.memory_usage.memory_access_info(variable);
-    //         // todo: it is possible that the basic block the store statement in
-    //         // cannot dorminate the block a load is in, in such cases, an error should
-    //         // be raised instead of do this optimize work
-    //         if memory_access_info.store.len() == 1 {
-    //             let store_statement_index = memory_access_info.store[0].clone();
-    //             let store_statement = analyzer.content[store_statement_index.clone()].as_store();
-    //             let stored_value = store_statement.source.clone();
-    //             for load_statement_index in &memory_access_info.load {
-    //                 let load_statement = analyzer.content[load_statement_index.clone()].as_load();
-    //                 result.push(RemoveStatement::new(load_statement_index.clone()));
-    //                 result.push(RenameLocal::new(
-    //                     load_statement.to.clone(),
-    //                     stored_value.clone(),
-    //                 ));
-    //             }
-    //             result.push(RemoveStatement::new(store_statement_index.clone()));
-    //             result.push(RemoveStatement::new(memory_access_info.alloca.clone()));
-    //         }
-    //     }
-    //     result
-    // }
-
     fn need(&self) -> Vec<super::Pass> {
         Vec::new()
     }
@@ -46,14 +20,13 @@ impl IsPass for RemoveOnlyOnceStore {
         let mut to_remove = Vec::new();
         let mut to_rename = Vec::new();
         for variable in editor
-            .analyzer
-            .memory_usage
-            .memory_access_variables(&editor.content)
+            .binded_analyzer()
+            .memory_usage()
+            .memory_access_variables()
         {
-            let memory_access_info = editor
-                .analyzer
-                .memory_usage
-                .memory_access_info(&editor.content, variable);
+            let binded_analyzer = editor.binded_analyzer();
+            let memory_usage = binded_analyzer.memory_usage();
+            let memory_access_info = memory_usage.memory_access_info(variable);
             // todo: it is possible that the basic block the store statement in
             // cannot dominate the block a load is in, in such cases, an error should
             // be raised instead of do this optimize work
