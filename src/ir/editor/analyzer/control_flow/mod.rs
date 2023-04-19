@@ -1,3 +1,4 @@
+mod control_flow_loop;
 use std::{
     cell::{OnceCell, Ref, RefCell},
     collections::HashMap,
@@ -12,10 +13,11 @@ use petgraph::{
 
 use crate::{
     ir::{self, editor::action::Action, statement::IRStatement, FunctionDefinition},
-    utility,
+    utility::{self},
 };
 
 use super::IsAnalyzer;
+pub use control_flow_loop::{Loop, LoopContent};
 
 /// [`ControlFlowGraph`] is the control flow graph and related infomation of a function.
 #[derive(Debug)]
@@ -113,7 +115,6 @@ impl ControlFlowGraphContent {
 
 #[derive(Default, Debug)]
 pub struct ControlFlowGraph(OnceCell<ControlFlowGraphContent>);
-
 impl ControlFlowGraph {
     pub fn new() -> Self {
         Self(OnceCell::new())
@@ -138,6 +139,12 @@ impl ControlFlowGraph {
     ) -> Ref<Vec<usize>> {
         self.content(content).may_pass_blocks(from, to)
     }
+    // todo: cache it
+    fn loops(&self, content: &FunctionDefinition) -> Loop {
+        let graph = &self.content(content).graph;
+        let nodes: Vec<_> = graph.node_indices().collect();
+        Loop::new(graph, &nodes, &[])
+    }
 }
 
 pub struct BindedControlFlowGraph<'item, 'bind: 'item> {
@@ -157,6 +164,9 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
     }
     pub fn may_pass_blocks(&self, from: usize, to: usize) -> Ref<Vec<usize>> {
         self.item.may_pass_blocks(self.bind_on, from, to)
+    }
+    pub fn loops(&self) -> Loop {
+        self.item.loops(self.bind_on)
     }
 }
 
@@ -185,4 +195,89 @@ fn remove_unreachable_nodes(mut graph: DiGraph<(), (), usize>) -> DiGraph<(), ()
     }
     graph.retain_nodes(|_, it| reachable_nodes.contains(&it));
     graph
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        ir::{
+            function::{basic_block::BasicBlock, test_util::*},
+            statement::Ret,
+        },
+        utility::data_type,
+    };
+
+    #[test]
+    fn test_loop() {
+        let control_flow_graph = ControlFlowGraph::new();
+        let function_definition = FunctionDefinition {
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::Type::None,
+            },
+            content: vec![
+                BasicBlock {
+                    name: Some("bb0".to_string()),
+                    content: vec![branch("bb1", "bb2")],
+                },
+                BasicBlock {
+                    name: Some("bb1".to_string()),
+                    content: vec![jump("bb3")],
+                },
+                BasicBlock {
+                    name: Some("bb2".to_string()),
+                    content: vec![jump("bb6")],
+                },
+                BasicBlock {
+                    name: Some("bb3".to_string()),
+                    content: vec![jump("bb4")],
+                },
+                BasicBlock {
+                    name: Some("bb4".to_string()),
+                    content: vec![branch("bb5", "bb9")],
+                },
+                BasicBlock {
+                    name: Some("bb5".to_string()),
+                    content: vec![branch("bb1", "bb3")],
+                },
+                BasicBlock {
+                    name: Some("bb6".to_string()),
+                    content: vec![branch("bb7", "bb8")],
+                },
+                BasicBlock {
+                    name: Some("bb7".to_string()),
+                    content: vec![jump("bb2")],
+                },
+                BasicBlock {
+                    name: Some("bb8".to_string()),
+                    content: vec![branch("bb7", "bb9")],
+                },
+                BasicBlock {
+                    name: Some("bb9".to_string()),
+                    content: vec![Ret { value: None }.into()],
+                },
+            ],
+        };
+        let loops = control_flow_graph.bind(&function_definition).loops();
+        assert!(loops.content.contains(&LoopContent::Node(0)));
+        assert!(loops.content.contains(&LoopContent::Node(9)));
+        assert!(loops
+            .content
+            .iter()
+            .any(|it| if let LoopContent::SubLoop(subloop) = it {
+                subloop.entries.contains(&1)
+            } else {
+                false
+            }));
+        assert!(loops
+            .content
+            .iter()
+            .any(|it| if let LoopContent::SubLoop(subloop) = it {
+                subloop.entries.contains(&2)
+            } else {
+                false
+            }));
+    }
 }

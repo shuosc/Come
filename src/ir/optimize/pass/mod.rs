@@ -3,9 +3,7 @@ mod remove_load_directly_after_store;
 mod remove_only_once_store;
 mod remove_unused_register;
 use enum_dispatch::enum_dispatch;
-// use super::action::Actions;
-// use crate::ir::analyzer::Analyzer;
-
+mod fix_irreducible;
 use crate::ir::editor::Editor;
 use memory_to_register::MemoryToRegister;
 use remove_load_directly_after_store::RemoveLoadDirectlyAfterStore;

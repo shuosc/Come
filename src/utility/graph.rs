@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use petgraph::{
     algo::dominators::Dominators,
     visit::{
-        GraphBase, IntoNeighbors, IntoNeighborsDirected, IntoNodeIdentifiers, VisitMap, Visitable,
+        EdgeRef, GraphBase, IntoEdgesDirected, IntoNeighbors, IntoNeighborsDirected,
+        IntoNodeIdentifiers, VisitMap, Visitable,
     },
     Direction,
 };
-use std::hash::Hash;
-
+use std::{fmt::Debug, hash::Hash};
 /// Initially implemented bu @m4b in [petgraph#178](https://github.com/petgraph/petgraph/pull/178).
 ///
 /// This function will return dominance frontiers of a graph,
@@ -70,10 +70,102 @@ where
     frontiers
 }
 
+fn sort_by_dfs_order<G, FN, FE>(
+    current_at: G::NodeId,
+    visited: &mut Vec<G::NodeId>,
+    result: &mut Vec<G::NodeId>,
+    g: G,
+    mut node_filter: FN,
+    mut edge_filter: FE,
+) where
+    G: IntoNeighborsDirected + IntoEdgesDirected + Visitable + IntoNodeIdentifiers,
+    G::NodeId: Debug,
+    FN: FnMut(G::NodeId) -> bool + Copy,
+    FE: FnMut(G::EdgeId) -> bool + Copy,
+{
+    if visited.contains(&current_at) {
+        return;
+    }
+    visited.push(current_at);
+    for edge in g.edges_directed(current_at, Direction::Outgoing) {
+        if edge_filter(edge.id()) {
+            let next = edge.target();
+            if node_filter(next) && !visited.contains(&next) {
+                sort_by_dfs_order(next, visited, result, g, node_filter, edge_filter);
+            }
+        }
+    }
+    result.push(current_at);
+}
+
+fn collect_scc<G, FN, FE>(
+    current_at: G::NodeId,
+    visited: &mut Vec<G::NodeId>,
+    g: G,
+    mut node_filter: FN,
+    mut edge_filter: FE,
+) -> Vec<G::NodeId>
+where
+    G: IntoNeighborsDirected + IntoEdgesDirected + Visitable + IntoNodeIdentifiers,
+    G::NodeId: Debug,
+    FN: FnMut(G::NodeId) -> bool + Copy,
+    FE: FnMut(G::EdgeId) -> bool + Copy,
+{
+    if visited.contains(&current_at) {
+        return Vec::new();
+    }
+    visited.push(current_at);
+    let mut result = vec![current_at];
+    for edge in g.edges_directed(current_at, Direction::Incoming) {
+        if edge_filter(edge.id()) {
+            let next = edge.source();
+            if node_filter(next) && !visited.contains(&next) {
+                let inner = collect_scc(next, visited, g, node_filter, edge_filter);
+                result.extend_from_slice(&inner);
+            }
+        }
+    }
+    result
+}
+
+pub fn kosaraju_scc_with_filter<G, FN, FE>(
+    g: G,
+    mut node_filter: FN,
+    edge_filter: FE,
+) -> Vec<Vec<G::NodeId>>
+where
+    G: IntoNeighborsDirected + IntoEdgesDirected + Visitable + IntoNodeIdentifiers,
+    G::NodeId: Debug,
+    FN: FnMut(G::NodeId) -> bool + Copy,
+    FE: FnMut(G::EdgeId) -> bool + Copy,
+{
+    let mut visited = vec![];
+    let mut stack = vec![];
+    let first_node = g.node_identifiers().find(|n| node_filter(*n)).unwrap();
+    sort_by_dfs_order(
+        first_node,
+        &mut visited,
+        &mut stack,
+        g,
+        node_filter,
+        edge_filter,
+    );
+    visited.clear();
+    let mut sccs = vec![];
+    while let Some(node) = stack.pop() {
+        let scc = collect_scc(node, &mut visited, g, node_filter, edge_filter);
+        sccs.push(scc);
+        while stack.last().map_or(false, |&x| visited.contains(&x)) {
+            stack.pop();
+        }
+    }
+    sccs
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use petgraph::{algo::dominators::simple_fast, Graph};
+    use petgraph::{algo::dominators::simple_fast, prelude::DiGraph, Graph};
 
     #[test]
     fn dominance_frontiers_test() {
@@ -111,5 +203,150 @@ mod tests {
         assert_eq!(frontiers[&d], vec![e]);
         assert_eq!(frontiers[&e], vec![f]);
         assert_eq!(frontiers[&f], vec![]);
+    }
+
+    #[test]
+    fn test_kosaraju_scc_with_filter() {
+        let mut graph: DiGraph<_, _, usize> = DiGraph::default();
+        let node_0 = graph.add_node(0);
+        let node_1 = graph.add_node(1);
+        let node_2 = graph.add_node(2);
+        let node_3 = graph.add_node(3);
+        let node_4 = graph.add_node(4);
+        graph.add_edge(node_0, node_3, ());
+        graph.add_edge(node_3, node_4, ());
+        graph.add_edge(node_4, node_0, ());
+        graph.add_edge(node_0, node_2, ());
+        graph.add_edge(node_2, node_1, ());
+        graph.add_edge(node_1, node_0, ());
+        let result = kosaraju_scc_with_filter(&graph, |_| true, |_| true);
+        assert_eq!(result.len(), 1);
+
+        let mut graph: DiGraph<_, _, usize> = DiGraph::default();
+        let node_0 = graph.add_node(0);
+        let node_1 = graph.add_node(1);
+        let node_2 = graph.add_node(2);
+        let node_3 = graph.add_node(3);
+        let node_4 = graph.add_node(4);
+        let node_5 = graph.add_node(5);
+        let node_6 = graph.add_node(6);
+        let node_7 = graph.add_node(7);
+        graph.add_edge(node_0, node_1, ());
+        graph.add_edge(node_1, node_2, ());
+        graph.add_edge(node_2, node_0, ());
+        graph.add_edge(node_2, node_3, ());
+        graph.add_edge(node_3, node_4, ());
+        graph.add_edge(node_4, node_5, ());
+        graph.add_edge(node_4, node_7, ());
+        graph.add_edge(node_5, node_6, ());
+        graph.add_edge(node_6, node_4, ());
+        graph.add_edge(node_6, node_7, ());
+        let result = kosaraju_scc_with_filter(&graph, |_| true, |_| true);
+        assert_eq!(result.len(), 4);
+        let node_0_in_scc = result.iter().find(|scc| scc.contains(&node_0)).unwrap();
+        assert_eq!(node_0_in_scc.len(), 3);
+        let node_3_in_scc = result.iter().find(|scc| scc.contains(&node_3)).unwrap();
+        assert_eq!(node_3_in_scc.len(), 1);
+        let node_4_in_scc = result.iter().find(|scc| scc.contains(&node_4)).unwrap();
+        assert_eq!(node_4_in_scc.len(), 3);
+        let node_7_in_scc = result.iter().find(|scc| scc.contains(&node_7)).unwrap();
+        assert_eq!(node_7_in_scc.len(), 1);
+
+        let mut graph: DiGraph<_, _, usize> = DiGraph::default();
+        let node_0 = graph.add_node(0);
+        let node_1 = graph.add_node(1);
+        let node_2 = graph.add_node(2);
+        let node_3 = graph.add_node(3);
+        let node_4 = graph.add_node(4);
+        let node_5 = graph.add_node(5);
+        let node_6 = graph.add_node(6);
+        graph.add_edge(node_0, node_1, ());
+        graph.add_edge(node_0, node_2, ());
+        graph.add_edge(node_1, node_2, ());
+        graph.add_edge(node_2, node_3, ());
+        graph.add_edge(node_3, node_4, ());
+        graph.add_edge(node_4, node_1, ());
+        graph.add_edge(node_3, node_1, ());
+        graph.add_edge(node_2, node_6, ());
+        graph.add_edge(node_4, node_6, ());
+        graph.add_edge(node_6, node_5, ());
+        graph.add_edge(node_5, node_4, ());
+        let result = kosaraju_scc_with_filter(&graph, |_| true, |_| true);
+        assert_eq!(result.len(), 2);
+        let node_0_in_scc = result.iter().find(|scc| scc.contains(&node_0)).unwrap();
+        assert_eq!(node_0_in_scc.len(), 1);
+        let node_1_in_scc = result.iter().find(|scc| scc.contains(&node_1)).unwrap();
+        assert_eq!(node_1_in_scc.len(), 6);
+
+        let mut graph: DiGraph<_, _, usize> = DiGraph::default();
+        let node_0 = graph.add_node(0);
+        let node_1 = graph.add_node(1);
+        let node_2 = graph.add_node(2);
+        let node_3 = graph.add_node(3);
+        let node_4 = graph.add_node(4);
+        let node_5 = graph.add_node(5);
+        let node_6 = graph.add_node(6);
+        let node_7 = graph.add_node(7);
+        graph.add_edge(node_0, node_1, ());
+        graph.add_edge(node_1, node_2, ());
+        graph.add_edge(node_2, node_3, ());
+        graph.add_edge(node_3, node_4, ());
+        graph.add_edge(node_4, node_5, ());
+        graph.add_edge(node_5, node_0, ());
+        graph.add_edge(node_6, node_1, ());
+        graph.add_edge(node_2, node_7, ());
+        graph.add_edge(node_7, node_6, ());
+        let result = kosaraju_scc_with_filter(&graph, |_| true, |_| true);
+        assert_eq!(result.len(), 1);
+        let result = kosaraju_scc_with_filter(
+            &graph,
+            |_| true,
+            |edge| {
+                let (from, to) = graph.edge_endpoints(edge).unwrap();
+                !(from.index() == 5 && to.index() == 0)
+            },
+        );
+        assert_eq!(result.len(), 5);
+        let node_2_in_scc = result.iter().find(|scc| scc.contains(&node_2)).unwrap();
+        assert_eq!(node_2_in_scc.len(), 4);
+        let result = kosaraju_scc_with_filter(&graph, |node| node.index() != 0, |_| true);
+        assert_eq!(result.len(), 4);
+        let node_2_in_scc = result.iter().find(|scc| scc.contains(&node_2)).unwrap();
+        assert_eq!(node_2_in_scc.len(), 4);
+
+        let mut graph: DiGraph<_, _, usize> = DiGraph::default();
+        let node_0 = graph.add_node(0);
+        let node_1 = graph.add_node(1);
+        let node_2 = graph.add_node(2);
+        let node_3 = graph.add_node(3);
+        let node_4 = graph.add_node(4);
+        let node_5 = graph.add_node(5);
+        let node_6 = graph.add_node(6);
+        let node_7 = graph.add_node(7);
+        let node_8 = graph.add_node(8);
+        let node_9 = graph.add_node(9);
+        let node_10 = graph.add_node(10);
+        graph.add_edge(node_0, node_1, ());
+        graph.add_edge(node_1, node_2, ());
+        graph.add_edge(node_2, node_3, ());
+        graph.add_edge(node_3, node_5, ());
+        graph.add_edge(node_5, node_4, ());
+        graph.add_edge(node_4, node_2, ());
+        graph.add_edge(node_6, node_4, ());
+        graph.add_edge(node_1, node_6, ());
+        graph.add_edge(node_7, node_8, ());
+        graph.add_edge(node_8, node_9, ());
+        graph.add_edge(node_9, node_7, ());
+        graph.add_edge(node_6, node_7, ());
+        graph.add_edge(node_4, node_9, ());
+        graph.add_edge(node_8, node_3, ());
+        graph.add_edge(node_5, node_10, ());
+        let result = kosaraju_scc_with_filter(&graph, |_| true, |_| true);
+
+        assert_eq!(result.len(), 5);
+        let node_2_in_scc = result.iter().find(|scc| scc.contains(&node_2)).unwrap();
+        assert_eq!(node_2_in_scc.len(), 7);
+        let node_0_in_scc = result.iter().find(|scc| scc.contains(&node_0)).unwrap();
+        assert_eq!(node_0_in_scc.len(), 1);
     }
 }
