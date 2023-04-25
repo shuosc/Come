@@ -168,6 +168,9 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
     pub fn loops(&self) -> Loop {
         self.item.loops(self.bind_on)
     }
+    pub fn graph(&self) -> &DiGraph<(), (), usize> {
+        &self.item.content(self.bind_on).graph
+    }
 }
 
 impl<'item, 'bind: 'item> IsAnalyzer<'item, 'bind> for ControlFlowGraph {

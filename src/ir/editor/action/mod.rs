@@ -3,9 +3,11 @@ use std::fmt::Display;
 use enum_dispatch::enum_dispatch;
 
 use crate::ir::FunctionDefinition;
+mod insert_basic_block;
 mod insert_statement;
 mod remove_statement;
 mod rename_local;
+pub use insert_basic_block::InsertBasicBlock;
 pub use insert_statement::InsertStatement;
 pub use remove_statement::RemoveStatement;
 pub use rename_local::RenameLocal;
@@ -21,6 +23,7 @@ pub enum Action {
     InsertStatement,
     RemoveStatement,
     RenameLocal,
+    InsertBasicBlock,
 }
 
 impl Display for Action {
@@ -29,6 +32,7 @@ impl Display for Action {
             Action::InsertStatement(action) => write!(f, "{action}"),
             Action::RemoveStatement(action) => write!(f, "{action}"),
             Action::RenameLocal(action) => write!(f, "{action}"),
+            Action::InsertBasicBlock(action) => write!(f, "{action}"),
         }
     }
 }

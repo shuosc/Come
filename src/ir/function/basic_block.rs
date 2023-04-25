@@ -22,6 +22,12 @@ pub struct BasicBlock {
 }
 
 impl BasicBlock {
+    pub fn new(name: String) -> Self {
+        Self {
+            name: Some(name),
+            content: Vec::new(),
+        }
+    }
     /// Append a statement to the basic block.
     pub fn append_statement(&mut self, statement: impl Into<IRStatement>) {
         self.content.push(statement.into());

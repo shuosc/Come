@@ -1,5 +1,5 @@
 use self::{
-    action::{InsertStatement, IsAction, RemoveStatement, RenameLocal},
+    action::{InsertBasicBlock, InsertStatement, IsAction, RemoveStatement, RenameLocal},
     analyzer::{BindedAnalyzer, IsAnalyzer},
 };
 
@@ -15,6 +15,7 @@ mod action;
 pub mod analyzer;
 pub use analyzer::Analyzer;
 pub struct Editor {
+    // todo: remove this pub
     pub content: super::FunctionDefinition,
     pub analyzer: analyzer::Analyzer,
 }
@@ -71,5 +72,14 @@ impl Editor {
 
     pub fn binded_analyzer(&self) -> BindedAnalyzer {
         self.analyzer.bind(&self.content)
+    }
+
+    pub fn insert_basic_block(&mut self, name: String, index: impl Into<usize>) {
+        self.perform_action(InsertBasicBlock::at_index(index, name));
+    }
+
+    pub fn create_basic_block(&mut self, name: String) -> usize {
+        self.perform_action(InsertBasicBlock::back_of(name));
+        self.content.content.len() - 1
     }
 }

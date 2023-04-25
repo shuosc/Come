@@ -81,14 +81,14 @@ impl MemoryAccessInfo {
     }
 }
 
-/// [`MemoryUsageAnalyzer`] is for analyzing how a function uses stack memory.
+/// [`MemoryUsage`] is for analyzing how a function uses stack memory.
 #[derive(Debug, Default)]
 pub struct MemoryUsage {
     memory_access: OnceCell<HashMap<RegisterName, MemoryAccessInfo>>,
 }
 
 impl MemoryUsage {
-    /// Create a new [`MemoryUsageAnalyzer`].
+    /// Create a new [`MemoryUsage`].
     pub fn new() -> Self {
         Self {
             memory_access: OnceCell::new(),
