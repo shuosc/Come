@@ -31,11 +31,3 @@ shadow-rs = "0.20.0"
 
 [lib]
 crate-type = ["lib"]
-
-[[bin]]
-name = "shuasm"
-path = "src/bin/shuasm.rs"
-
-[[bin]]
-name = "clefviewer"
-path = "src/bin/clefviewer.rs"

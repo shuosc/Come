@@ -4,7 +4,10 @@ use crate::{
         quantity::{self, Quantity},
         RegisterName,
     },
-    utility::{data_type::Type, parsing},
+    utility::{
+        data_type::{self, Integer, Type},
+        parsing,
+    },
 };
 use nom::{
     branch::alt,
@@ -18,6 +21,8 @@ use std::{
     fmt,
     fmt::{Display, Formatter},
 };
+
+use super::calculate::{binary::BinaryOperation, BinaryCalculate};
 
 /// Enum of all possible branch types.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -56,6 +61,40 @@ pub struct Branch {
     pub success_label: String,
     /// Label to jump to if the branch is not taken.
     pub failure_label: String,
+}
+
+impl BranchType {
+    pub fn corresponding_binary_operation(&self) -> BinaryOperation {
+        match self {
+            BranchType::EQ => BinaryOperation::Equal,
+            BranchType::NE => BinaryOperation::NotEqual,
+            BranchType::LT => BinaryOperation::LessThan,
+            BranchType::GE => BinaryOperation::GreaterOrEqualThan,
+        }
+    }
+    pub fn inverse(&self) -> Self {
+        match self {
+            BranchType::EQ => BranchType::NE,
+            BranchType::NE => BranchType::EQ,
+            BranchType::LT => BranchType::GE,
+            BranchType::GE => BranchType::LT,
+        }
+    }
+}
+
+impl Branch {
+    pub fn extract_condition(&self, to_register: RegisterName) -> BinaryCalculate {
+        BinaryCalculate {
+            operation: self.branch_type.corresponding_binary_operation(),
+            operand1: self.operand1.clone(),
+            operand2: self.operand2.clone(),
+            to: to_register,
+            data_type: data_type::Type::Integer(Integer {
+                signed: false,
+                width: 1,
+            }),
+        }
+    }
 }
 
 impl IsIRStatement for Branch {

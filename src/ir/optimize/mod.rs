@@ -1,14 +1,12 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::HashSet;
 
-use pass::{IsPass, Pass};
+use self::pass::IsPass;
 
-use super::{analyzer::Analyzer, function::formalize, IR};
+use super::{editor::Editor, IR};
 
-/// Actions and action batch to edit ir function.
-mod action;
 /// Optimizing passes to be executed on a function.
 pub mod pass;
-
+use pass::Pass;
 /// [`FunctionOptimizer`] can manage passes and optimize the ir function.
 #[derive(Default)]
 pub struct FunctionOptimizer {
@@ -26,35 +24,27 @@ impl FunctionOptimizer {
     }
 
     /// Run all passes on the ir function.
-    pub fn optimize(self, mut ir: super::FunctionDefinition) -> super::FunctionDefinition {
-        ir = formalize(ir);
+    pub fn optimize(mut self, ir: super::FunctionDefinition) -> super::FunctionDefinition {
+        let mut editor = Editor::new(ir);
         let mut executed = HashSet::new();
-        let mut current_control_flow_graph = None;
-        let mut current_passes: VecDeque<_> = self.passes.iter().cloned().collect();
-        while !current_passes.is_empty() {
-            let next_pass = current_passes.front().unwrap();
+        self.passes.reverse();
+        while !self.passes.is_empty() {
+            let next_pass = self.passes.last().unwrap();
             let mut first_updated = false;
             for require in next_pass.need() {
                 if !executed.contains(&require) {
-                    current_passes.push_front(require);
+                    self.passes.push(require);
                     first_updated = true;
                 }
             }
             if first_updated {
                 continue;
             }
-            let analyzer = if let Some(current_control_flow_graph) = current_control_flow_graph {
-                Analyzer::reuse_control_flow_graph(&ir, current_control_flow_graph)
-            } else {
-                Analyzer::new(&ir)
-            };
-            let pass = current_passes.pop_front().unwrap();
-            let edit_action_batch = pass.run(&analyzer);
-            current_control_flow_graph = Some(analyzer.free());
-            edit_action_batch.perform(&mut ir);
+            let pass = self.passes.pop().unwrap();
+            pass.run(&mut editor);
             executed.insert(pass);
         }
-        ir
+        editor.content
     }
 }
 
@@ -72,19 +62,4 @@ pub fn optimize(ir: Vec<IR>, passes: Vec<Pass>) -> Vec<IR> {
         }
     }
     result
-}
-
-#[cfg(test)]
-mod test_util {
-    use crate::ir::{function::formalize, FunctionDefinition};
-
-    use super::*;
-
-    pub fn execute_pass(ir: FunctionDefinition, pass: Pass) -> FunctionDefinition {
-        let mut ir = formalize(ir);
-        let analyzer = Analyzer::new(&ir);
-        let edit_action_batch = pass.run(&analyzer);
-        edit_action_batch.perform(&mut ir);
-        ir
-    }
 }

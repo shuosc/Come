@@ -1,10 +1,11 @@
+mod fix_irreducible;
 mod memory_to_register;
 mod remove_load_directly_after_store;
 mod remove_only_once_store;
 mod remove_unused_register;
-use super::action::Actions;
-use crate::ir::analyzer::Analyzer;
+use crate::ir::editor::Editor;
 use enum_dispatch::enum_dispatch;
+use fix_irreducible::FixIrreducible;
 use memory_to_register::MemoryToRegister;
 use remove_load_directly_after_store::RemoveLoadDirectlyAfterStore;
 use remove_only_once_store::RemoveOnlyOnceStore;
@@ -13,7 +14,7 @@ use std::str::FromStr;
 /// This trait should be implemented by all passes which can do optimizing on ir function.
 #[enum_dispatch]
 pub trait IsPass {
-    fn run(&self, analyzer: &Analyzer) -> Actions;
+    fn run(&self, editor: &mut Editor);
 
     /// Which passes this pass requires to be executed before it.
     fn need(&self) -> Vec<Pass>;
@@ -30,6 +31,7 @@ pub enum Pass {
     RemoveOnlyOnceStore,
     RemoveLoadDirectlyAfterStore,
     MemoryToRegister,
+    FixIrreducible,
 }
 
 impl FromStr for Pass {

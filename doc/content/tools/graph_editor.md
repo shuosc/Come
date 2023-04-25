@@ -15,8 +15,11 @@ draft = false
             </marker>
         </svg>
     </div>
-    <pre id="mermaid"></pre>
-    <pre id="rust"></pre>
+    <div>
+        <pre id="mermaid"></pre>
+    </div>
+    <div><pre id="rust"></pre></div>
+    <div><pre id="come"></pre></div>
 </div>
 
 <script>
@@ -165,6 +168,7 @@ function connect(first, second) {
     edges.push({ first, second, line });
     renderMermaid();
     renderRust();
+    renderComeIR();
 }
 
 function connectionLinePosition(firstNode, secondNode) {
@@ -199,7 +203,7 @@ function renderMermaid() {
 
 function renderRust() {
     const rust = document.getElementById("rust");
-    let content = "let mut graph: DiGraph<_,_, usize> = DiGraph::default();\n";
+    let content = "let mut graph: DiGraph<_, _, usize> = DiGraph::default();\n";
     let edge_content = "";
     let nodes = new Set();
     for ({ first, second, line } of edges) {
@@ -215,23 +219,88 @@ function renderRust() {
     content += edge_content;
     rust.innerHTML = content;
 }
+
+function renderComeIR() {
+    const come = document.getElementById("come");
+    let content = `let function_definition = FunctionDefinition {
+    header: ir::FunctionHeader {
+        name: "f".to_string(),
+        parameters: Vec::new(),
+        return_type: data_type::Type::None,
+    },
+    content: vec![`;
+    let nodes = new Set();
+    for ({ first, second, line } of edges) {
+        const firstId = first.getAttribute("id").substring("node-".length);
+        const secondId = second.getAttribute("id").substring("node-".length);
+        nodes.add(firstId);
+        nodes.add(secondId);
+    }
+    for (let node of nodes) {
+        content += `
+        BasicBlock {
+            name: Some("bb${node}".to_string()),
+            content: vec![`;
+        let to = edges.filter(({ first }) => {
+            const firstId = first.getAttribute("id").substring("node-".length);
+            return firstId === node;
+        }).map(({ second }) => {
+            const secondId = second.getAttribute("id").substring("node-".length);
+            return secondId;
+        });
+        if (to.length === 0) {
+            content += `Ret { value: None }.into()`;
+        } else if (to.length === 1) {
+            let target = to[0];
+            content += `jump("bb${target}")`;
+        } else if (to.length === 2) {
+            let first = to[0];
+            let second = to[1];
+            content += `branch("bb${first}", "bb${second}")`;
+        }
+        content += `],
+        },`
+    }
+    content += `
+    ],
+};`;
+    come.innerHTML = content;
+}
 </script>
 
 <style>
     #container {
-        margin-left: -20vw;
-        width: 85vw;
+        margin-left: -24px;
+        margin-right: -24px;
+        min-width: calc(100% + 48px);
+        max-width: 100vw;
         display: flex;
-        align-items: center;
+        flex-wrap: wrap;
+        overflow: scroll;
         justify-content: center;
+        align-items: center;
     }
-    #graph>svg {
-        width: 350px;
-        height: 350px;
+    #container>div {
+        flex-grow: 0;
+        flex-shrink: 0;
+        padding: 4px;
+    }
+    #container>div>pre {
+        padding: 0;
+        margin: 0;
+        overflow: scroll;
+        max-width: 100vw;
+    }
+    #graph {
+        width: fit-content;
+    }
+    #svg-graph {
         background: white;
+        min-height: 300px;
     }
-    #graph, #mermaid, #rust {
-        display: inline-block;
-        width: calc(85vw / 3 - 20px);
+    @media (min-width: 576px) {
+        #graph, #mermaid, #rust, #come {
+            flex-grow: 1;
+        }
     }
 </style>

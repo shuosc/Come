@@ -2,7 +2,7 @@ use super::{
     binary_operator::{self, BinaryOperatorResult},
     field_access::FieldAccess,
     function_call::FunctionCall,
-    in_brackets::{InBrackets, self},
+    in_brackets::{self, InBrackets},
     integer_literal::IntegerLiteral,
     lvalue::LValue,
     unary_operator::{self, UnaryOperatorResult},

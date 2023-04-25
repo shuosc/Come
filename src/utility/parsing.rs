@@ -1,7 +1,9 @@
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{alpha1, alphanumeric1, digit1, hex_digit1, multispace0, oct_digit1, one_of},
+    character::complete::{
+        alpha1, alphanumeric1, digit1, hex_digit1, multispace0, oct_digit1, one_of,
+    },
     combinator::{map, opt, recognize},
     multi::{many0, many1},
     sequence::{pair, tuple},

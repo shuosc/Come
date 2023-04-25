@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::ir::{function::FunctionDefinitionIndex, statement::IRStatement};
 
-use super::{remove_statement::RemoveStatement, Action, IsAction};
+use super::IsAction;
 
 #[derive(Debug, Clone)]
 pub enum InsertPosition {
@@ -49,36 +49,13 @@ impl Display for InsertStatement {
 }
 
 impl IsAction for InsertStatement {
-    fn perform(self, ir: &mut crate::ir::FunctionDefinition) {
+    fn perform_on_function(self, ir: &mut crate::ir::FunctionDefinition) {
         match self.position {
             InsertPosition::Back(block_index) => {
                 ir.content[block_index].content.push(self.statement);
             }
             InsertPosition::Index(index) => {
                 ir.content[index.0].content.insert(index.1, self.statement);
-            }
-        }
-    }
-
-    fn affect_others<'a>(&self, others: impl Iterator<Item = &'a mut Action>) {
-        if let Some(self_index) = self.position.as_index() {
-            for other in others {
-                match other {
-                    Action::InsertStatement(InsertStatement {
-                        position: InsertPosition::Index(other_index),
-                        ..
-                    }) if other_index.0 == self_index.0 && other_index.1 > self_index.1 => {
-                        other_index.1 += 1;
-                    }
-                    Action::RemoveStatement(RemoveStatement { index })
-                        if index.0 == self_index.0 && index.1 > self_index.1 =>
-                    {
-                        index.1 += 1;
-                    }
-                    Action::InsertStatement(_) => (),
-                    Action::RemoveStatement(_) => (),
-                    Action::RenameLocal(_) => (),
-                }
             }
         }
     }

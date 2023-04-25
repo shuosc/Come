@@ -40,6 +40,20 @@ pub enum BinaryOperation {
     AthematicShiftRight,
 }
 
+impl BinaryOperation {
+    pub fn inverse(self) -> Option<Self> {
+        match self {
+            BinaryOperation::LessThan => Some(BinaryOperation::GreaterOrEqualThan),
+            BinaryOperation::LessOrEqualThan => Some(BinaryOperation::GreaterThan),
+            BinaryOperation::GreaterThan => Some(BinaryOperation::LessOrEqualThan),
+            BinaryOperation::GreaterOrEqualThan => Some(BinaryOperation::LessThan),
+            BinaryOperation::Equal => Some(BinaryOperation::NotEqual),
+            BinaryOperation::NotEqual => Some(BinaryOperation::Equal),
+            _ => None,
+        }
+    }
+}
+
 static BINARY_OPERATION_MAP: phf::Map<&'static str, BinaryOperation> = phf_map! {
     "+" => BinaryOperation::Add,
     "-" => BinaryOperation::Sub,

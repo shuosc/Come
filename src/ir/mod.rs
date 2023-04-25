@@ -5,8 +5,6 @@ use std::{
 
 use enum_dispatch::enum_dispatch;
 
-/// Analyzers for providing information of an ir function.
-pub mod analyzer;
 /// Data structure, parser and ir generator for functions.
 pub mod function;
 /// Data structure and parser for variables (global or local) and literals.
@@ -31,7 +29,9 @@ pub use quantity::RegisterName;
 pub use type_definition::TypeDefinition;
 use type_definition::TypeDefinitionMapping;
 
+mod editor;
 use self::function::parameter::Parameter;
+pub use editor::analyzer;
 
 /// The root nodes of IR.
 #[enum_dispatch]

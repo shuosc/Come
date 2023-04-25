@@ -1,7 +1,4 @@
-use crate::ir::{
-    analyzer::Analyzer,
-    optimize::action::{Actions, RemoveStatement, RenameLocal},
-};
+use crate::ir::editor::Editor;
 
 use super::IsPass;
 
@@ -12,27 +9,32 @@ use super::IsPass;
 pub struct RemoveLoadDirectlyAfterStore;
 
 impl IsPass for RemoveLoadDirectlyAfterStore {
-    fn run(&self, analyzer: &Analyzer) -> Actions {
-        let mut result = Actions::default();
-        let variables = analyzer.memory_usage.memory_access_variables();
+    fn run(&self, editor: &mut Editor) {
+        let mut to_remove = Vec::new();
+        let mut to_rename = Vec::new();
+        let binding = editor.binded_analyzer();
+        let binding = binding.memory_usage();
+        let variables = binding.memory_access_variables();
         for variable in variables {
-            let memory_access_info = analyzer.memory_usage.memory_access_info(variable);
+            let binded_analyzer = editor.binded_analyzer();
+            let memory_usage = binded_analyzer.memory_usage();
+            let memory_access_info = memory_usage.memory_access_info(variable);
             for store_statement_index in &memory_access_info.store {
-                let store_statement = analyzer.content[store_statement_index.clone()].as_store();
+                let store_statement = editor.content[store_statement_index.clone()].as_store();
                 let stored_value = store_statement.source.clone();
                 for load_statement_index in
                     memory_access_info.loads_dorminated_by_store_in_block(store_statement_index)
                 {
-                    let load_statement = analyzer.content[load_statement_index.clone()].as_load();
-                    result.push(RemoveStatement::new(load_statement_index));
-                    result.push(RenameLocal::new(
-                        load_statement.to.clone(),
-                        stored_value.clone(),
-                    ))
+                    let load_statement = editor.content[load_statement_index.clone()].as_load();
+                    to_remove.push(load_statement_index);
+                    to_rename.push((load_statement.to.clone(), stored_value.clone()));
                 }
             }
         }
-        result
+        editor.remove_statements(to_remove);
+        for (from, to) in to_rename {
+            editor.rename_local(from, to);
+        }
     }
 
     fn need(&self) -> Vec<super::Pass> {
@@ -52,7 +54,6 @@ mod tests {
         ir::{
             self,
             function::basic_block::BasicBlock,
-            optimize::test_util::execute_pass,
             statement::{
                 calculate::binary::BinaryOperation, Alloca, BinaryCalculate, IRStatement, Jump,
                 Load, Ret, Store,
@@ -154,17 +155,20 @@ mod tests {
                 },
             ],
         };
+
+        let mut editor = Editor::new(function);
         let pass = RemoveLoadDirectlyAfterStore;
-        let function = execute_pass(function, pass.into());
-        assert_eq!(function.content[0].content.len(), 7);
+        pass.run(&mut editor);
+
+        assert_eq!(editor.content[0].content.len(), 7);
         assert_eq!(
-            function.content[0]
+            editor.content[0]
                 .content
                 .iter()
                 .filter(|it| matches!(it, IRStatement::Load(_)))
                 .count(),
             0
         );
-        assert_eq!(function.content[1].content.len(), 3);
+        assert_eq!(editor.content[1].content.len(), 3);
     }
 }
