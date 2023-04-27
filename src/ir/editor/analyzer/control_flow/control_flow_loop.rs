@@ -29,10 +29,21 @@ impl Loop {
             })
             .cloned()
             .collect();
+        let mut new_backedges: Vec<EdgeIndex<usize>> = Vec::new();
+        for &entry in entries.iter() {
+            new_backedges.extend(
+                graph
+                    .edges_directed(entry, Incoming)
+                    .filter(|edge| nodes.contains(&edge.source()))
+                    .map(|it| it.id()),
+            );
+        }
+        new_backedges.extend_from_slice(backedges);
         let sccs = kosaraju_scc_with_filter(
             graph,
+            *entries.first().or(nodes.first()).unwrap(),
             |it| nodes.contains(&it),
-            |edge| !backedges.contains(&edge),
+            |edge| !new_backedges.contains(&edge),
         );
         if sccs.len() == 1 {
             return Self {
@@ -42,15 +53,6 @@ impl Loop {
                     .map(|it| LoopContent::Node(it.index()))
                     .collect(),
             };
-        }
-        let mut new_backedges: Vec<EdgeIndex<usize>> = Vec::new();
-        for &entry in entries.iter() {
-            new_backedges.extend(
-                graph
-                    .edges_directed(entry, Incoming)
-                    .filter(|edge| nodes.contains(&edge.source()))
-                    .map(|it| it.id()),
-            );
         }
         let content = sccs
             .into_iter()
@@ -108,5 +110,55 @@ impl Loop {
             "_loop_{}",
             self.entries.iter().map(ToString::to_string).join("_")
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    #[test]
+    fn test_new_loop() {
+        let mut graph: DiGraph<_, _, usize> = DiGraph::default();
+        let node_0 = graph.add_node(());
+        let node_1 = graph.add_node(());
+        let node_2 = graph.add_node(());
+        let node_3 = graph.add_node(());
+        let node_4 = graph.add_node(());
+        let node_5 = graph.add_node(());
+        let node_6 = graph.add_node(());
+        let node_7 = graph.add_node(());
+        graph.add_edge(node_0, node_7, ());
+        graph.add_edge(node_7, node_1, ());
+        graph.add_edge(node_1, node_7, ());
+        graph.add_edge(node_7, node_2, ());
+        graph.add_edge(node_2, node_3, ());
+        graph.add_edge(node_2, node_6, ());
+        graph.add_edge(node_3, node_4, ());
+        graph.add_edge(node_4, node_6, ());
+        graph.add_edge(node_6, node_5, ());
+        graph.add_edge(node_5, node_4, ());
+        graph.add_edge(node_3, node_7, ());
+        graph.add_edge(node_4, node_7, ());
+        let result = Loop::new(
+            &graph,
+            &[
+                node_0, node_1, node_2, node_3, node_4, node_5, node_6, node_7,
+            ],
+            &[],
+        );
+        assert_eq!(result.content.len(), 2);
+        let inner_loop = result
+            .content
+            .iter()
+            .find_map(|it| match it {
+                LoopContent::SubLoop(sub_loop) => Some(sub_loop),
+                LoopContent::Node(_) => None,
+            })
+            .unwrap()
+            .as_ref();
+        assert_eq!(inner_loop.entries.len(), 1);
+        assert_eq!(inner_loop.entries[0], 7);
+        assert_eq!(inner_loop.content.len(), 5);
     }
 }
