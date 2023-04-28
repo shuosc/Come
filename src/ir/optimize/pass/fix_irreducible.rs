@@ -215,7 +215,6 @@ fn fix_branch_into_source(
     should_go_tos
 }
 
-// fixme
 fn generate_phis(
     loop_name: &str,
     all_should_go_to: &[ShouldGoTo],
@@ -505,5 +504,50 @@ mod tests {
             dispatch_statement0.failure_label,
             "_loop_3_4_1_dispatcher_at_8"
         );
+    }
+
+    #[test]
+    fn nested_dispatcher() {
+        let function_definition = FunctionDefinition {
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::Type::None,
+            },
+            content: vec![
+                BasicBlock {
+                    name: Some("bb0".to_string()),
+                    content: vec![branch("bb1", "bb2")],
+                },
+                BasicBlock {
+                    name: Some("bb1".to_string()),
+                    content: vec![jump("bb2")],
+                },
+                BasicBlock {
+                    name: Some("bb2".to_string()),
+                    content: vec![branch("bb3", "bb6")],
+                },
+                BasicBlock {
+                    name: Some("bb3".to_string()),
+                    content: vec![branch("bb1", "bb4")],
+                },
+                BasicBlock {
+                    name: Some("bb4".to_string()),
+                    content: vec![branch("bb1", "bb6")],
+                },
+                BasicBlock {
+                    name: Some("bb6".to_string()),
+                    content: vec![jump("bb5")],
+                },
+                BasicBlock {
+                    name: Some("bb5".to_string()),
+                    content: vec![jump("bb4")],
+                },
+            ],
+        };
+        let mut editor = Editor::new(function_definition);
+        let pass = FixIrreducible;
+        pass.run(&mut editor);
+        assert_eq!(editor.content.content.len(), 9);
     }
 }

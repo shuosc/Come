@@ -130,7 +130,8 @@ where
 
 pub fn kosaraju_scc_with_filter<G, FN, FE>(
     g: G,
-    mut node_filter: FN,
+    root: G::NodeId,
+    node_filter: FN,
     edge_filter: FE,
 ) -> Vec<Vec<G::NodeId>>
 where
@@ -141,15 +142,7 @@ where
 {
     let mut visited = vec![];
     let mut stack = vec![];
-    let first_node = g.node_identifiers().find(|n| node_filter(*n)).unwrap();
-    sort_by_dfs_order(
-        first_node,
-        &mut visited,
-        &mut stack,
-        g,
-        node_filter,
-        edge_filter,
-    );
+    sort_by_dfs_order(root, &mut visited, &mut stack, g, node_filter, edge_filter);
     visited.clear();
     let mut sccs = vec![];
     while let Some(node) = stack.pop() {
@@ -219,7 +212,7 @@ mod tests {
         graph.add_edge(node_0, node_2, ());
         graph.add_edge(node_2, node_1, ());
         graph.add_edge(node_1, node_0, ());
-        let result = kosaraju_scc_with_filter(&graph, |_| true, |_| true);
+        let result = kosaraju_scc_with_filter(&graph, node_0, |_| true, |_| true);
         assert_eq!(result.len(), 1);
 
         let mut graph: DiGraph<_, _, usize> = DiGraph::default();
@@ -241,7 +234,7 @@ mod tests {
         graph.add_edge(node_5, node_6, ());
         graph.add_edge(node_6, node_4, ());
         graph.add_edge(node_6, node_7, ());
-        let result = kosaraju_scc_with_filter(&graph, |_| true, |_| true);
+        let result = kosaraju_scc_with_filter(&graph, node_0, |_| true, |_| true);
         assert_eq!(result.len(), 4);
         let node_0_in_scc = result.iter().find(|scc| scc.contains(&node_0)).unwrap();
         assert_eq!(node_0_in_scc.len(), 3);
@@ -271,7 +264,7 @@ mod tests {
         graph.add_edge(node_4, node_6, ());
         graph.add_edge(node_6, node_5, ());
         graph.add_edge(node_5, node_4, ());
-        let result = kosaraju_scc_with_filter(&graph, |_| true, |_| true);
+        let result = kosaraju_scc_with_filter(&graph, node_0, |_| true, |_| true);
         assert_eq!(result.len(), 2);
         let node_0_in_scc = result.iter().find(|scc| scc.contains(&node_0)).unwrap();
         assert_eq!(node_0_in_scc.len(), 1);
@@ -296,10 +289,11 @@ mod tests {
         graph.add_edge(node_6, node_1, ());
         graph.add_edge(node_2, node_7, ());
         graph.add_edge(node_7, node_6, ());
-        let result = kosaraju_scc_with_filter(&graph, |_| true, |_| true);
+        let result = kosaraju_scc_with_filter(&graph, node_0, |_| true, |_| true);
         assert_eq!(result.len(), 1);
         let result = kosaraju_scc_with_filter(
             &graph,
+            node_0,
             |_| true,
             |edge| {
                 let (from, to) = graph.edge_endpoints(edge).unwrap();
@@ -309,8 +303,6 @@ mod tests {
         assert_eq!(result.len(), 5);
         let node_2_in_scc = result.iter().find(|scc| scc.contains(&node_2)).unwrap();
         assert_eq!(node_2_in_scc.len(), 4);
-        let result = kosaraju_scc_with_filter(&graph, |node| node.index() != 0, |_| true);
-        assert_eq!(result.len(), 4);
         let node_2_in_scc = result.iter().find(|scc| scc.contains(&node_2)).unwrap();
         assert_eq!(node_2_in_scc.len(), 4);
 
@@ -341,7 +333,7 @@ mod tests {
         graph.add_edge(node_4, node_9, ());
         graph.add_edge(node_8, node_3, ());
         graph.add_edge(node_5, node_10, ());
-        let result = kosaraju_scc_with_filter(&graph, |_| true, |_| true);
+        let result = kosaraju_scc_with_filter(&graph, node_0, |_| true, |_| true);
 
         assert_eq!(result.len(), 5);
         let node_2_in_scc = result.iter().find(|scc| scc.contains(&node_2)).unwrap();
