@@ -3,6 +3,7 @@ mod memory_to_register;
 mod remove_load_directly_after_store;
 mod remove_only_once_store;
 mod remove_unused_register;
+mod topological_sort;
 use crate::ir::editor::Editor;
 use enum_dispatch::enum_dispatch;
 use fix_irreducible::FixIrreducible;
