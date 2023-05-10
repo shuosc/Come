@@ -1,7 +1,12 @@
+use std::mem;
+
 use self::{
-    action::{InsertBasicBlock, InsertStatement, IsAction, RemoveStatement, RenameLocal},
+    action::{
+        InsertBasicBlock, InsertStatement, IsAction, RemoveBasicBlock, RemoveStatement, RenameLocal,
+    },
     analyzer::{BindedAnalyzer, IsAnalyzer},
 };
+use crate::ir::function::basic_block::BasicBlock;
 
 use super::{
     function::{formalize, FunctionDefinitionIndex},
@@ -81,5 +86,43 @@ impl Editor {
     pub fn create_basic_block(&mut self, name: String) -> usize {
         self.perform_action(InsertBasicBlock::back_of(name));
         self.content.content.len() - 1
+    }
+
+    pub fn remove_basic_block(&mut self, index: impl Into<usize>) -> BasicBlock {
+        let index = index.into();
+        let origin_content = mem::take(&mut self.content.content[index]);
+        self.perform_action(RemoveBasicBlock::new(index));
+        origin_content
+    }
+
+    pub fn replace_basic_block(
+        &mut self,
+        index: impl Into<usize>,
+        block: BasicBlock,
+    ) -> BasicBlock {
+        let index = index.into();
+        let removed_origin = self.remove_basic_block(index);
+        self.perform_action(
+            InsertBasicBlock::at_index(index, block.name.unwrap()).set_content(block.content),
+        );
+        removed_origin
+    }
+    pub fn swap_basic_block(&mut self, index0: impl Into<usize>, index1: impl Into<usize>) {
+        let index0 = index0.into();
+        let index1 = index1.into();
+        if index1 < index0 {
+            self.swap_basic_block(index1, index0)
+        } else {
+            let block0 = self.remove_basic_block(index0);
+            let block1 = self.remove_basic_block(index1 - 1);
+            self.perform_action(
+                InsertBasicBlock::at_index(index0, block1.name.unwrap())
+                    .set_content(block1.content),
+            );
+            self.perform_action(
+                InsertBasicBlock::at_index(index1, block0.name.unwrap())
+                    .set_content(block0.content),
+            );
+        }
     }
 }
