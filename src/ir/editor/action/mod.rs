@@ -5,10 +5,12 @@ use enum_dispatch::enum_dispatch;
 use crate::ir::FunctionDefinition;
 mod insert_basic_block;
 mod insert_statement;
+mod remove_basic_block;
 mod remove_statement;
 mod rename_local;
 pub use insert_basic_block::InsertBasicBlock;
 pub use insert_statement::InsertStatement;
+pub use remove_basic_block::RemoveBasicBlock;
 pub use remove_statement::RemoveStatement;
 pub use rename_local::RenameLocal;
 
@@ -24,6 +26,7 @@ pub enum Action {
     RemoveStatement,
     RenameLocal,
     InsertBasicBlock,
+    RemoveBasicBlock,
 }
 
 impl Display for Action {
@@ -33,6 +36,7 @@ impl Display for Action {
             Action::RemoveStatement(action) => write!(f, "{action}"),
             Action::RenameLocal(action) => write!(f, "{action}"),
             Action::InsertBasicBlock(action) => write!(f, "{action}"),
+            Action::RemoveBasicBlock(action) => write!(f, "{action}"),
         }
     }
 }

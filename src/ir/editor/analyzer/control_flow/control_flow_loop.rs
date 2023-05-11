@@ -111,6 +111,37 @@ impl Loop {
             self.entries.iter().map(ToString::to_string).join("_")
         )
     }
+
+    pub fn smallest_loop_node_in(&self, node: NodeIndex<usize>) -> Option<&Loop> {
+        let found_node = self
+            .content
+            .iter()
+            .filter_map(|it| {
+                if let LoopContent::Node(node) = it {
+                    Some(*node)
+                } else {
+                    None
+                }
+            })
+            .find(|&it| it == node.index());
+        if found_node.is_some() {
+            return Some(self);
+        }
+        self.content
+            .iter()
+            .filter_map(|it| match it {
+                LoopContent::SubLoop(sub_loop) => Some(sub_loop),
+                LoopContent::Node(_) => None,
+            })
+            .find_map(|it| it.smallest_loop_node_in(node))
+    }
+
+    pub fn is_in_loop(&self, node: NodeIndex<usize>) -> bool {
+        self.content.iter().any(|it| match it {
+            LoopContent::SubLoop(sub_loop) => sub_loop.is_in_loop(node),
+            LoopContent::Node(n) => node.index() == *n,
+        })
+    }
 }
 
 #[cfg(test)]

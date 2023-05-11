@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::ir::function::basic_block::BasicBlock;
+use crate::ir::{self, function::basic_block::BasicBlock};
 
 use super::IsAction;
 
@@ -23,16 +23,19 @@ impl Display for InsertPosition {
 pub struct InsertBasicBlock {
     pub position: InsertPosition,
     pub name: String,
+    pub content: Vec<ir::statement::IRStatement>,
 }
 
 impl IsAction for InsertBasicBlock {
     fn perform_on_function(self, ir: &mut crate::ir::FunctionDefinition) {
+        let mut block = BasicBlock::new(self.name);
+        block.content = self.content;
         match self.position {
             InsertPosition::Back => {
-                ir.content.push(BasicBlock::new(self.name));
+                ir.content.push(block);
             }
             InsertPosition::Index(index) => {
-                ir.content.insert(index, BasicBlock::new(self.name));
+                ir.content.insert(index, block);
             }
         }
     }
@@ -49,12 +52,18 @@ impl InsertBasicBlock {
         Self {
             position: InsertPosition::Index(index.into()),
             name,
+            content: Vec::new(),
         }
     }
     pub fn back_of(name: String) -> Self {
         Self {
             position: InsertPosition::Back,
             name,
+            content: Vec::new(),
         }
+    }
+    pub fn set_content(mut self, content: Vec<ir::statement::IRStatement>) -> Self {
+        self.content = content;
+        self
     }
 }
