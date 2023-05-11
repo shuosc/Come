@@ -94,7 +94,6 @@ mod tests {
     use crate::{
         ir::{
             self,
-            analyzer::IsAnalyzer,
             function::{basic_block::BasicBlock, test_util::*},
             optimize::pass::IsPass,
             statement::Ret,
@@ -103,7 +102,7 @@ mod tests {
         utility::data_type,
     };
 
-    use super::{topological_order, TopologicalSort};
+    use super::TopologicalSort;
 
     #[test]
     fn test_topological_order() {
@@ -181,13 +180,35 @@ mod tests {
             ],
         };
         let mut editor = ir::editor::Editor::new(function_definition);
-        let analyzer = editor.analyzer.bind(&editor.content);
-        let graph = analyzer.control_flow_graph();
-        let loops = graph.loops();
-        let order = topological_order(graph.graph(), &loops);
-        dbg!(order);
         let pass = TopologicalSort;
         pass.run(&mut editor);
-        println!("{}", editor.content);
+        assert_eq!(editor.content.content[0].name, Some("bb0".to_string()));
+        let bb1_pos = editor
+            .content
+            .content
+            .iter()
+            .position(|it| it.name == Some("bb1".to_string()))
+            .unwrap();
+        let bb2_pos = editor
+            .content
+            .content
+            .iter()
+            .position(|it| it.name == Some("bb2".to_string()))
+            .unwrap();
+        let bb5_pos = editor
+            .content
+            .content
+            .iter()
+            .position(|it| it.name == Some("bb5".to_string()))
+            .unwrap();
+        assert!(bb1_pos < bb2_pos);
+        assert!(bb2_pos < bb5_pos);
+        let bb3_pos = editor
+            .content
+            .content
+            .iter()
+            .position(|it| it.name == Some("bb3".to_string()))
+            .unwrap();
+        assert_eq!(bb2_pos + 1, bb3_pos);
     }
 }
