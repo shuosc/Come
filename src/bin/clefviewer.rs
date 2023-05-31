@@ -7,7 +7,7 @@ use come::{backend::riscv::simple_instruction, binary_format::clef::Clef};
 use shadow_rs::shadow;
 shadow!(build);
 
-/// SHUOSC assembler.
+/// clef format file information viewer.
 #[derive(Parser, Debug)]
 #[command(version, long_version = build::CLAP_LONG_VERSION, about, long_about = None)]
 struct Args {

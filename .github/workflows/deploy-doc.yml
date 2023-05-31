@@ -6,6 +6,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: "sccache"
 
 permissions:
   contents: read
@@ -26,7 +27,16 @@ jobs:
     - uses: actions/checkout@v3
       with:
         submodules: recursive
-    - name: Build only 
+    - name: Run sccache-cache
+      uses: mozilla-actions/sccache-action@v0.0.3
+    - name: Install wasm-pack
+      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+    - name: Build wasm packages
+      working-directory: ./crates/control-flow-graph-wasm
+      run: wasm-pack build --target web --release
+    - name: Move wasm packages
+      run: mv -f ./crates/control-flow-graph-wasm/pkg/* ./doc/static/tools/graph-editor/
+    - name: Build site 
       run: docker run -u "$(id -u):$(id -g)" -v $PWD/doc:/app --workdir /app ghcr.io/getzola/zola:v0.16.0 build
     - name: Build crate doc
       run: cargo doc --workspace --document-private-items --all-features -r

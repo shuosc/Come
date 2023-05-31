@@ -18,7 +18,7 @@ pub fn parse(code: &str) -> IResult<&str, JalForm> {
 }
 impl IsParamTransformer for JalForm {
     fn param_to_instruction_part(&self, _offset: u64, param: &Param) -> BitVec<u32> {
-        let param_bits_store = param.unwrap_immediate() as u64;
+        let param_bits_store = param.unwrap_immediate() as u32;
         let param_bits = param_bits_store.view_bits::<Lsb0>();
         let mut instruction_part = BitVec::new();
         instruction_part.extend_from_bitslice(&param_bits[12..20]);
