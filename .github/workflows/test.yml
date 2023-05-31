@@ -19,8 +19,8 @@ jobs:
     - name: Run sccache-cache
       uses: mozilla-actions/sccache-action@v0.0.3
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --all-features
     - name: Run unit tests
-      run: cargo test --verbose
+      run: cargo test
     - name: Run integration tests
       run: python3 ./integration-test/integration_test.py
