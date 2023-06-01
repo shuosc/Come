@@ -70,7 +70,7 @@ fn topological_order_dfs(
             return 0;
         }
         // we should visit all nodes in this loop before the others
-        if let Some(in_loop) = in_loop && in_loop.is_in_loop(*to_visit_node) {
+        if let Some(in_loop) = in_loop && in_loop.is_node_in(*to_visit_node) {
             return 1;
         }
         2
