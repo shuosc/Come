@@ -4,7 +4,7 @@ use itertools::Itertools;
 use petgraph::prelude::*;
 
 use crate::ir::{
-    analyzer::{IsAnalyzer, Loop},
+    analyzer::{BindedControlFlowGraph, IsAnalyzer, Loop},
     optimize::pass::fix_irreducible::FixIrreducible,
 };
 
@@ -17,8 +17,7 @@ impl IsPass for TopologicalSort {
         let analyzer = editor.analyzer.bind(&editor.content);
         let graph = analyzer.control_flow_graph();
         let loops = graph.loops();
-        let graph = graph.graph();
-        let content: Vec<_> = topological_order(graph, &loops)
+        let content: Vec<_> = topological_order(&graph, &loops)
             .into_iter()
             .map(|it| mem::take(&mut editor.content.content[it]))
             .collect();
@@ -35,54 +34,58 @@ impl IsPass for TopologicalSort {
 }
 
 fn topological_order_dfs(
-    graph: &DiGraph<(), (), usize>,
+    graph: &BindedControlFlowGraph,
     top_level: &Loop,
     current_at: NodeIndex<usize>,
+    visited: &mut Vec<NodeIndex<usize>>,
     result: &mut Vec<NodeIndex<usize>>,
 ) {
-    if result.contains(&current_at) {
+    if visited.contains(&current_at) {
         return;
     }
-    result.push(current_at);
+    visited.push(current_at);
     let in_loop = top_level.smallest_loop_node_in(current_at);
-    assert!({
-        if let Some(in_loop) = in_loop {
-            if let Some(&root) = in_loop.entries.first() {
-                let root: NodeIndex<usize> = root.into();
-                result.contains(&root)
-            } else {
-                true
-            }
-        } else {
-            true
-        }
-    });
     let mut to_visit = graph
+        .graph()
         .neighbors_directed(current_at, Direction::Outgoing)
         .filter(|it| !result.contains(it))
         .collect::<Vec<_>>();
-    to_visit.sort_unstable();
     to_visit.sort_by_cached_key(|to_visit_node| {
-        let forward_of_to_visit_node =
-            graph.neighbors_directed(*to_visit_node, Direction::Incoming);
+        let forward_of_to_visit_node = graph
+            .graph()
+            .neighbors_directed(*to_visit_node, Direction::Incoming)
+            .filter(|forward_node| {
+                !graph
+                    .dominates(to_visit_node.index())
+                    .contains(&forward_node.index())
+            });
         // first visit those nodes which current_at is the only parent of to_visit_node
-        if forward_of_to_visit_node.count() == 1 {
-            return 0;
+        if forward_of_to_visit_node.clone().count() == 1 {
+            let forward_node = forward_of_to_visit_node.into_iter().next().unwrap();
+            let at_index = graph
+                .graph()
+                .neighbors_directed(forward_node, Direction::Outgoing)
+                .position(|it| it == *to_visit_node)
+                .unwrap();
+            return 2 + at_index;
         }
         // we should visit all nodes in this loop before the others
-        if let Some(in_loop) = in_loop && in_loop.is_in_loop(*to_visit_node) {
+        if let Some(in_loop) = in_loop && in_loop.is_node_in(*to_visit_node) {
             return 1;
         }
-        2
+        0
     });
     for to_visit_node in to_visit {
-        topological_order_dfs(graph, top_level, to_visit_node, result);
+        topological_order_dfs(graph, top_level, to_visit_node, visited, result);
     }
+    result.push(current_at);
 }
 
-pub fn topological_order(graph: &DiGraph<(), (), usize>, top_level: &Loop) -> Vec<usize> {
+pub fn topological_order(graph: &BindedControlFlowGraph, top_level: &Loop) -> Vec<usize> {
     let mut order = vec![];
-    topological_order_dfs(graph, top_level, 0.into(), &mut order);
+    let mut visited = vec![];
+    topological_order_dfs(graph, top_level, 0.into(), &mut visited, &mut order);
+    order.reverse();
     let mut order: Vec<usize> = order.into_iter().map(NodeIndex::index).collect();
     let exit_block_position = order.iter().position_max().unwrap();
     order.remove(exit_block_position);
@@ -210,5 +213,19 @@ mod tests {
             .position(|it| it.name == Some("bb3".to_string()))
             .unwrap();
         assert_eq!(bb2_pos + 1, bb3_pos);
+        let bb14_pos = editor
+            .content
+            .content
+            .iter()
+            .position(|it| it.name == Some("bb14".to_string()))
+            .unwrap();
+        let bb13_pos = editor
+            .content
+            .content
+            .iter()
+            .position(|it| it.name == Some("bb13".to_string()))
+            .unwrap();
+        assert!(bb1_pos < bb14_pos);
+        assert!(bb13_pos < bb14_pos);
     }
 }

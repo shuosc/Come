@@ -8,6 +8,16 @@ pub enum LoopContent {
     SubLoop(Box<Loop>),
     Node(usize),
 }
+
+impl LoopContent {
+    pub fn is_node_in(&self, node: NodeIndex<usize>) -> bool {
+        match self {
+            LoopContent::SubLoop(it) => it.is_node_in(node),
+            LoopContent::Node(it) => node.index() == *it,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Loop {
     pub entries: Vec<usize>,
@@ -54,7 +64,7 @@ impl Loop {
                     .collect(),
             };
         }
-        let content = sccs
+        let mut content: Vec<_> = sccs
             .into_iter()
             .map(|mut scc| {
                 if scc.len() == 1 {
@@ -65,6 +75,11 @@ impl Loop {
                 }
             })
             .collect();
+        for entry in &entries {
+            if !content.iter().any(|it| it.is_node_in(*entry)) {
+                content.push(LoopContent::Node(entry.index()));
+            }
+        }
         Self {
             entries: entries.into_iter().map(|it| it.index()).collect(),
             content,
@@ -136,11 +151,21 @@ impl Loop {
             .find_map(|it| it.smallest_loop_node_in(node))
     }
 
-    pub fn is_in_loop(&self, node: NodeIndex<usize>) -> bool {
+    pub fn is_node_in(&self, node: NodeIndex<usize>) -> bool {
         self.content.iter().any(|it| match it {
-            LoopContent::SubLoop(sub_loop) => sub_loop.is_in_loop(node),
+            LoopContent::SubLoop(sub_loop) => sub_loop.is_node_in(node),
             LoopContent::Node(n) => node.index() == *n,
         })
+    }
+
+    pub fn node_count(&self) -> usize {
+        self.content
+            .iter()
+            .map(|it| match it {
+                LoopContent::SubLoop(sub_loop) => sub_loop.node_count(),
+                LoopContent::Node(_) => 1,
+            })
+            .sum()
     }
 }
 
