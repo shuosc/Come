@@ -59,8 +59,7 @@ impl Editor {
     ) {
         let mut indexes = indexes.into_iter().collect::<Vec<_>>();
         indexes.sort();
-        while !indexes.is_empty() {
-            let index = indexes.pop().unwrap();
+        while let Some(index) = indexes.pop() {
             self.remove_statement(index);
         }
     }

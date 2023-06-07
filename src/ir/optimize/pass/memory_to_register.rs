@@ -71,8 +71,7 @@ fn insert_phi_positions(
         let mut pending_bb_indexes = memory_access_info.store.iter().map(|it| it.0).collect_vec();
         pending_bb_indexes.dedup();
         let mut done_bb_index = Vec::new();
-        while !pending_bb_indexes.is_empty() {
-            let considering_bb_index = pending_bb_indexes.pop().unwrap();
+        while let Some(considering_bb_index) = pending_bb_indexes.pop() {
             done_bb_index.push(considering_bb_index);
             let dominator_frontier_bb_indexes =
                 control_flow_graph.dominance_frontier(considering_bb_index);
