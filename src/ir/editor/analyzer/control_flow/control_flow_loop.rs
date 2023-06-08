@@ -157,6 +157,16 @@ impl Loop {
             LoopContent::Node(n) => node.index() == *n,
         })
     }
+
+    pub fn node_count(&self) -> usize {
+        self.content
+            .iter()
+            .map(|it| match it {
+                LoopContent::SubLoop(sub_loop) => sub_loop.node_count(),
+                LoopContent::Node(_) => 1,
+            })
+            .sum()
+    }
 }
 
 #[cfg(test)]
@@ -206,6 +216,5 @@ mod tests {
         assert_eq!(inner_loop.entries.len(), 1);
         assert_eq!(inner_loop.entries[0], 7);
         assert_eq!(inner_loop.content.len(), 5);
-        dbg!(inner_loop);
     }
 }

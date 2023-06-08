@@ -2,7 +2,7 @@ use crate::ir::{self, FunctionDefinition};
 
 use self::register_usage::RegisterUsageAnalyzer;
 pub use self::{
-    control_flow::{BindedControlFlowGraph, ControlFlowGraph, Loop},
+    control_flow::{BindedControlFlowGraph, ControlFlowGraph, Loop, LoopContent},
     memory_usage::{BindedMemoryUsage, MemoryUsage},
     register_usage::{BindedRegisterUsage, BindedRegisterUsageAnalyzer},
 };
@@ -36,7 +36,7 @@ impl Analyzer {
     }
 }
 pub struct BindedAnalyzer<'item, 'bind: 'item> {
-    bind_on: &'bind FunctionDefinition,
+    pub bind_on: &'bind FunctionDefinition,
     item: &'item Analyzer,
 }
 

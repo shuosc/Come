@@ -7,7 +7,10 @@ use std::{
 use bimap::BiMap;
 use itertools::Itertools;
 use petgraph::{
-    algo::{self, dominators::simple_fast},
+    algo::{
+        self,
+        dominators::{simple_fast, Dominators},
+    },
     prelude::*,
 };
 
@@ -25,6 +28,7 @@ pub struct ControlFlowGraphContent {
     graph: DiGraph<(), (), usize>,
     frontiers: HashMap<usize, Vec<usize>>,
     bb_name_index_map: BiMap<usize, String>,
+    dominators: Dominators<NodeIndex<usize>>,
     // fixme: remove this refcell!
     from_to_may_pass_blocks: RefCell<HashMap<(usize, usize), Vec<usize>>>,
 }
@@ -73,6 +77,7 @@ impl ControlFlowGraphContent {
         Self {
             graph,
             frontiers,
+            dominators: dorminators,
             bb_name_index_map,
             from_to_may_pass_blocks: RefCell::new(HashMap::new()),
         }
@@ -81,6 +86,31 @@ impl ControlFlowGraphContent {
     /// [Dorminance Frontier](https://en.wikipedia.org/wiki/Dominator_(graph_theory)) of basic block indexed by `bb_index`.
     pub fn dominance_frontier(&self, bb_index: usize) -> &[usize] {
         self.frontiers.get(&bb_index).unwrap()
+    }
+
+    fn dominates_calculate(&self, visiting: usize, visited: &mut Vec<usize>) {
+        if visited.contains(&visiting) {
+            return;
+        }
+        visited.push(visiting);
+        let mut imm_dominates: Vec<usize> = self.immediately_dominates(visiting);
+        imm_dominates.retain(|it| !visited.contains(it));
+        for it in imm_dominates {
+            self.dominates_calculate(it, visited);
+        }
+    }
+
+    fn immediately_dominates(&self, node: usize) -> Vec<usize> {
+        self.dominators
+            .immediately_dominated_by(node.into())
+            .map(|it| it.index() as usize)
+            .collect()
+    }
+
+    pub fn dominates(&self, node: usize) -> Vec<usize> {
+        let mut visited = Vec::new();
+        self.dominates_calculate(node, &mut visited);
+        visited
     }
 
     /// Get the index of basic block named `name`.
@@ -139,6 +169,9 @@ impl ControlFlowGraph {
     ) -> Ref<Vec<usize>> {
         self.content(content).may_pass_blocks(from, to)
     }
+    fn dominate(&self, content: &ir::FunctionDefinition, bb_index: usize) -> Vec<usize> {
+        self.content(content).dominates(bb_index)
+    }
     // todo: cache it
     fn loops(&self, content: &FunctionDefinition) -> Loop {
         let graph = &self.content(content).graph;
@@ -170,6 +203,9 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
     }
     pub fn graph(&self) -> &DiGraph<(), (), usize> {
         &self.item.content(self.bind_on).graph
+    }
+    pub fn dominates(&self, bb_index: usize) -> Vec<usize> {
+        self.item.dominate(self.bind_on, bb_index)
     }
 }
 
