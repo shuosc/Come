@@ -29,7 +29,7 @@ pub use quantity::RegisterName;
 pub use type_definition::TypeDefinition;
 use type_definition::TypeDefinitionMapping;
 
-mod editor;
+pub mod editor;
 use self::function::parameter::Parameter;
 pub use editor::analyzer;
 
