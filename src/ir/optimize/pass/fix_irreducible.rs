@@ -48,7 +48,9 @@ fn fold_entries_once(
             let mut last_bb_last_statement =
                 editor.content[last.index()].content.last().unwrap().clone();
             editor.remove_statement((last.index(), last_bb_size - 1));
-            let IRStatement::Branch(branch) = &mut last_bb_last_statement else { unreachable!() };
+            let IRStatement::Branch(branch) = &mut last_bb_last_statement else {
+                unreachable!()
+            };
             branch.failure_label = new_node_name.clone();
             editor.push_back_statement(last.index(), last_bb_last_statement);
         }
@@ -79,7 +81,9 @@ fn fold_entries_once(
         let mut last_bb_last_statement =
             editor.content[last.index()].content.last().unwrap().clone();
         editor.remove_statement((last.index(), last_bb_size - 1));
-        let IRStatement::Branch(branch) = &mut last_bb_last_statement else { unreachable!() };
+        let IRStatement::Branch(branch) = &mut last_bb_last_statement else {
+            unreachable!()
+        };
         let (branch_to, blocks_into_branch_to) = entries.pop().unwrap();
         let branch_to_bb_name = editor.content[branch_to.index()].name.clone().unwrap();
         branch.failure_label = branch_to_bb_name;
