@@ -75,7 +75,7 @@ impl DominatorRelation {
             self.dominates_calculate(it, visited);
         }
     }
-    pub fn dorminates(&self, node: u32) -> Vec<u32> {
+    pub fn dominates(&self, node: u32) -> Vec<u32> {
         let mut visited = Vec::new();
         self.dominates_calculate(node, &mut visited);
         visited

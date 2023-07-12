@@ -181,7 +181,7 @@ impl ControlFlowGraph {
 }
 
 pub struct BindedControlFlowGraph<'item, 'bind: 'item> {
-    bind_on: &'bind FunctionDefinition,
+    pub bind_on: &'bind FunctionDefinition,
     item: &'item ControlFlowGraph,
 }
 
@@ -206,6 +206,30 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
     }
     pub fn dominates(&self, bb_index: usize) -> Vec<usize> {
         self.item.dominate(self.bind_on, bb_index)
+    }
+    pub fn predecessor(&self, bb_index: usize) -> Vec<usize> {
+        self.graph()
+            .neighbors_directed(bb_index.into(), Direction::Incoming)
+            .map(|it| it.index())
+            .collect()
+    }
+
+    pub fn successors(&self, bb_index: usize) -> Vec<usize> {
+        self.graph()
+            .neighbors_directed(bb_index.into(), Direction::Incoming)
+            .map(|it| it.index())
+            .collect()
+    }
+
+    pub fn not_dominate_successors(&self, bb_index: usize) -> Vec<usize> {
+        let successors = self
+            .graph()
+            .neighbors_directed(bb_index.into(), Direction::Incoming)
+            .map(|it| it.index());
+        let nodes_dominated = self.dominates(bb_index);
+        successors
+            .filter(|it| !nodes_dominated.contains(it))
+            .collect()
     }
 }
 

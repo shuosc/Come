@@ -10,6 +10,7 @@ use crate::ir::{
 
 use super::IsPass;
 
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TopologicalSort;
 
 impl IsPass for TopologicalSort {
@@ -87,6 +88,7 @@ pub fn topological_order(graph: &BindedControlFlowGraph, top_level: &Loop) -> Ve
     topological_order_dfs(graph, top_level, 0.into(), &mut visited, &mut order);
     order.reverse();
     let mut order: Vec<usize> = order.into_iter().map(NodeIndex::index).collect();
+    dbg!(&order);
     let exit_block_position = order.iter().position_max().unwrap();
     order.remove(exit_block_position);
     order

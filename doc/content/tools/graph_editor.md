@@ -162,9 +162,9 @@ function onNodeMouseEnter(node, event) {
         let hoveringNodeId = parseInt(hoveringNode.getAttribute("id").slice("node-".length));
         let dorminatorInfo = model.dominator_relation();
         if (dorminatorInfo) {
-            let dorminates = dorminatorInfo.dorminates(hoveringNodeId);
+            let dominates = dorminatorInfo.dominates(hoveringNodeId);
             let dominance_frontiers = dorminatorInfo.dominance_frontiers(model, hoveringNodeId);
-            for (let dorminate of dorminates) {
+            for (let dorminate of dominates) {
                 let idText = `node-${dorminate}`;
                 let node = document.getElementById(idText);
                 node.childNodes[0].setAttribute("stroke", "none");
@@ -180,9 +180,9 @@ function onNodeMouseEnter(node, event) {
     let hoveringNodeId = parseInt(hoveringNode.getAttribute("id").slice("node-".length));
     let dorminatorInfo = model.dominator_relation();
     if (dorminatorInfo) {
-        let dorminates = dorminatorInfo.dorminates(hoveringNodeId);
+        let dominates = dorminatorInfo.dominates(hoveringNodeId);
         let dominance_frontiers = dorminatorInfo.dominance_frontiers(model, hoveringNodeId);
-        for (let dorminate of dorminates) {
+        for (let dorminate of dominates) {
             let idText = `node-${dorminate}`;
             let node = document.getElementById(idText);
             node.childNodes[0].setAttribute("stroke", "#00FF33");
@@ -199,9 +199,9 @@ function onNodeMouseLeave(node, event) {
     let hoveringNodeId = parseInt(hoveringNode.getAttribute("id").slice("node-".length));
     let dorminatorInfo = model.dominator_relation();
     if (dorminatorInfo) {
-        let dorminates = dorminatorInfo.dorminates(hoveringNodeId);
+        let dominates = dorminatorInfo.dominates(hoveringNodeId);
         let dominance_frontiers = dorminatorInfo.dominance_frontiers(model, hoveringNodeId);
-        for (let dorminate of dorminates) {
+        for (let dorminate of dominates) {
             let idText = `node-${dorminate}`;
             let node = document.getElementById(idText);
             node.childNodes[0].setAttribute("stroke", "none");

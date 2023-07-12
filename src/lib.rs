@@ -1,4 +1,5 @@
 #![feature(lazy_cell)]
+#![feature(if_let_guard)]
 #![feature(let_chains)]
 #![feature(hash_drain_filter)]
 #![feature(exact_size_is_empty)]
