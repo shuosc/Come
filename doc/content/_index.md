@@ -18,6 +18,13 @@ section = "docs"
 url = "/docs/getting-started/introduction/"
 weight = 10
 
+
+[[extra.menu.main]]
+name = "Rules"
+section = "rules"
+url = "/rules/naming/"
+weight = 10
+
 [[extra.menu.main]]
 name = "Crate doc"
 section = "crate-doc"
