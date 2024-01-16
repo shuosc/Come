@@ -294,7 +294,7 @@ impl IsPass for FixIrreducible {
             let binded_analyzer = editor.binded_analyzer();
             let control_flow_graph = binded_analyzer.control_flow_graph();
             let (mut entries, loop_name) = if let Some(irreducible_loop) =
-                control_flow_graph.loops().first_irreducible_loop()
+                control_flow_graph.sccs().first_irreducible_loop()
             {
                 (
                     irreducible_loop.entry_info(control_flow_graph.graph()),
@@ -387,7 +387,7 @@ mod tests {
         assert_eq!(editor.content.content.len(), 8);
         let analyzer = editor.binded_analyzer();
         let cfg = analyzer.control_flow_graph();
-        assert_eq!(cfg.loops().content.len(), 5);
+        assert_eq!(cfg.sccs().content.len(), 5);
     }
 
     #[test]

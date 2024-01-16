@@ -20,7 +20,10 @@ use crate::{
 };
 
 use super::IsAnalyzer;
-pub use control_flow_loop::{Loop, LoopContent};
+pub use control_flow_loop::{Scc, SccContent};
+
+mod scc_new;
+pub use scc_new::BindedScc;
 
 /// [`ControlFlowGraph`] is the control flow graph and related infomation of a function.
 #[derive(Debug)]
@@ -173,10 +176,10 @@ impl ControlFlowGraph {
         self.content(content).dominates(bb_index)
     }
     // todo: cache it
-    fn loops(&self, content: &FunctionDefinition) -> Loop {
+    fn sccs(&self, content: &FunctionDefinition) -> Scc {
         let graph = &self.content(content).graph;
         let nodes: Vec<_> = graph.node_indices().collect();
-        Loop::new(graph, &nodes, &[])
+        Scc::new(graph, &nodes, &[])
     }
 }
 
@@ -198,8 +201,8 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
     pub fn may_pass_blocks(&self, from: usize, to: usize) -> Ref<Vec<usize>> {
         self.item.may_pass_blocks(self.bind_on, from, to)
     }
-    pub fn loops(&self) -> Loop {
-        self.item.loops(self.bind_on)
+    pub fn sccs(&self) -> Scc {
+        self.item.sccs(self.bind_on)
     }
     pub fn graph(&self) -> &DiGraph<(), (), usize> {
         &self.item.content(self.bind_on).graph
@@ -230,6 +233,12 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
         successors
             .filter(|it| !nodes_dominated.contains(it))
             .collect()
+    }
+
+    pub fn scc_new(&self) -> BindedScc<'_> {
+        let graph = &self.item.content(self.bind_on).graph;
+        let nodes = graph.node_indices().map(|it| it.index()).collect_vec();
+        BindedScc::new(graph, nodes.into_iter(), true)
     }
 }
 
@@ -323,13 +332,13 @@ mod tests {
                 },
             ],
         };
-        let loops = control_flow_graph.bind(&function_definition).loops();
-        assert!(loops.content.contains(&LoopContent::Node(0)));
-        assert!(loops.content.contains(&LoopContent::Node(9)));
+        let loops = control_flow_graph.bind(&function_definition).sccs();
+        assert!(loops.content.contains(&SccContent::Node(0)));
+        assert!(loops.content.contains(&SccContent::Node(9)));
         assert!(loops
             .content
             .iter()
-            .any(|it| if let LoopContent::SubLoop(subloop) = it {
+            .any(|it| if let SccContent::SubScc(subloop) = it {
                 subloop.entries.contains(&1)
             } else {
                 false
@@ -337,7 +346,7 @@ mod tests {
         assert!(loops
             .content
             .iter()
-            .any(|it| if let LoopContent::SubLoop(subloop) = it {
+            .any(|it| if let SccContent::SubScc(subloop) = it {
                 subloop.entries.contains(&2)
             } else {
                 false

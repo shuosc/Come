@@ -1,4 +1,5 @@
 mod fix_irreducible;
+mod fix_irreducible_new;
 mod memory_to_register;
 mod remove_load_directly_after_store;
 mod remove_only_once_store;

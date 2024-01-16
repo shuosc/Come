@@ -4,7 +4,7 @@ use itertools::Itertools;
 use petgraph::prelude::*;
 
 use crate::ir::{
-    analyzer::{BindedControlFlowGraph, IsAnalyzer, Loop},
+    analyzer::{BindedControlFlowGraph, IsAnalyzer, Scc},
     optimize::pass::fix_irreducible::FixIrreducible,
 };
 
@@ -17,7 +17,7 @@ impl IsPass for TopologicalSort {
     fn run(&self, editor: &mut crate::ir::editor::Editor) {
         let analyzer = editor.analyzer.bind(&editor.content);
         let graph = analyzer.control_flow_graph();
-        let loops = graph.loops();
+        let loops = graph.sccs();
         let content: Vec<_> = topological_order(&graph, &loops)
             .into_iter()
             .map(|it| mem::take(&mut editor.content.content[it]))
@@ -36,7 +36,7 @@ impl IsPass for TopologicalSort {
 
 fn topological_order_dfs(
     graph: &BindedControlFlowGraph,
-    top_level: &Loop,
+    top_level: &Scc,
     current_at: NodeIndex<usize>,
     visited: &mut Vec<NodeIndex<usize>>,
     result: &mut Vec<NodeIndex<usize>>,
@@ -82,7 +82,7 @@ fn topological_order_dfs(
     result.push(current_at);
 }
 
-pub fn topological_order(graph: &BindedControlFlowGraph, top_level: &Loop) -> Vec<usize> {
+pub fn topological_order(graph: &BindedControlFlowGraph, top_level: &Scc) -> Vec<usize> {
     let mut order = vec![];
     let mut visited = vec![];
     topological_order_dfs(graph, top_level, 0.into(), &mut visited, &mut order);

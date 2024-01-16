@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use crate::ir::{
-    analyzer::{self, BindedControlFlowGraph, LoopContent},
+    analyzer::{self, BindedControlFlowGraph, SccContent},
     statement::IRStatement,
 };
 
@@ -224,7 +224,7 @@ impl Iterator for ControlFlowNodesIter<'_> {
     }
 }
 
-fn fold_loop(current: &mut ControlFlowContent, loop_item: &analyzer::Loop) {
+fn fold_loop(current: &mut ControlFlowContent, loop_item: &analyzer::Scc) {
     let (to_remove_indexes, to_remove_items): (Vec<_>, Vec<_>) = current
         .nodes()
         .filter(|(_, n)| loop_item.is_node_in((*n).into()))
@@ -241,7 +241,7 @@ fn fold_loop(current: &mut ControlFlowContent, loop_item: &analyzer::Loop) {
     );
     *first = new_loop_item;
     for content in &loop_item.content {
-        if let LoopContent::SubLoop(subloop) = content {
+        if let SccContent::SubScc(subloop) = content {
             fold_loop(first, subloop);
         }
     }
@@ -463,12 +463,12 @@ mod tests {
             ControlFlowContent::new_node(3),
             ControlFlowContent::new_node(4),
         ]);
-        let loop_item = analyzer::Loop {
+        let loop_item = analyzer::Scc {
             entries: vec![1],
             content: vec![
-                analyzer::LoopContent::Node(1),
-                analyzer::LoopContent::Node(2),
-                analyzer::LoopContent::Node(3),
+                analyzer::SccContent::Node(1),
+                analyzer::SccContent::Node(2),
+                analyzer::SccContent::Node(3),
             ],
         };
         fold_loop(&mut content, &loop_item);
@@ -494,17 +494,17 @@ mod tests {
             ControlFlowContent::new_node(5),
             ControlFlowContent::new_node(6),
         ]);
-        let loop_item = analyzer::Loop {
+        let loop_item = analyzer::Scc {
             entries: vec![1],
             content: vec![
-                analyzer::LoopContent::Node(1),
-                analyzer::LoopContent::Node(2),
-                analyzer::LoopContent::SubLoop(Box::new(analyzer::Loop {
+                analyzer::SccContent::Node(1),
+                analyzer::SccContent::Node(2),
+                analyzer::SccContent::SubScc(Box::new(analyzer::Scc {
                     entries: vec![3],
                     content: vec![
-                        analyzer::LoopContent::Node(3),
-                        analyzer::LoopContent::Node(4),
-                        analyzer::LoopContent::Node(5),
+                        analyzer::SccContent::Node(3),
+                        analyzer::SccContent::Node(4),
+                        analyzer::SccContent::Node(5),
                     ],
                 })),
             ],

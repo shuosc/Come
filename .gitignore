@@ -104,3 +104,4 @@ Cargo.lock
 !integration-test/cases/*/expected/*.asm
 *.clef
 doc/public
+lcov.info

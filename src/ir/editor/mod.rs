@@ -124,4 +124,9 @@ impl Editor {
             );
         }
     }
+
+    pub fn direct_edit(&mut self, f: impl FnOnce(&mut super::FunctionDefinition)) {
+        f(&mut self.content);
+        self.analyzer.clear_all_cache();
+    }
 }

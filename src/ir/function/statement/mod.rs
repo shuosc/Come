@@ -148,7 +148,8 @@ impl fmt::Display for IRStatement {
 
 #[cfg(test)]
 pub mod test_util {
-    #![allow(clippy::borrow_interior_mutable_const)]
+
+    use crate::ir::function::basic_block::BasicBlock;
 
     use super::*;
 
@@ -192,5 +193,26 @@ pub mod test_util {
         source2: &str,
     ) -> IRStatement {
         phi::test_util::new(target, source1_bb, source1, source2_bb, source2).into()
+    }
+
+    pub fn jump_block(id: usize, to: usize) -> BasicBlock {
+        BasicBlock {
+            name: Some(format!("bb{}", id)),
+            content: vec![jump(&format!("bb{}", to))],
+        }
+    }
+
+    pub fn branch_block(id: usize, to1: usize, to2: usize) -> BasicBlock {
+        BasicBlock {
+            name: Some(format!("bb{}", id)),
+            content: vec![branch(&format!("bb{}", to1), &format!("bb{}", to2))],
+        }
+    }
+
+    pub fn ret_block(id: usize) -> BasicBlock {
+        BasicBlock {
+            name: Some(format!("bb{}", id)),
+            content: vec![Ret { value: None }.into()],
+        }
     }
 }

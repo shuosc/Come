@@ -87,6 +87,15 @@ impl fmt::Display for Integer {
 
 #[cfg(test)]
 #[allow(clippy::declare_interior_mutable_const)]
+pub const BOOL: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
+    Type::Integer(Integer {
+        signed: false,
+        width: 1,
+    })
+});
+
+#[cfg(test)]
+#[allow(clippy::declare_interior_mutable_const)]
 pub const I32: std::cell::LazyCell<Type> = std::cell::LazyCell::new(|| {
     Type::Integer(Integer {
         signed: true,

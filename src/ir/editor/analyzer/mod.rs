@@ -2,7 +2,7 @@ use crate::ir::{self, FunctionDefinition};
 
 use self::register_usage::RegisterUsageAnalyzer;
 pub use self::{
-    control_flow::{BindedControlFlowGraph, ControlFlowGraph, Loop, LoopContent},
+    control_flow::{BindedControlFlowGraph, BindedScc, ControlFlowGraph, Scc, SccContent},
     memory_usage::{BindedMemoryUsage, MemoryUsage},
     register_usage::{BindedRegisterUsage, BindedRegisterUsageAnalyzer},
 };
@@ -33,6 +33,11 @@ impl Analyzer {
             memory_usage: MemoryUsage::new(),
             control_flow_graph: ControlFlowGraph::new(),
         }
+    }
+
+    // todo: remove this when starting to care about performance
+    pub fn clear_all_cache(&mut self) {
+        *self = Self::new();
     }
 }
 pub struct BindedAnalyzer<'item, 'bind: 'item> {
