@@ -1,4 +1,4 @@
-use function::statement::{phi, BinaryCalculate};
+use function::statement::{phi, BinaryCalculate, Ret};
 
 use crate::{
     ir::{
@@ -448,7 +448,6 @@ fn test_fix_irreducible() {
     let mut editor = Editor::new(function_definition);
     let pass = FixIrreducible;
     pass.run(&mut editor);
-    println!("{}", editor.content);
     assert_eq!(editor.content.content.len(), 13);
     let guard1 = editor
         .content

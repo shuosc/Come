@@ -353,7 +353,7 @@ impl IsPass for FixIrreducible {
         while let Some(irreducible_scc) = editor
             .binded_analyzer()
             .control_flow_graph()
-            .scc_new()
+            .top_level_scc()
             .first_irreducible_sub_scc()
         {
             let analyzer = editor.binded_analyzer();

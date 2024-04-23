@@ -1,4 +1,3 @@
-mod control_flow_loop;
 use std::{
     cell::{OnceCell, Ref, RefCell},
     collections::HashMap,
@@ -19,11 +18,12 @@ use crate::{
     utility::{self},
 };
 
-use super::IsAnalyzer;
-pub use control_flow_loop::{Scc, SccContent};
+use self::scc::Scc;
 
-mod scc_new;
-pub use scc_new::BindedScc;
+use super::IsAnalyzer;
+pub use scc::BindedScc;
+
+mod scc;
 
 /// [`ControlFlowGraph`] is the control flow graph and related infomation of a function.
 #[derive(Debug)]
@@ -32,6 +32,7 @@ pub struct ControlFlowGraphContent {
     frontiers: HashMap<usize, Vec<usize>>,
     bb_name_index_map: BiMap<usize, String>,
     dominators: Dominators<NodeIndex<usize>>,
+    top_level_scc: Scc,
     // fixme: remove this refcell!
     from_to_may_pass_blocks: RefCell<HashMap<(usize, usize), Vec<usize>>>,
 }
@@ -83,6 +84,7 @@ impl ControlFlowGraphContent {
             dominators: dorminators,
             bb_name_index_map,
             from_to_may_pass_blocks: RefCell::new(HashMap::new()),
+            top_level_scc: Scc::new(0..function_definition.content.len(), true),
         }
     }
 
@@ -175,14 +177,44 @@ impl ControlFlowGraph {
     fn dominate(&self, content: &ir::FunctionDefinition, bb_index: usize) -> Vec<usize> {
         self.content(content).dominates(bb_index)
     }
-    // todo: cache it
-    fn sccs(&self, content: &FunctionDefinition) -> Scc {
-        let graph = &self.content(content).graph;
-        let nodes: Vec<_> = graph.node_indices().collect();
-        Scc::new(graph, &nodes, &[])
+    fn top_level_scc(&self, content: &FunctionDefinition) -> Scc {
+        self.content(content).top_level_scc.clone()
+    }
+    fn branch_direction(
+        &self,
+        content: &FunctionDefinition,
+        branch_block_index: usize,
+        target_block_index: usize,
+    ) -> bool {
+        let branch_block = &content[branch_block_index];
+        let target_block_name = self.basic_block_name_by_index(content, target_block_index);
+        let branch_statement = branch_block.content.last().unwrap().as_branch();
+        branch_statement.success_label == target_block_name
+    }
+    fn is_in_same_branch_side(
+        &self,
+        content: &FunctionDefinition,
+        branch_block_index: usize,
+        block1_index: usize,
+        block2_index: usize,
+    ) -> bool {
+        let branch_block = &content.content[branch_block_index];
+        let success_name = &branch_block
+            .content
+            .last()
+            .unwrap()
+            .as_branch()
+            .success_label;
+        let success_block_id = self.basic_block_index_by_name(content, &success_name);
+        let block1_under_success = self.dominate(content, success_block_id);
+        let block2_under_success = self.dominate(content, success_block_id);
+        let block1_under_success = block1_under_success.contains(&block1_index);
+        let block2_under_success = block2_under_success.contains(&block2_index);
+        block1_under_success == block2_under_success
     }
 }
 
+#[derive(Debug)]
 pub struct BindedControlFlowGraph<'item, 'bind: 'item> {
     pub bind_on: &'bind FunctionDefinition,
     item: &'item ControlFlowGraph,
@@ -201,8 +233,8 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
     pub fn may_pass_blocks(&self, from: usize, to: usize) -> Ref<Vec<usize>> {
         self.item.may_pass_blocks(self.bind_on, from, to)
     }
-    pub fn sccs(&self) -> Scc {
-        self.item.sccs(self.bind_on)
+    pub fn top_level_scc(&self) -> BindedScc<'_> {
+        self.item.top_level_scc(self.bind_on).bind(self.graph())
     }
     pub fn graph(&self) -> &DiGraph<(), (), usize> {
         &self.item.content(self.bind_on).graph
@@ -210,20 +242,21 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
     pub fn dominates(&self, bb_index: usize) -> Vec<usize> {
         self.item.dominate(self.bind_on, bb_index)
     }
+    pub fn is_dominated_by(&self, node: usize, dominator_suspect: usize) -> bool {
+        self.dominates(dominator_suspect).contains(&node)
+    }
     pub fn predecessor(&self, bb_index: usize) -> Vec<usize> {
         self.graph()
             .neighbors_directed(bb_index.into(), Direction::Incoming)
             .map(|it| it.index())
             .collect()
     }
-
     pub fn successors(&self, bb_index: usize) -> Vec<usize> {
         self.graph()
-            .neighbors_directed(bb_index.into(), Direction::Incoming)
+            .neighbors_directed(bb_index.into(), Direction::Outgoing)
             .map(|it| it.index())
             .collect()
     }
-
     pub fn not_dominate_successors(&self, bb_index: usize) -> Vec<usize> {
         let successors = self
             .graph()
@@ -234,11 +267,22 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
             .filter(|it| !nodes_dominated.contains(it))
             .collect()
     }
-
-    pub fn scc_new(&self) -> BindedScc<'_> {
-        let graph = &self.item.content(self.bind_on).graph;
-        let nodes = graph.node_indices().map(|it| it.index()).collect_vec();
-        BindedScc::new(graph, nodes.into_iter(), true)
+    pub fn branch_direction(&self, branch_block_index: usize, target_block_index: usize) -> bool {
+        self.item
+            .branch_direction(&self.bind_on, branch_block_index, target_block_index)
+    }
+    pub fn is_in_same_branch_side(
+        &self,
+        branch_block_index: usize,
+        block1_index: usize,
+        block2_index: usize,
+    ) -> bool {
+        self.item.is_in_same_branch_side(
+            &self.bind_on,
+            branch_block_index,
+            block1_index,
+            block2_index,
+        )
     }
 }
 
@@ -267,89 +311,4 @@ fn remove_unreachable_nodes(mut graph: DiGraph<(), (), usize>) -> DiGraph<(), ()
     }
     graph.retain_nodes(|_, it| reachable_nodes.contains(&it));
     graph
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        ir::{
-            function::{basic_block::BasicBlock, test_util::*},
-            statement::Ret,
-        },
-        utility::data_type,
-    };
-
-    #[test]
-    fn test_loop() {
-        let control_flow_graph = ControlFlowGraph::new();
-        let function_definition = FunctionDefinition {
-            header: ir::FunctionHeader {
-                name: "f".to_string(),
-                parameters: Vec::new(),
-                return_type: data_type::Type::None,
-            },
-            content: vec![
-                BasicBlock {
-                    name: Some("bb0".to_string()),
-                    content: vec![branch("bb1", "bb2")],
-                },
-                BasicBlock {
-                    name: Some("bb1".to_string()),
-                    content: vec![jump("bb3")],
-                },
-                BasicBlock {
-                    name: Some("bb2".to_string()),
-                    content: vec![jump("bb6")],
-                },
-                BasicBlock {
-                    name: Some("bb3".to_string()),
-                    content: vec![jump("bb4")],
-                },
-                BasicBlock {
-                    name: Some("bb4".to_string()),
-                    content: vec![branch("bb5", "bb9")],
-                },
-                BasicBlock {
-                    name: Some("bb5".to_string()),
-                    content: vec![branch("bb1", "bb3")],
-                },
-                BasicBlock {
-                    name: Some("bb6".to_string()),
-                    content: vec![branch("bb7", "bb8")],
-                },
-                BasicBlock {
-                    name: Some("bb7".to_string()),
-                    content: vec![jump("bb2")],
-                },
-                BasicBlock {
-                    name: Some("bb8".to_string()),
-                    content: vec![branch("bb7", "bb9")],
-                },
-                BasicBlock {
-                    name: Some("bb9".to_string()),
-                    content: vec![Ret { value: None }.into()],
-                },
-            ],
-        };
-        let loops = control_flow_graph.bind(&function_definition).sccs();
-        assert!(loops.content.contains(&SccContent::Node(0)));
-        assert!(loops.content.contains(&SccContent::Node(9)));
-        assert!(loops
-            .content
-            .iter()
-            .any(|it| if let SccContent::SubScc(subloop) = it {
-                subloop.entries.contains(&1)
-            } else {
-                false
-            }));
-        assert!(loops
-            .content
-            .iter()
-            .any(|it| if let SccContent::SubScc(subloop) = it {
-                subloop.entries.contains(&2)
-            } else {
-                false
-            }));
-    }
 }

@@ -1,5 +1,4 @@
 mod fix_irreducible;
-mod fix_irreducible_new;
 mod memory_to_register;
 mod remove_load_directly_after_store;
 mod remove_only_once_store;
@@ -12,8 +11,9 @@ use memory_to_register::MemoryToRegister;
 use remove_load_directly_after_store::RemoveLoadDirectlyAfterStore;
 use remove_only_once_store::RemoveOnlyOnceStore;
 use remove_unused_register::RemoveUnusedRegister;
-use std::str::FromStr;
 pub use topological_sort::TopologicalSort;
+
+use std::str::FromStr;
 /// This trait should be implemented by all passes which can do optimizing on ir function.
 #[enum_dispatch]
 pub trait IsPass {

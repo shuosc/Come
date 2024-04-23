@@ -1,535 +1,399 @@
-use itertools::Itertools;
-
-use crate::ir::{
-    analyzer::{self, BindedControlFlowGraph, SccContent},
-    statement::IRStatement,
+use itertools::{Either, Itertools};
+use std::{
+    collections::VecDeque,
+    fmt,
+    iter::zip,
+    ops::{Index, IndexMut},
+    path::Display,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ControlFlowContent {
-    Block(Vec<ControlFlowContent>),
-    If(Vec<ControlFlowContent>, Vec<ControlFlowContent>),
-    Loop(Vec<ControlFlowContent>),
-    Node(usize),
-}
+use crate::ir::{
+    analyzer::{BindedControlFlowGraph, BindedScc, ControlFlowGraph, IsAnalyzer},
+    statement::IRStatement,
+    FunctionDefinition,
+};
 
-impl ControlFlowContent {
-    pub fn new_block(content: Vec<ControlFlowContent>) -> Self {
-        Self::Block(content)
-    }
+use self::control_flow::{CFSelector, ControlFlowElement};
 
-    pub fn new_if(taken: Vec<ControlFlowContent>, untaken: Vec<ControlFlowContent>) -> Self {
-        Self::If(taken, untaken)
-    }
+mod control_flow;
 
-    pub fn new_loop(content: Vec<ControlFlowContent>) -> Self {
-        Self::Loop(content)
-    }
-
-    pub fn new_node(node: usize) -> Self {
-        Self::Node(node)
-    }
-
-    pub fn first_node(&self) -> usize {
-        match self {
-            ControlFlowContent::Block(content) | ControlFlowContent::Loop(content) => {
-                content.first().unwrap().first_node()
-            }
-            ControlFlowContent::If(taken, _untaken) => taken.first().unwrap().first_node(),
-            ControlFlowContent::Node(n) => *n,
-        }
-    }
-
-    pub fn get<T: Into<usize> + Clone>(&self, index: &[T]) -> Option<&Self> {
-        let current_index = index.get(0)?.clone();
-        let current_index = current_index.into();
-        let current = match self {
-            ControlFlowContent::Block(content) | ControlFlowContent::Loop(content) => {
-                content.get(current_index)
-            }
-            ControlFlowContent::If(taken, untaken) => taken
-                .get(current_index)
-                .or_else(|| untaken.get(current_index - taken.len())),
-            ControlFlowContent::Node(_) => {
-                if current_index == 0 {
-                    Some(self)
-                } else {
-                    return None;
-                }
-            }
-        };
-        let rest_index = &index[1..];
-        if rest_index.is_empty() {
-            current
-        } else {
-            current?.get(rest_index)
-        }
-    }
-
-    pub fn get_mut<T: Into<usize> + Clone>(&mut self, index: &[T]) -> Option<&mut Self> {
-        let current_index = index.get(0)?.clone();
-        let current_index = current_index.into();
-        let current = match self {
-            ControlFlowContent::Block(content) | ControlFlowContent::Loop(content) => {
-                content.get_mut(current_index)
-            }
-            ControlFlowContent::If(taken, untaken) => {
-                if current_index < taken.len() {
-                    taken.get_mut(current_index)
-                } else {
-                    untaken.get_mut(current_index - taken.len())
-                }
-            }
-            ControlFlowContent::Node(_) => {
-                if current_index == 0 {
-                    Some(self)
-                } else {
-                    return None;
-                }
-            }
-        };
-        let rest_index = &index[1..];
-        if rest_index.is_empty() {
-            current
-        } else {
-            current?.get_mut(rest_index)
-        }
-    }
-
-    pub fn contains(&self, node: usize) -> bool {
-        match self {
-            ControlFlowContent::Block(content) | ControlFlowContent::Loop(content) => {
-                content.iter().any(|it| it.contains(node))
-            }
-            ControlFlowContent::If(taken, untaken) => taken
-                .iter()
-                .chain(untaken.iter())
-                .any(|it| it.contains(node)),
-            ControlFlowContent::Node(n) => *n == node,
-        }
-    }
-
-    pub fn remove<T: Into<usize> + Clone>(&mut self, index: &[T]) -> Option<Self> {
-        if index.is_empty() {
-            None
-        } else if index.len() == 1 {
-            let index = index[0].clone().into();
-            match self {
-                ControlFlowContent::Block(content) | ControlFlowContent::Loop(content) => {
-                    Some(content.remove(index))
-                }
-                ControlFlowContent::If(taken, untaken) => {
-                    if index < taken.len() {
-                        Some(taken.remove(index))
-                    } else {
-                        Some(untaken.remove(index))
-                    }
-                }
-                ControlFlowContent::Node(n) => {
-                    panic!("unable to remove the {index}th element from node {n}")
-                }
-            }
-        } else {
-            self.get_mut(&[index[0].clone()])
-                .unwrap()
-                .remove(&index[1..])
-        }
-    }
-
-    pub fn position(&self, item: &Self) -> Option<Vec<usize>> {
-        match self {
-            ControlFlowContent::Block(content) | ControlFlowContent::Loop(content) => {
-                for (i, subblock) in content.iter().enumerate() {
-                    let mut potential_result = vec![i];
-                    if subblock == item {
-                        return Some(potential_result);
-                    } else if let Some(result) = subblock.position(item) {
-                        potential_result.extend_from_slice(&result);
-                        return Some(potential_result);
-                    }
-                }
-            }
-            ControlFlowContent::If(taken, untaken) => {
-                for (i, subblock) in taken.iter().chain(untaken.iter()).enumerate() {
-                    let mut potential_result = vec![i];
-                    if subblock == item {
-                        return Some(potential_result);
-                    } else if let Some(result) = subblock.position(item) {
-                        potential_result.extend_from_slice(&result);
-                        return Some(potential_result);
-                    }
-                }
-            }
-            ControlFlowContent::Node(_) => {
-                if self == item {
-                    return Some(vec![0]);
-                }
-            }
-        }
-        None
-    }
-
-    pub fn nodes(&self) -> ControlFlowNodesIter {
-        ControlFlowNodesIter::new(self)
-    }
-}
-
-pub struct ControlFlowNodesIter<'a> {
-    bind_on: &'a ControlFlowContent,
-    pub current_index: Vec<usize>,
-}
-
-impl<'a> ControlFlowNodesIter<'a> {
-    pub fn new(bind_on: &'a ControlFlowContent) -> Self {
-        Self {
-            bind_on,
-            current_index: vec![0],
-        }
-    }
-
-    pub fn from_index(bind_on: &'a ControlFlowContent, index: &[usize]) -> Self {
-        Self {
-            bind_on,
-            current_index: index.to_vec(),
-        }
-    }
-}
-
-impl Iterator for ControlFlowNodesIter<'_> {
-    type Item = (Vec<usize>, usize);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.bind_on.get(&self.current_index) {
-            Some(ControlFlowContent::Block(_))
-            | Some(ControlFlowContent::Loop(_))
-            | Some(ControlFlowContent::If(_, _)) => {
-                self.current_index.push(0);
-                self.next()
-            }
-            Some(ControlFlowContent::Node(n)) => {
-                let result = self.current_index.clone();
-                *self.current_index.last_mut().unwrap() += 1;
-                Some((result, *n))
-            }
-            None => {
-                if self.current_index.len() != 1 {
-                    self.current_index.pop();
-                    *self.current_index.last_mut().unwrap() += 1;
-                    self.next()
-                } else {
-                    None
-                }
-            }
-        }
-    }
-}
-
-fn fold_loop(current: &mut ControlFlowContent, loop_item: &analyzer::Scc) {
-    let (to_remove_indexes, to_remove_items): (Vec<_>, Vec<_>) = current
-        .nodes()
-        .filter(|(_, n)| loop_item.is_node_in((*n).into()))
-        .unzip();
-    for to_remove_index in to_remove_indexes[1..].iter().rev() {
-        current.remove(to_remove_index);
-    }
-    let first = current.get_mut(&to_remove_indexes[0]).unwrap();
-    let new_loop_item = ControlFlowContent::Loop(
-        to_remove_items
+// fixme: currently this presumes that we have not folded any if-else or block before
+fn fold_loop(
+    function_content: &FunctionDefinition,
+    scc: &BindedScc,
+    current_result: &mut Vec<ControlFlowElement>,
+) {
+    if let Some(sub_sccs) = scc.top_level_sccs() {
+        for sub_scc in sub_sccs
             .into_iter()
-            .map(ControlFlowContent::Node)
-            .collect(),
-    );
-    *first = new_loop_item;
-    for content in &loop_item.content {
-        if let SccContent::SubScc(subloop) = content {
-            fold_loop(first, subloop);
+            .filter(|sub_scc: &BindedScc<'_>| !sub_scc.is_trivial())
+        {
+            let sub_scc_start_index = current_result
+                .iter()
+                .position(|it| {
+                    if let &ControlFlowElement::BasicBlock { id: block_id } = it {
+                        sub_scc.contains(block_id)
+                    } else {
+                        false
+                    }
+                })
+                .unwrap();
+            let sub_scc_end_index = current_result
+                .iter()
+                .rposition(|it| {
+                    if let &ControlFlowElement::BasicBlock { id: block_id } = it {
+                        sub_scc.contains(block_id)
+                    } else {
+                        false
+                    }
+                })
+                .unwrap();
+            let mut new_result = current_result[sub_scc_start_index..=sub_scc_end_index]
+                .iter()
+                .cloned()
+                .collect_vec();
+            fold_loop(function_content, &sub_scc, &mut new_result);
+            current_result.splice(
+                sub_scc_start_index..=sub_scc_end_index,
+                [ControlFlowElement::Loop {
+                    content: new_result.into_iter().collect(),
+                }],
+            );
         }
     }
 }
 
-fn fold_if_else_once(current: &mut ControlFlowContent, graph: &BindedControlFlowGraph) -> bool {
-    // A node is foldable if its only successor is an branch block
-    // So for each branch block:
-    //   - if the "next" block has only one successor, nest it and nodes dominated by it in an if
-    //   - if (the "next" block after the new nested if)'s only successor is also the block, nest it in the else part
-    let (node_indexes, nodes): (Vec<_>, Vec<_>) = current.nodes().unzip();
-    let mut considering_node_index = 0;
-    let mut folded = false;
-    while considering_node_index < nodes.len() - 1 {
-        let node = nodes[considering_node_index];
-        let mut next_node_index = node_indexes[considering_node_index].clone();
-        *next_node_index.last_mut().unwrap() += 1;
-        if matches!(
-            current.get(&next_node_index),
-            Some(ControlFlowContent::If(_, _))
-        ) {
-            // already nested, just consider next
-            considering_node_index += 1;
-            continue;
-        }
-        let block = &graph.bind_on.content[node];
-        let last_statement = block.content.last().unwrap();
-        if let IRStatement::Branch(_) = last_statement {
-            let next_node = nodes[considering_node_index + 1];
-            if graph.not_dominate_successors(next_node).len() == 1 {
-                let nodes_dominated_by_next_node = graph.dominates(next_node);
-                let mut to_nest = Vec::new();
-                let mut next_to_nest_index = node_indexes[considering_node_index + 1].clone();
-                // the next node is deep nested in loops, so we need to fold all structure the node is in
-                while next_to_nest_index.len() > node_indexes[considering_node_index].len() {
-                    next_to_nest_index.pop();
-                }
-                while let Some(next_to_nest) = current.get(&next_to_nest_index) && nodes_dominated_by_next_node.contains(&next_to_nest.first_node()) {
-                    to_nest.push(next_to_nest_index.clone());
-                    *next_to_nest_index.last_mut().unwrap() += 1;
-                }
-                let initial_considering_node_index = considering_node_index;
-                considering_node_index += to_nest
-                    .iter()
-                    .map(|it| current.get(it).unwrap().nodes().count())
-                    .sum::<usize>();
-                let (to_replace, to_remove) = to_nest.split_first().unwrap();
-                let removed = to_remove
-                    .iter()
-                    .map(|it| current.remove(it).unwrap())
-                    .collect_vec();
-                // nest else part
-                let node_after_nest = nodes[considering_node_index];
-                let node_after_nest_successors = graph.not_dominate_successors(node_after_nest);
-                let untaken_content = if node_after_nest_successors.len() == 1 {
-                    let nodes_dominated_by_node_after_nest = graph.dominates(node_after_nest);
-                    let mut to_nest = Vec::new();
-                    let mut next_to_nest_index = node_indexes[considering_node_index].clone();
-                    // the next node is deep nested in loops, so we need to fold all structure the node is in
-                    while next_to_nest_index.len()
-                        > node_indexes[initial_considering_node_index].len()
-                    {
-                        next_to_nest_index.pop();
-                    }
-                    while let Some(next_to_nest) = current.get(&next_to_nest_index) && nodes_dominated_by_node_after_nest.contains(&next_to_nest.first_node()) {
-                        to_nest.push(next_to_nest_index.clone());
-                        *next_to_nest_index.last_mut().unwrap() += 1;
-                    }
-                    considering_node_index += to_nest.len();
-                    to_nest
-                        .iter()
-                        .map(|it| current.remove(it).unwrap())
-                        .collect_vec()
-                } else {
-                    Vec::new()
-                };
-                let replaced_node = current.get_mut(to_replace).unwrap();
-                let mut taken_content = vec![replaced_node.clone()];
-                taken_content.extend_from_slice(&removed);
-                let new_if_node = ControlFlowContent::If(taken_content, untaken_content);
-                *replaced_node = new_if_node;
-                folded = true;
-            } else {
-                considering_node_index += 1;
+fn fold_if_else_once(
+    content: &mut ControlFlowElement,
+    control_flow_graph: BindedControlFlowGraph,
+) -> bool {
+    for block_id in 0..control_flow_graph.bind_on.content.len() {
+        let predecessors = control_flow_graph.predecessor(block_id);
+        if predecessors.len() == 1 {
+            let predecessor_block_id = predecessors[0];
+            let predecessor_last_instruction = control_flow_graph.bind_on[predecessor_block_id]
+                .content
+                .last();
+            if !matches!(predecessor_last_instruction, Some(IRStatement::Branch(_))) {
+                continue;
             }
-        } else {
-            considering_node_index += 1;
+            let predecessor_selector = content.find_node(predecessor_block_id).unwrap();
+            let block_selector = content.find_node(block_id).unwrap();
+            let block_element = &content[&block_selector];
+            let block_element_id = block_element.first_basic_block_id();
+            let if_element_selector = if predecessor_selector.is_if_condition() {
+                // `predecessor_element` is already an if condition
+                // in such cases, it's possible that:
+                // - the block is already folded into either of branch the `predecessor_element` is in
+                //   in such case we don't need to do anything
+                // - the block is not folded into any of branch the `predecessor_element` is in
+                //   in such case we just fold the block into the `if` element which `predecessor_element` is in
+                let mut if_element_predecessor_in_selector = predecessor_selector.clone();
+                if_element_predecessor_in_selector.pop_back();
+                if if_element_predecessor_in_selector.is_parent_of(&block_selector) {
+                    // already folded
+                    continue;
+                }
+                if_element_predecessor_in_selector
+            } else {
+                // need to promote `predecessor_element` into an if element's condition
+                content.replace(
+                    &predecessor_selector,
+                    ControlFlowElement::If {
+                        condition: Box::new(ControlFlowElement::BasicBlock {
+                            id: predecessor_block_id,
+                        }),
+                        on_success: Vec::new(),
+                        on_failure: Vec::new(),
+                    },
+                );
+                predecessor_selector.clone()
+            };
+            let to_move_selectors = collect_to_move(content, &block_selector, &control_flow_graph);
+            let to_move_items = to_move_selectors
+                .iter()
+                .map(|it| content[it].clone())
+                .collect_vec();
+            let predecessor_element = &mut content[&if_element_selector];
+            let predecessor_node_id = predecessor_element.first_basic_block_id();
+            let move_to = if control_flow_graph.branch_direction(predecessor_node_id, block_id) {
+                if let ControlFlowElement::If { on_success, .. } = predecessor_element {
+                    on_success
+                } else {
+                    unreachable!()
+                }
+            } else {
+                if let ControlFlowElement::If { on_failure, .. } = predecessor_element {
+                    on_failure
+                } else {
+                    unreachable!()
+                }
+            };
+            move_to.extend(to_move_items);
+            for to_move_selector in to_move_selectors.iter().rev() {
+                content.remove(to_move_selector);
+            }
+            return true;
         }
     }
-    folded
+    false
 }
 
-fn fold_if_else(current: &mut ControlFlowContent, graph: &BindedControlFlowGraph) {
-    let mut folded = true;
-    while folded {
-        folded = fold_if_else_once(current, graph);
+fn fold_if_else(fd: &FunctionDefinition, content: &mut ControlFlowElement) {
+    loop {
+        let cfg = ControlFlowGraph::new();
+        let control_flow_graph = cfg.bind(fd);
+        if fold_if_else_once(content, control_flow_graph) {
+            break;
+        }
     }
 }
+
+fn collect_to_move(
+    root_element: &ControlFlowElement,
+    first_to_move_node_selector: &CFSelector,
+    control_flow_graph: &BindedControlFlowGraph<'_, '_>,
+) -> Vec<CFSelector> {
+    let first_to_move_element = &root_element[first_to_move_node_selector];
+    let first_to_move_element_first_bb_id = first_to_move_element.first_basic_block_id();
+    let move_to_if_condition_bb_id =
+        control_flow_graph.predecessor(first_to_move_element_first_bb_id)[0];
+    let mut to_move = vec![first_to_move_node_selector.clone()];
+    let mut next = root_element.next_element_sibling(&first_to_move_node_selector);
+    while let Some(current_element_selector) = next {
+        let current_node_id = root_element[&current_element_selector].first_basic_block_id();
+        if control_flow_graph.is_dominated_by(current_node_id, first_to_move_element_first_bb_id)
+            && control_flow_graph.is_in_same_branch_side(
+                move_to_if_condition_bb_id,
+                first_to_move_element_first_bb_id,
+                current_node_id,
+            )
+        {
+            to_move.push(current_element_selector.clone());
+        } else {
+            break;
+        }
+        next = root_element.next_element_sibling(&current_element_selector);
+    }
+    to_move
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::{assert_matches::assert_matches, str::FromStr};
+
+    use analyzer::Analyzer;
+
     use crate::{
         ir::{
             self,
-            analyzer::{ControlFlowGraph, IsAnalyzer},
+            analyzer::{self, IsAnalyzer},
+            editor::Editor,
             function::{basic_block::BasicBlock, test_util::*},
+            optimize::pass::{FixIrreducible, IsPass, TopologicalSort},
             statement::Ret,
-            FunctionDefinition,
         },
         utility::data_type,
     };
-    #[test]
-    fn control_flow_content_get() {
-        let content = ControlFlowContent::new_block(vec![
-            ControlFlowContent::new_node(0),
-            ControlFlowContent::new_if(
-                vec![
-                    ControlFlowContent::new_node(1),
-                    ControlFlowContent::new_node(2),
-                ],
-                vec![ControlFlowContent::new_loop(vec![
-                    ControlFlowContent::new_node(3),
-                    ControlFlowContent::new_node(4),
-                ])],
-            ),
-        ]);
-        assert_eq!(
-            content.get(&[0usize]),
-            Some(&ControlFlowContent::new_node(0))
-        );
-        assert_eq!(
-            content.get(&[1usize, 0]),
-            Some(&ControlFlowContent::new_node(1))
-        );
-        assert_eq!(
-            content.get(&[1usize, 2]),
-            Some(&ControlFlowContent::new_loop(vec![
-                ControlFlowContent::new_node(3),
-                ControlFlowContent::new_node(4),
-            ]))
-        );
-        assert_eq!(
-            content.get(&[1usize, 2, 0]),
-            Some(&ControlFlowContent::new_node(3))
-        );
-        assert_eq!(content.get(&[2usize, 0, 2]), None);
-        assert_eq!(content.get(&[3usize]), None);
-    }
+
+    use super::*;
 
     #[test]
-    fn control_flow_content_position() {
-        let content = ControlFlowContent::new_block(vec![
-            ControlFlowContent::new_node(0),
-            ControlFlowContent::new_if(
-                vec![
-                    ControlFlowContent::new_node(1),
-                    ControlFlowContent::new_node(2),
-                ],
-                vec![ControlFlowContent::new_loop(vec![
-                    ControlFlowContent::new_node(3),
-                    ControlFlowContent::new_node(4),
-                ])],
-            ),
-        ]);
-        assert_eq!(
-            content.position(&ControlFlowContent::new_node(0)),
-            Some(vec![0])
-        );
-        assert_eq!(
-            content.position(&ControlFlowContent::new_node(1)),
-            Some(vec![1, 0])
-        );
-        assert_eq!(
-            content.position(&ControlFlowContent::new_loop(vec![
-                ControlFlowContent::new_node(3),
-                ControlFlowContent::new_node(4),
-            ])),
-            Some(vec![1, 2])
-        );
-        assert_eq!(
-            content.position(&ControlFlowContent::new_node(3)),
-            Some(vec![1, 2, 0])
-        );
-        assert_eq!(content.position(&ControlFlowContent::new_node(5)), None);
-    }
-
-    #[test]
-    fn control_flow_nodes() {
-        let content = ControlFlowContent::new_block(vec![
-            ControlFlowContent::new_node(0),
-            ControlFlowContent::new_if(
-                vec![
-                    ControlFlowContent::new_node(1),
-                    ControlFlowContent::new_node(2),
-                ],
-                vec![ControlFlowContent::new_loop(vec![
-                    ControlFlowContent::new_node(3),
-                    ControlFlowContent::new_node(4),
-                ])],
-            ),
-            ControlFlowContent::new_node(5),
-        ]);
-        let mut iter = content.nodes();
-        assert_eq!(iter.next(), Some((vec![0], 0)));
-        assert_eq!(iter.next(), Some((vec![1, 0], 1)));
-        assert_eq!(iter.next(), Some((vec![1, 1], 2)));
-        assert_eq!(iter.next(), Some((vec![1, 2, 0], 3)));
-        assert_eq!(iter.next(), Some((vec![1, 2, 1], 4)));
-        assert_eq!(iter.next(), Some((vec![2], 5)));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    fn test_fold_loop() {
-        let mut content = ControlFlowContent::new_block(vec![
-            ControlFlowContent::new_node(0),
-            ControlFlowContent::new_node(1),
-            ControlFlowContent::new_node(2),
-            ControlFlowContent::new_node(3),
-            ControlFlowContent::new_node(4),
-        ]);
-        let loop_item = analyzer::Scc {
-            entries: vec![1],
+    fn test_fold_if_else_once() {
+        let function_definition = FunctionDefinition {
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::Type::None,
+            },
             content: vec![
-                analyzer::SccContent::Node(1),
-                analyzer::SccContent::Node(2),
-                analyzer::SccContent::Node(3),
+                jump_block(0, 1),
+                branch_block(1, 2, 3),
+                jump_block(2, 4),
+                jump_block(3, 4),
+                ret_block(4),
             ],
         };
-        fold_loop(&mut content, &loop_item);
+        let mut editor = Editor::new(function_definition);
+        let pass = FixIrreducible;
+        pass.run(&mut editor);
+        let pass = TopologicalSort;
+        pass.run(&mut editor);
+        let function_definition = editor.content;
+
+        let analyzer = Analyzer::new();
+        let binded = analyzer.bind(&function_definition);
+        let control_flow_graph = binded.control_flow_graph();
+        let current_result = (0..(function_definition.content.len()))
+            .map(ControlFlowElement::new_node)
+            .collect_vec();
+
+        let mut content = ControlFlowElement::new_block(current_result);
+        fold_if_else_once(&mut content, control_flow_graph);
+        assert_matches!(
+            content[&CFSelector::from_str("1").unwrap()],
+            ControlFlowElement::If { .. }
+        );
+        assert_matches!(
+            content[&CFSelector::from_str("1/success/0").unwrap()],
+            ControlFlowElement::BasicBlock { id: 2 }
+        );
         assert_eq!(
-            content,
-            ControlFlowContent::new_block(vec![
-                ControlFlowContent::new_node(0),
-                ControlFlowContent::new_loop(vec![
-                    ControlFlowContent::new_node(1),
-                    ControlFlowContent::new_node(2),
-                    ControlFlowContent::new_node(3),
-                ]),
-                ControlFlowContent::new_node(4),
-            ])
+            content.get(&CFSelector::from_str("1/failure/0").unwrap()),
+            None
+        );
+        let control_flow_graph = binded.control_flow_graph();
+        fold_if_else_once(&mut content, control_flow_graph);
+        assert_eq!(
+            content[&CFSelector::from_str("1/failure/0").unwrap()],
+            ControlFlowElement::BasicBlock { id: 3 }
+        );
+        assert_eq!(
+            content[&CFSelector::from_str("2").unwrap()],
+            ControlFlowElement::BasicBlock { id: 4 }
         );
 
-        let mut content = ControlFlowContent::new_block(vec![
-            ControlFlowContent::new_node(0),
-            ControlFlowContent::new_node(1),
-            ControlFlowContent::new_node(2),
-            ControlFlowContent::new_node(3),
-            ControlFlowContent::new_node(4),
-            ControlFlowContent::new_node(5),
-            ControlFlowContent::new_node(6),
-        ]);
-        let loop_item = analyzer::Scc {
-            entries: vec![1],
+        let function_definition = FunctionDefinition {
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::Type::None,
+            },
             content: vec![
-                analyzer::SccContent::Node(1),
-                analyzer::SccContent::Node(2),
-                analyzer::SccContent::SubScc(Box::new(analyzer::Scc {
-                    entries: vec![3],
-                    content: vec![
-                        analyzer::SccContent::Node(3),
-                        analyzer::SccContent::Node(4),
-                        analyzer::SccContent::Node(5),
-                    ],
-                })),
+                jump_block(0, 1),
+                branch_block(1, 2, 4),
+                jump_block(2, 3),
+                jump_block(4, 5),
+                jump_block(3, 6),
+                jump_block(5, 6),
+                jump_block(6, 7),
+                ret_block(7),
             ],
         };
-        fold_loop(&mut content, &loop_item);
+        let mut editor = Editor::new(function_definition);
+        let pass = FixIrreducible;
+        pass.run(&mut editor);
+        let pass = TopologicalSort;
+        pass.run(&mut editor);
+        let function_definition = editor.content;
+
+        let analyzer = Analyzer::new();
+        let binded = analyzer.bind(&function_definition);
+        let control_flow_graph = binded.control_flow_graph();
+        let current_result = (0..(function_definition.content.len()))
+            .map(ControlFlowElement::new_node)
+            .collect_vec();
+
+        let mut content = ControlFlowElement::new_block(current_result);
+        fold_if_else_once(&mut content, control_flow_graph);
+        assert_matches!(
+            content[&CFSelector::from_str("1").unwrap()],
+            ControlFlowElement::If { .. }
+        );
+        assert_matches!(
+            content[&CFSelector::from_str("1/success/0").unwrap()],
+            ControlFlowElement::BasicBlock { id: 2 }
+        );
+        assert_matches!(
+            content[&CFSelector::from_str("1/success/1").unwrap()],
+            ControlFlowElement::BasicBlock { id: 3 }
+        );
         assert_eq!(
-            content,
-            ControlFlowContent::new_block(vec![
-                ControlFlowContent::new_node(0),
-                ControlFlowContent::new_loop(vec![
-                    ControlFlowContent::new_node(1),
-                    ControlFlowContent::new_node(2),
-                    ControlFlowContent::new_loop(vec![
-                        ControlFlowContent::new_node(3),
-                        ControlFlowContent::new_node(4),
-                        ControlFlowContent::new_node(5),
-                    ]),
-                ]),
-                ControlFlowContent::new_node(6),
-            ])
+            content.get(&CFSelector::from_str("1/failure/0").unwrap()),
+            None
+        );
+        let control_flow_graph = binded.control_flow_graph();
+        fold_if_else_once(&mut content, control_flow_graph);
+        assert_matches!(
+            content[&CFSelector::from_str("1/failure/0").unwrap()],
+            ControlFlowElement::BasicBlock { id: 4 }
+        );
+        assert_matches!(
+            content[&CFSelector::from_str("1/failure/1").unwrap()],
+            ControlFlowElement::BasicBlock { id: 5 }
+        );
+
+        let function_definition = FunctionDefinition {
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::Type::None,
+            },
+            content: vec![
+                branch_block(0, 1, 5),
+                jump_block(1, 2),
+                jump_block(2, 4),
+                branch_block(4, 3, 7),
+                jump_block(3, 2),
+                ret_block(7),
+                jump_block(5, 6),
+                jump_block(6, 7),
+            ],
+        };
+        let mut editor = Editor::new(function_definition);
+        let pass = FixIrreducible;
+        pass.run(&mut editor);
+        let pass = TopologicalSort;
+        pass.run(&mut editor);
+        let function_definition = editor.content;
+        let analyzer = Analyzer::new();
+        let binded = analyzer.bind(&function_definition);
+        let control_flow_graph = binded.control_flow_graph();
+        let mut content = ControlFlowElement::new_block(vec![
+            ControlFlowElement::new_node(0),
+            ControlFlowElement::new_node(1),
+            ControlFlowElement::Loop {
+                content: vec![
+                    ControlFlowElement::new_node(2),
+                    ControlFlowElement::new_node(4),
+                    ControlFlowElement::new_node(3),
+                ],
+            },
+            ControlFlowElement::new_node(5),
+            ControlFlowElement::new_node(6),
+            ControlFlowElement::new_node(7),
+        ]);
+        fold_if_else_once(&mut content, control_flow_graph);
+        let control_flow_graph = binded.control_flow_graph();
+        fold_if_else_once(&mut content, control_flow_graph);
+        let control_flow_graph = binded.control_flow_graph();
+        fold_if_else_once(&mut content, control_flow_graph);
+        assert_matches!(
+            &content[&CFSelector::from_str("0").unwrap()],
+            ControlFlowElement::If { .. }
+        );
+        assert_matches!(
+            &content[&CFSelector::from_str("0/if_condition").unwrap()],
+            ControlFlowElement::BasicBlock { id: 0 }
+        );
+        assert_matches!(
+            &content[&CFSelector::from_str("0/success/0").unwrap()],
+            ControlFlowElement::BasicBlock { id: 1 }
+        );
+        assert_matches!(
+            &content[&CFSelector::from_str("0/success/1").unwrap()],
+            ControlFlowElement::Loop { .. }
+        );
+        assert_matches!(
+            &content[&CFSelector::from_str("0/success/1/0").unwrap()],
+            ControlFlowElement::BasicBlock { id: 2 }
+        );
+        assert_matches!(
+            &content[&CFSelector::from_str("0/success/1/1").unwrap()],
+            ControlFlowElement::If { .. }
+        );
+        assert_matches!(
+            &content[&CFSelector::from_str("0/success/1/1/if_condition").unwrap()],
+            ControlFlowElement::BasicBlock { id: 3 }
+        );
+        assert_matches!(
+            &content[&CFSelector::from_str("0/success/1/1/success/0").unwrap()],
+            ControlFlowElement::BasicBlock { id: 4 }
         );
     }
 
     #[test]
-    fn test_fold_if_else() {
+    fn test_loop() {
         let function_definition = FunctionDefinition {
             header: ir::FunctionHeader {
                 name: "f".to_string(),
@@ -539,60 +403,90 @@ mod tests {
             content: vec![
                 BasicBlock {
                     name: Some("bb0".to_string()),
-                    content: vec![branch("bb1", "bb2")],
+                    content: vec![jump("bb1")],
                 },
                 BasicBlock {
                     name: Some("bb1".to_string()),
+                    content: vec![branch("bb2", "bb8")],
+                },
+                BasicBlock {
+                    name: Some("bb2".to_string()),
                     content: vec![jump("bb3")],
                 },
                 BasicBlock {
                     name: Some("bb3".to_string()),
-                    content: vec![branch("bb4", "bb5")],
+                    content: vec![jump("bb4")],
                 },
                 BasicBlock {
                     name: Some("bb4".to_string()),
-                    content: vec![jump("bb6")],
+                    content: vec![jump("bb5")],
                 },
                 BasicBlock {
                     name: Some("bb5".to_string()),
-                    content: vec![jump("bb6")],
+                    content: vec![branch("bb6", "bb7")],
                 },
                 BasicBlock {
                     name: Some("bb6".to_string()),
-                    content: vec![branch("bb1", "bb7")],
-                },
-                BasicBlock {
-                    name: Some("bb2".to_string()),
-                    content: vec![jump("bb7")],
+                    content: vec![jump("bb3")],
                 },
                 BasicBlock {
                     name: Some("bb7".to_string()),
+                    content: vec![branch("bb2", "bb15")],
+                },
+                BasicBlock {
+                    name: Some("bb8".to_string()),
+                    content: vec![branch("bb9", "bb10")],
+                },
+                BasicBlock {
+                    name: Some("bb9".to_string()),
+                    content: vec![jump("bb11")],
+                },
+                BasicBlock {
+                    name: Some("bb11".to_string()),
+                    content: vec![jump("bb12")],
+                },
+                BasicBlock {
+                    name: Some("bb12".to_string()),
+                    content: vec![jump("bb13")],
+                },
+                BasicBlock {
+                    name: Some("bb10".to_string()),
+                    content: vec![jump("bb12")],
+                },
+                BasicBlock {
+                    name: Some("bb13".to_string()),
+                    content: vec![jump("bb14")],
+                },
+                BasicBlock {
+                    name: Some("bb14".to_string()),
+                    content: vec![branch("bb12", "bb15")],
+                },
+                BasicBlock {
+                    name: Some("bb15".to_string()),
+                    content: vec![jump("bb16")],
+                },
+                BasicBlock {
+                    name: Some("bb16".to_string()),
                     content: vec![Ret { value: None }.into()],
                 },
             ],
         };
-        let control_flow_graph = ControlFlowGraph::new();
-        let binded = control_flow_graph.bind(&function_definition);
-        let mut content = ControlFlowContent::new_block(vec![
-            ControlFlowContent::new_node(0),
-            ControlFlowContent::new_loop(vec![
-                ControlFlowContent::new_node(1),
-                ControlFlowContent::new_node(2),
-                ControlFlowContent::new_node(3),
-                ControlFlowContent::new_node(4),
-                ControlFlowContent::new_node(5),
-            ]),
-            ControlFlowContent::new_node(6),
-            ControlFlowContent::new_node(7),
-        ]);
-        fold_if_else(&mut content, &binded);
-        assert!(matches!(
-            content.get(&[1usize]),
-            Some(ControlFlowContent::If(_, _))
-        ));
-        assert!(matches!(
-            content.get(&[1usize, 0, 2]),
-            Some(ControlFlowContent::If(_, _))
-        ));
+        let mut editor = Editor::new(function_definition);
+        let pass = FixIrreducible;
+        pass.run(&mut editor);
+        let pass = TopologicalSort;
+        pass.run(&mut editor);
+        let function_definition = editor.content;
+
+        let analyzer = Analyzer::new();
+        let binded = analyzer.bind(&function_definition);
+        let control_flow_graph = binded.control_flow_graph();
+        let scc = control_flow_graph.top_level_scc();
+
+        let mut current_result = (0..(function_definition.content.len()))
+            .map(ControlFlowElement::new_node)
+            .collect_vec();
+        fold_loop(&function_definition, &scc, &mut current_result);
+        dbg!(current_result);
     }
 }

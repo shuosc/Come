@@ -42,6 +42,10 @@ impl BasicBlock {
     pub fn remove(&mut self, index: usize) {
         self.content.remove(index);
     }
+
+    pub fn is_branch(&self) -> bool {
+        matches!(self.content.last(), Some(IRStatement::Branch(_)))
+    }
 }
 
 impl fmt::Display for BasicBlock {

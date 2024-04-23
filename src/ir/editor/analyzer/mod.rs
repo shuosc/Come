@@ -2,7 +2,7 @@ use crate::ir::{self, FunctionDefinition};
 
 use self::register_usage::RegisterUsageAnalyzer;
 pub use self::{
-    control_flow::{BindedControlFlowGraph, BindedScc, ControlFlowGraph, Scc, SccContent},
+    control_flow::{BindedControlFlowGraph, BindedScc, ControlFlowGraph},
     memory_usage::{BindedMemoryUsage, MemoryUsage},
     register_usage::{BindedRegisterUsage, BindedRegisterUsageAnalyzer},
 };
