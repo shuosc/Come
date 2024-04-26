@@ -1,10 +1,17 @@
-use crate::utility::graph::kosaraju_scc_with_filter;
+use std::fmt;
+
+use crate::utility::graph::{kosaraju_scc_with_filter, subgraph::SubGraph};
 use delegate::delegate;
 
 use itertools::Itertools;
-use petgraph::{graph, prelude::*};
+use petgraph::{
+    algo::all_simple_paths,
+    graph,
+    prelude::*,
+    visit::{IntoNeighborsDirected, NodeFiltered, NodeRef},
+};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Scc {
     pub nodes: Vec<usize>,
     pub top_level: bool,
@@ -77,15 +84,30 @@ impl Scc {
             None
         } else {
             let entry_node = entry_nodes[0];
-            let backedges: Vec<_> = graph
-                .edges_directed(entry_node.into(), Incoming)
-                .map(|it| it.id())
-                .collect();
+            let node_filtered =
+                NodeFiltered::from_fn(graph, |node| self.nodes.contains(&node.index()));
+            let subgraph = SubGraph(node_filtered);
+            let largest_simple_loop = subgraph
+                .neighbors_directed(entry_node.into(), Incoming)
+                .flat_map(|pred| {
+                    all_simple_paths::<Vec<_>, _>(&subgraph, entry_node.into(), pred, 1, None)
+                        .max_by(|a, b| a.len().cmp(&b.len()))
+                })
+                .max_by(|a, b| a.len().cmp(&b.len()));
+            dbg!(&largest_simple_loop);
+            let backedge = if let Some(mut largest_simple_loops) = largest_simple_loop {
+                let last_node = largest_simple_loops.pop().unwrap();
+                graph.find_edge(last_node, entry_node.into())
+            } else {
+                None
+            };
+            let backedge_info = backedge.and_then(|e| graph.edge_endpoints(e));
+            println!("entry: {:?}, {:?}", entry_node, backedge_info);
             let sccs = kosaraju_scc_with_filter(
                 graph,
                 entry_nodes[0].into(),
                 |node| self.nodes.contains(&node.index()),
-                |edge| !backedges.contains(&edge),
+                |edge| Some(edge) != backedge,
             );
             let result = sccs
                 .into_iter()
@@ -142,10 +164,34 @@ impl Scc {
     }
 }
 
-#[derive(Clone, Debug)]
+impl fmt::Display for Scc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.nodes)
+    }
+}
+
+impl fmt::Debug for Scc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.nodes)
+    }
+}
+
+#[derive(Clone)]
 pub struct BindedScc<'bind> {
     graph: &'bind DiGraph<(), (), usize>,
     item: Scc,
+}
+
+impl fmt::Display for BindedScc<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.item.fmt(f)
+    }
+}
+
+impl fmt::Debug for BindedScc<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.item.fmt(f)
+    }
 }
 
 impl<'bind> BindedScc<'bind> {
@@ -225,7 +271,60 @@ mod tests {
         graph.add_edge(node_10, node_4, ());
         let scc = Scc::new(0..10, true);
         let scc = BindedScc::new(&graph, scc);
-        dbg!(scc.top_level_sccs());
-        dbg!(scc.first_irreducible_sub_scc());
+        println!("{:?}", scc.top_level_sccs());
+        println!("{:?}", scc.first_irreducible_sub_scc());
+    }
+
+    #[test]
+    fn test_top_level_scc_recursive() {
+        let mut graph: DiGraph<_, _, usize> = DiGraph::default();
+        let node_0 = graph.add_node(());
+        let node_1 = graph.add_node(());
+        let node_2 = graph.add_node(());
+        let node_3 = graph.add_node(());
+        let node_4 = graph.add_node(());
+        let node_5 = graph.add_node(());
+        graph.add_edge(node_0, node_1, ());
+        graph.add_edge(node_1, node_2, ());
+        graph.add_edge(node_2, node_3, ());
+        graph.add_edge(node_3, node_4, ());
+        graph.add_edge(node_4, node_1, ());
+        graph.add_edge(node_3, node_1, ());
+        graph.add_edge(node_4, node_5, ());
+        let scc = Scc::new(0..6, true);
+        let scc = BindedScc::new(&graph, scc);
+        let top_level_sccs = scc.top_level_sccs().unwrap();
+        println!("{:?}", &top_level_sccs);
+        let contains_recursive = &top_level_sccs[1];
+        println!("{:?}", contains_recursive.top_level_sccs());
+    }
+
+    #[test]
+    fn test_top_level_scc_recursive2() {
+        let mut graph: DiGraph<_, _, usize> = DiGraph::default();
+        let node_0 = graph.add_node(());
+        let node_1 = graph.add_node(());
+        let node_2 = graph.add_node(());
+        let node_3 = graph.add_node(());
+        let node_4 = graph.add_node(());
+        let node_5 = graph.add_node(());
+        let node_6 = graph.add_node(());
+        let node_7 = graph.add_node(());
+        graph.add_edge(node_0, node_1, ());
+        graph.add_edge(node_1, node_2, ());
+        graph.add_edge(node_2, node_3, ());
+        graph.add_edge(node_3, node_1, ());
+        graph.add_edge(node_1, node_4, ());
+        graph.add_edge(node_4, node_5, ());
+        graph.add_edge(node_5, node_1, ());
+        graph.add_edge(node_3, node_6, ());
+        graph.add_edge(node_2, node_4, ());
+        graph.add_edge(node_4, node_7, ());
+        let scc = Scc::new(0..8, true);
+        let scc = BindedScc::new(&graph, scc);
+        let top_level_sccs = scc.top_level_sccs().unwrap();
+        println!("{:?}", top_level_sccs);
+        let contains_recursive = &top_level_sccs[1];
+        println!("{:?}", contains_recursive.top_level_sccs());
     }
 }

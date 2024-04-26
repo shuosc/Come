@@ -1,14 +1,16 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Sub};
 
 use petgraph::{
     algo::dominators::Dominators,
+    graph::DiGraph,
     visit::{
-        EdgeRef, GraphBase, IntoEdgesDirected, IntoNeighbors, IntoNeighborsDirected,
-        IntoNodeIdentifiers, VisitMap, Visitable,
+        EdgeRef, FilterNode, GraphBase, GraphRef, IntoEdgesDirected, IntoNeighbors,
+        IntoNeighborsDirected, IntoNodeIdentifiers, NodeCount, NodeFiltered, VisitMap, Visitable,
     },
     Direction,
 };
 use std::{fmt::Debug, hash::Hash};
+pub mod subgraph;
 /// Initially implemented bu @m4b in [petgraph#178](https://github.com/petgraph/petgraph/pull/178).
 ///
 /// This function will return dominance frontiers of a graph,

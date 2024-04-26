@@ -1,4 +1,7 @@
-use crate::utility::parsing;
+use crate::{
+    ir::RegisterName,
+    utility::{data_type::Type, parsing},
+};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -10,7 +13,10 @@ use nom::{
 };
 use std::fmt;
 
-use super::statement::{self, IRStatement};
+use super::{
+    statement::{self, IRStatement},
+    IsIRStatement,
+};
 
 /// A basic block.
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Default)]
@@ -45,6 +51,13 @@ impl BasicBlock {
 
     pub fn is_branch(&self) -> bool {
         matches!(self.content.last(), Some(IRStatement::Branch(_)))
+    }
+
+    pub fn created_registers(&self) -> Vec<(RegisterName, Type)> {
+        self.content
+            .iter()
+            .flat_map(|it| it.generate_register())
+            .collect()
     }
 }
 

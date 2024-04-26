@@ -480,3 +480,25 @@ fn test_fix_irreducible() {
         "_guard_block_scc_3_5_7_for_bb3"
     );
 }
+
+#[test]
+fn test_shit() {
+    let function_definition = FunctionDefinition {
+        header: ir::FunctionHeader {
+            name: "f".to_string(),
+            parameters: Vec::new(),
+            return_type: data_type::Type::None,
+        },
+        content: vec![
+            branch_block(1, 2, 3),
+            branch_block(2, 3, 1),
+            branch_block(3, 1, 2),
+            jump_block(0, 1),
+        ],
+    };
+    println!("{}", function_definition);
+    let mut editor = Editor::new(function_definition);
+    let pass = FixIrreducible;
+    pass.run(&mut editor);
+    println!("{}", editor.content);
+}

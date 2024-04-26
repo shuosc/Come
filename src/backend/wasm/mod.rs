@@ -3,20 +3,29 @@ use std::{
     collections::VecDeque,
     fmt,
     iter::zip,
+    mem,
     ops::{Index, IndexMut},
     path::Display,
 };
+use wasm_encoder::{CodeSection, ExportKind, ExportSection, FunctionSection, Module, TypeSection};
 
-use crate::ir::{
-    analyzer::{BindedControlFlowGraph, BindedScc, ControlFlowGraph, IsAnalyzer},
-    statement::IRStatement,
-    FunctionDefinition,
+use crate::{
+    ast::function_definition,
+    ir::{
+        analyzer::{BindedControlFlowGraph, BindedScc, ControlFlowGraph, IsAnalyzer},
+        editor::Analyzer,
+        statement::IRStatement,
+        FunctionDefinition,
+    },
 };
 
-use self::control_flow::{CFSelector, ControlFlowElement};
+use self::{
+    control_flow::{CFSelector, ControlFlowElement},
+    lowering::lower_function_type,
+};
 
 mod control_flow;
-
+mod lowering;
 // fixme: currently this presumes that we have not folded any if-else or block before
 fn fold_loop(
     function_content: &FunctionDefinition,
@@ -79,8 +88,6 @@ fn fold_if_else_once(
             }
             let predecessor_selector = content.find_node(predecessor_block_id).unwrap();
             let block_selector = content.find_node(block_id).unwrap();
-            let block_element = &content[&block_selector];
-            let block_element_id = block_element.first_basic_block_id();
             let if_element_selector = if predecessor_selector.is_if_condition() {
                 // `predecessor_element` is already an if condition
                 // in such cases, it's possible that:
@@ -139,16 +146,6 @@ fn fold_if_else_once(
     false
 }
 
-fn fold_if_else(fd: &FunctionDefinition, content: &mut ControlFlowElement) {
-    loop {
-        let cfg = ControlFlowGraph::new();
-        let control_flow_graph = cfg.bind(fd);
-        if fold_if_else_once(content, control_flow_graph) {
-            break;
-        }
-    }
-}
-
 fn collect_to_move(
     root_element: &ControlFlowElement,
     first_to_move_node_selector: &CFSelector,
@@ -178,11 +175,59 @@ fn collect_to_move(
     to_move
 }
 
+fn fold_if_else(function_definition: &FunctionDefinition, content: &mut ControlFlowElement) {
+    loop {
+        let cfg = ControlFlowGraph::new();
+        let control_flow_graph = cfg.bind(function_definition);
+        if fold_if_else_once(content, control_flow_graph) {
+            break;
+        }
+    }
+}
+
+fn fold(function_definition: &FunctionDefinition) -> Vec<ControlFlowElement> {
+    let analyzer = Analyzer::new();
+    let binded = analyzer.bind(&function_definition);
+    let control_flow_graph = binded.control_flow_graph();
+    let current_result = (0..(function_definition.content.len()))
+        .map(ControlFlowElement::new_node)
+        .collect_vec();
+
+    let mut content = ControlFlowElement::new_block(current_result);
+    let control_flow_graph = binded.control_flow_graph();
+    let root_scc = control_flow_graph.top_level_scc();
+    fold_loop(function_definition, &root_scc, content.unwrap_content_mut());
+    fold_if_else(function_definition, &mut content);
+    mem::take(content.unwrap_content_mut())
+}
+
+fn generate_function(
+    result: (
+        &mut TypeSection,
+        &mut FunctionSection,
+        &mut ExportSection,
+        &mut CodeSection,
+    ),
+    function_definition: &FunctionDefinition,
+    control_flow: &[ControlFlowElement],
+) {
+    let function_index = result.0.len();
+    let (param_type, return_type) = lower_function_type(&function_definition.header);
+    result.0.function(param_type, return_type);
+    result.1.function(function_index);
+    result.2.export(
+        &function_definition.header.name,
+        ExportKind::Func,
+        function_index,
+    );
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{assert_matches::assert_matches, str::FromStr};
+    use std::{assert_matches::assert_matches, fs, str::FromStr};
 
     use analyzer::Analyzer;
+    use wasm_encoder::{TypeSection, ValType};
 
     use crate::{
         ir::{
@@ -488,5 +533,26 @@ mod tests {
             .collect_vec();
         fold_loop(&function_definition, &scc, &mut current_result);
         dbg!(current_result);
+    }
+
+    #[test]
+    fn test_fold_all() {
+        let function_definition = FunctionDefinition {
+            header: ir::FunctionHeader {
+                name: "f".to_string(),
+                parameters: Vec::new(),
+                return_type: data_type::Type::None,
+            },
+            content: vec![
+                jump_block(0, 1),
+                jump_block(1, 2),
+                jump_block(2, 3),
+                branch_block(3, 4, 1),
+                branch_block(4, 1, 5),
+                ret_block(5),
+            ],
+        };
+        let result = fold(&function_definition);
+        dbg!(result);
     }
 }

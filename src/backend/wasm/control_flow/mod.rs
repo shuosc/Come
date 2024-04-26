@@ -9,7 +9,7 @@ pub enum ControlFlowElement {
         content: Vec<ControlFlowElement>,
     },
     If {
-        condition: Box<ControlFlowElement>, // must be ControlFlowElement::Node
+        condition: Box<ControlFlowElement>,
         on_success: Vec<ControlFlowElement>,
         on_failure: Vec<ControlFlowElement>,
     },
@@ -103,11 +103,17 @@ impl ControlFlowElement {
             (ControlFlowElement::BasicBlock { .. }, _) => unreachable!(),
         }
     }
-    fn unwrap_node(&self) -> usize {
+    pub fn unwrap_node(&self) -> usize {
         if let Self::BasicBlock { id: node_id } = self {
             *node_id
         } else {
             unreachable!()
+        }
+    }
+    pub fn unwrap_content_mut(&mut self) -> &mut Vec<ControlFlowElement> {
+        match self {
+            Self::Block { content, .. } | Self::Loop { content, .. } => content,
+            _ => unreachable!(),
         }
     }
     fn exists(&self, element: &CFSelector) -> bool {
