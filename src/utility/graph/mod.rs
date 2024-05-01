@@ -1,11 +1,10 @@
-use std::{collections::HashMap, ops::Sub};
+use std::collections::HashMap;
 
 use petgraph::{
     algo::dominators::Dominators,
-    graph::DiGraph,
     visit::{
-        EdgeRef, FilterNode, GraphBase, GraphRef, IntoEdgesDirected, IntoNeighbors,
-        IntoNeighborsDirected, IntoNodeIdentifiers, NodeCount, NodeFiltered, VisitMap, Visitable,
+        EdgeRef, GraphBase, IntoEdgesDirected, IntoNeighbors, IntoNeighborsDirected,
+        IntoNodeIdentifiers, VisitMap, Visitable,
     },
     Direction,
 };
@@ -28,7 +27,7 @@ pub mod subgraph;
 ///
 /// [0]: http://www.cs.rice.edu/~keith/EMBED/dom.pdf
 pub fn dominance_frontiers<N, G>(
-    dorminators: &Dominators<N>,
+    dominators: &Dominators<N>,
     graph: G,
 ) -> HashMap<G::NodeId, Vec<G::NodeId>>
 where
@@ -56,10 +55,10 @@ where
         if predecessors_len >= 2 {
             for p in predecessors {
                 let mut runner = p;
-                if let Some(dominator) = dorminators.immediate_dominator(node) {
+                if let Some(dominator) = dominators.immediate_dominator(node) {
                     while runner != dominator {
                         frontiers.entry(runner).or_insert(vec![]).push(node);
-                        runner = dorminators.immediate_dominator(runner).unwrap();
+                        runner = dominators.immediate_dominator(runner).unwrap();
                     }
                 }
             }

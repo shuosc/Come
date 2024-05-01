@@ -1,22 +1,12 @@
-use itertools::{Either, Itertools};
-use std::{
-    collections::VecDeque,
-    fmt,
-    iter::zip,
-    mem,
-    ops::{Index, IndexMut},
-    path::Display,
-};
-use wasm_encoder::{CodeSection, ExportKind, ExportSection, FunctionSection, Module, TypeSection};
+use itertools::Itertools;
+use std::mem;
+use wasm_encoder::{CodeSection, ExportKind, ExportSection, FunctionSection, TypeSection};
 
-use crate::{
-    ast::function_definition,
-    ir::{
-        analyzer::{BindedControlFlowGraph, BindedScc, ControlFlowGraph, IsAnalyzer},
-        editor::Analyzer,
-        statement::IRStatement,
-        FunctionDefinition,
-    },
+use crate::ir::{
+    analyzer::{BindedControlFlowGraph, BindedScc, ControlFlowGraph, IsAnalyzer},
+    editor::Analyzer,
+    statement::IRStatement,
+    FunctionDefinition,
 };
 
 use self::{
@@ -26,13 +16,13 @@ use self::{
 
 mod control_flow;
 mod lowering;
+
 // fixme: currently this presumes that we have not folded any if-else or block before
 fn fold_loop(
     function_content: &FunctionDefinition,
     scc: &BindedScc,
     current_result: &mut Vec<ControlFlowElement>,
 ) {
-    dbg!(scc);
     if let Some(sub_sccs) = scc.top_level_sccs() {
         for sub_scc in sub_sccs
             .into_iter()
@@ -156,7 +146,7 @@ fn collect_to_move(
     let move_to_if_condition_bb_id =
         control_flow_graph.predecessor(first_to_move_element_first_bb_id)[0];
     let mut to_move = vec![first_to_move_node_selector.clone()];
-    let mut next = root_element.next_element_sibling(&first_to_move_node_selector);
+    let mut next = root_element.next_element_sibling(first_to_move_node_selector);
     while let Some(current_element_selector) = next {
         let current_node_id = root_element[&current_element_selector].first_basic_block_id();
         if control_flow_graph.is_dominated_by(current_node_id, first_to_move_element_first_bb_id)
@@ -187,7 +177,7 @@ fn fold_if_else(function_definition: &FunctionDefinition, content: &mut ControlF
 
 fn fold(function_definition: &FunctionDefinition) -> Vec<ControlFlowElement> {
     let analyzer = Analyzer::new();
-    let binded = analyzer.bind(&function_definition);
+    let binded = analyzer.bind(function_definition);
     let current_result = (0..(function_definition.content.len()))
         .map(ControlFlowElement::new_node)
         .collect_vec();
@@ -227,10 +217,9 @@ fn generate_function(
 
 #[cfg(test)]
 mod tests {
-    use std::{assert_matches::assert_matches, fs, str::FromStr};
+    use std::{assert_matches::assert_matches, str::FromStr};
 
     use analyzer::Analyzer;
-    use wasm_encoder::{TypeSection, ValType};
 
     use crate::{
         ir::{
@@ -283,17 +272,17 @@ mod tests {
             ControlFlowElement::If { .. }
         );
         assert_matches!(
-            content[&CFSelector::from_str("1/success/0").unwrap()],
+            content[&CFSelector::from_str("1/success->0").unwrap()],
             ControlFlowElement::BasicBlock { id: 2 }
         );
         assert_eq!(
-            content.get(&CFSelector::from_str("1/failure/0").unwrap()),
+            content.get(&CFSelector::from_str("1/failure->0").unwrap()),
             None
         );
         let control_flow_graph = binded.control_flow_graph();
         fold_if_else_once(&mut content, control_flow_graph);
         assert_eq!(
-            content[&CFSelector::from_str("1/failure/0").unwrap()],
+            content[&CFSelector::from_str("1/failure->0").unwrap()],
             ControlFlowElement::BasicBlock { id: 3 }
         );
         assert_eq!(
@@ -339,25 +328,25 @@ mod tests {
             ControlFlowElement::If { .. }
         );
         assert_matches!(
-            content[&CFSelector::from_str("1/success/0").unwrap()],
+            content[&CFSelector::from_str("1/success->0").unwrap()],
             ControlFlowElement::BasicBlock { id: 2 }
         );
         assert_matches!(
-            content[&CFSelector::from_str("1/success/1").unwrap()],
+            content[&CFSelector::from_str("1/success->1").unwrap()],
             ControlFlowElement::BasicBlock { id: 3 }
         );
         assert_eq!(
-            content.get(&CFSelector::from_str("1/failure/0").unwrap()),
+            content.get(&CFSelector::from_str("1/failure->0").unwrap()),
             None
         );
         let control_flow_graph = binded.control_flow_graph();
         fold_if_else_once(&mut content, control_flow_graph);
         assert_matches!(
-            content[&CFSelector::from_str("1/failure/0").unwrap()],
+            content[&CFSelector::from_str("1/failure->0").unwrap()],
             ControlFlowElement::BasicBlock { id: 4 }
         );
         assert_matches!(
-            content[&CFSelector::from_str("1/failure/1").unwrap()],
+            content[&CFSelector::from_str("1/failure->1").unwrap()],
             ControlFlowElement::BasicBlock { id: 5 }
         );
 
@@ -415,27 +404,27 @@ mod tests {
             ControlFlowElement::BasicBlock { id: 0 }
         );
         assert_matches!(
-            &content[&CFSelector::from_str("0/success/0").unwrap()],
+            &content[&CFSelector::from_str("0/success->0").unwrap()],
             ControlFlowElement::BasicBlock { id: 1 }
         );
         assert_matches!(
-            &content[&CFSelector::from_str("0/success/1").unwrap()],
+            &content[&CFSelector::from_str("0/success->1").unwrap()],
             ControlFlowElement::Loop { .. }
         );
         assert_matches!(
-            &content[&CFSelector::from_str("0/success/1/0").unwrap()],
+            &content[&CFSelector::from_str("0/success->1/0").unwrap()],
             ControlFlowElement::BasicBlock { id: 2 }
         );
         assert_matches!(
-            &content[&CFSelector::from_str("0/success/1/1").unwrap()],
+            &content[&CFSelector::from_str("0/success->1/1").unwrap()],
             ControlFlowElement::If { .. }
         );
         assert_matches!(
-            &content[&CFSelector::from_str("0/success/1/1/if_condition").unwrap()],
+            &content[&CFSelector::from_str("0/success->1/1/if_condition").unwrap()],
             ControlFlowElement::BasicBlock { id: 3 }
         );
         assert_matches!(
-            &content[&CFSelector::from_str("0/success/1/1/success/0").unwrap()],
+            &content[&CFSelector::from_str("0/success->1/1/success->0").unwrap()],
             ControlFlowElement::BasicBlock { id: 4 }
         );
     }

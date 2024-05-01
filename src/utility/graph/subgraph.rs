@@ -1,17 +1,11 @@
-use std::{
-    fmt::{self, Debug},
-    vec,
-};
+use std::{fmt::Debug, vec};
 
 use itertools::Itertools;
 use petgraph::{
-    adj::NodeIndex,
-    graph::{DiGraph, EdgeIndex},
-    graphmap::NeighborsDirected,
+    graph::DiGraph,
     visit::{
-        Data, EdgeFiltered, EdgeFilteredNeighbors, EdgeRef, FilterEdge, FilterNode, GraphBase,
-        GraphRef, IntoEdgeReferences, IntoEdges, IntoEdgesDirected, IntoNeighbors,
-        IntoNeighborsDirected, IntoNodeIdentifiers, IntoNodeReferences, NodeCount, NodeFiltered,
+        Data, EdgeFiltered, EdgeRef, GraphBase, IntoEdgeReferences, IntoEdges, IntoEdgesDirected,
+        IntoNeighbors, IntoNeighborsDirected, IntoNodeIdentifiers, NodeCount, NodeFiltered,
         Visitable,
     },
     Direction,
@@ -68,7 +62,7 @@ impl<'a> IntoNeighbors for &'a CFSubGraph<'a> {
         let filtered_nodes = NodeFiltered::from_fn(self.graph, |n| self.nodes.contains(&n));
         let filtered_edges =
             EdgeFiltered::from_fn(&filtered_nodes, |e| self.edges.contains(&e.id()));
-        filtered_nodes.neighbors(a).collect_vec().into_iter()
+        filtered_edges.neighbors(a).collect_vec().into_iter()
     }
 }
 
@@ -79,7 +73,7 @@ impl<'a> IntoNeighborsDirected for &'a CFSubGraph<'a> {
         let filtered_nodes = NodeFiltered::from_fn(self.graph, |n| self.nodes.contains(&n));
         let filtered_edges =
             EdgeFiltered::from_fn(&filtered_nodes, |e| self.edges.contains(&e.id()));
-        filtered_nodes
+        filtered_edges
             .neighbors_directed(n, d)
             .collect_vec()
             .into_iter()

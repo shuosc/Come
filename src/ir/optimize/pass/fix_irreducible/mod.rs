@@ -301,8 +301,7 @@ fn generate_origin_target_to_source_map(
     edges_into_entry_nodes.sort();
     let mut two_nodes = Vec::new();
     let mut one_nodes = Vec::new();
-    while !edges_into_entry_nodes.is_empty() {
-        let last = edges_into_entry_nodes.pop().unwrap();
+    while let Some(last) = edges_into_entry_nodes.pop() {
         if let Some(last_but_one) = edges_into_entry_nodes.pop() {
             if last_but_one.0 == last.0 {
                 two_nodes.push((last, last_but_one));
@@ -350,19 +349,22 @@ fn generate_origin_target_to_source_map(
 
 impl IsPass for FixIrreducible {
     fn run(&self, editor: &mut Editor) {
-        while let Some(irreducible_scc) = editor
+        while let Some(irreducible_scc) = dbg!(editor
             .binded_analyzer()
             .control_flow_graph()
             .top_level_scc()
-            .first_irreducible_sub_scc()
+            .first_irreducible_sub_scc())
         {
+            println!("{}", &editor.content);
+            println!("{}", &irreducible_scc);
+            println!("{:?}", irreducible_scc.entry_nodes());
             let analyzer = editor.binded_analyzer();
             let graph = analyzer.control_flow_graph();
-            let edges_into_entry_nodes = irreducible_scc.edges_into_entry_nodes();
+            let edges_into_entry_nodes = irreducible_scc.extern_edges_into_entry_nodes();
+            dbg!(&edges_into_entry_nodes);
             let origin_target_to_source_map =
                 generate_origin_target_to_source_map(&editor.content, edges_into_entry_nodes);
             let edit_plan = generate_edit_plan(&origin_target_to_source_map, &graph);
-            drop(graph);
             drop(irreducible_scc);
             // fixme: don't use direct_edit for performance's sake!
             editor.direct_edit(move |f| {

@@ -72,16 +72,16 @@ impl ControlFlowGraphContent {
                 _ => unreachable!(),
             }
         }
-        let dorminators = simple_fast(&graph, 0.into());
+        let dominators = simple_fast(&graph, 0.into());
         let graph = remove_unreachable_nodes(graph);
-        let frontiers = utility::graph::dominance_frontiers(&dorminators, &graph)
+        let frontiers = utility::graph::dominance_frontiers(&dominators, &graph)
             .into_iter()
             .map(|(k, v)| (k.index(), v.into_iter().map(NodeIndex::index).collect()))
             .collect();
         Self {
             graph,
             frontiers,
-            dominators: dorminators,
+            dominators,
             bb_name_index_map,
             from_to_may_pass_blocks: RefCell::new(HashMap::new()),
             // top_level_scc: Scc::new(0..function_definition.content.len(), true),
@@ -177,10 +177,7 @@ impl ControlFlowGraph {
     fn dominate(&self, content: &ir::FunctionDefinition, bb_index: usize) -> Vec<usize> {
         self.content(content).dominates(bb_index)
     }
-    fn top_level_scc(&self, content: &FunctionDefinition) -> BindedScc {
-        // self.content(content).top_level_scc.clone()
-        todo!()
-    }
+
     fn branch_direction(
         &self,
         content: &FunctionDefinition,
@@ -206,7 +203,7 @@ impl ControlFlowGraph {
             .unwrap()
             .as_branch()
             .success_label;
-        let success_block_id = self.basic_block_index_by_name(content, &success_name);
+        let success_block_id = self.basic_block_index_by_name(content, success_name);
         let block1_under_success = self.dominate(content, success_block_id);
         let block2_under_success = self.dominate(content, success_block_id);
         let block1_under_success = block1_under_success.contains(&block1_index);
@@ -235,7 +232,7 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
         self.item.may_pass_blocks(self.bind_on, from, to)
     }
     pub fn top_level_scc(&self) -> BindedScc<'item> {
-        let content = &self.item.content(&self.bind_on).graph;
+        let content = &self.item.content(self.bind_on).graph;
         BindedScc::new_top_level_from_graph(content)
     }
     pub fn graph(&self) -> &DiGraph<(), (), usize> {
@@ -271,7 +268,7 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
     }
     pub fn branch_direction(&self, branch_block_index: usize, target_block_index: usize) -> bool {
         self.item
-            .branch_direction(&self.bind_on, branch_block_index, target_block_index)
+            .branch_direction(self.bind_on, branch_block_index, target_block_index)
     }
     pub fn is_in_same_branch_side(
         &self,
@@ -280,7 +277,7 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
         block2_index: usize,
     ) -> bool {
         self.item.is_in_same_branch_side(
-            &self.bind_on,
+            self.bind_on,
             branch_block_index,
             block1_index,
             block2_index,

@@ -1,4 +1,4 @@
-use function::statement::{phi, BinaryCalculate, Ret};
+use function::statement::{phi, BinaryCalculate};
 
 use crate::{
     ir::{
@@ -353,45 +353,6 @@ fn test_fix_irreducible() {
             return_type: data_type::Type::None,
         },
         content: vec![
-            branch_block(0, 1, 2),
-            branch_block(1, 3, 5),
-            branch_block(3, 2, 9),
-            jump_block(2, 1),
-            branch_block(5, 4, 8),
-            jump_block(4, 6),
-            branch_block(8, 6, 3),
-            jump_block(6, 7),
-            jump_block(7, 8),
-            ret_block(9),
-        ],
-    };
-    let mut editor = Editor::new(function_definition);
-    let pass = FixIrreducible;
-    pass.run(&mut editor);
-    assert_eq!(editor.content.content.len(), 12);
-    let guard1 = editor
-        .content
-        .content
-        .iter()
-        .find(|it| it.name.as_ref().unwrap() == "_guard_block_scc_1_3_for_bb1")
-        .unwrap();
-    assert!(guard1.content.len() == 2);
-    assert!(guard1.content[0].as_phi().from.contains(&PhiSource {
-        value: RegisterName("_extracted_branch_condition_scc_1_3_at_bb0".to_string()).into(),
-        block: "bb0".to_string()
-    }));
-    assert_eq!(
-        guard1.content[1].as_branch().operand1,
-        RegisterName("_should_goto_scc_1_3_bb1".to_string()).into()
-    );
-
-    let function_definition = FunctionDefinition {
-        header: ir::FunctionHeader {
-            name: "f".to_string(),
-            parameters: Vec::new(),
-            return_type: data_type::Type::None,
-        },
-        content: vec![
             jump_block(0, 1),
             jump_block(1, 2),
             branch_block(2, 3, 7),
@@ -478,6 +439,48 @@ fn test_fix_irreducible() {
     assert_eq!(
         bb8.content[1].as_jump().label,
         "_guard_block_scc_3_5_7_for_bb3"
+    );
+}
+
+#[test]
+fn test_fix_irreducible_0() {
+    let function_definition = FunctionDefinition {
+        header: ir::FunctionHeader {
+            name: "f".to_string(),
+            parameters: Vec::new(),
+            return_type: data_type::Type::None,
+        },
+        content: vec![
+            branch_block(0, 1, 2),
+            branch_block(1, 3, 5),
+            branch_block(3, 2, 9),
+            jump_block(2, 1),
+            branch_block(5, 4, 8),
+            jump_block(4, 6),
+            branch_block(8, 6, 3),
+            jump_block(6, 7),
+            jump_block(7, 8),
+            ret_block(9),
+        ],
+    };
+    let mut editor = Editor::new(function_definition);
+    let pass = FixIrreducible;
+    pass.run(&mut editor);
+    assert_eq!(editor.content.content.len(), 12);
+    let guard1 = editor
+        .content
+        .content
+        .iter()
+        .find(|it| it.name.as_ref().unwrap() == "_guard_block_scc_1_3_for_bb1")
+        .unwrap();
+    assert!(guard1.content.len() == 2);
+    assert!(guard1.content[0].as_phi().from.contains(&PhiSource {
+        value: RegisterName("_extracted_branch_condition_scc_1_3_at_bb0".to_string()).into(),
+        block: "bb0".to_string()
+    }));
+    assert_eq!(
+        guard1.content[1].as_branch().operand1,
+        RegisterName("_should_goto_scc_1_3_bb1".to_string()).into()
     );
 }
 

@@ -1,24 +1,27 @@
 use std::fmt;
 
-use crate::{
-    ir::analyzer::control_flow::scc,
-    utility::graph::{
-        kosaraju_scc_with_filter,
-        subgraph::{CFGraph, CFSubGraph},
-    },
+use crate::utility::graph::{
+    kosaraju_scc_with_filter,
+    subgraph::{CFGraph, CFSubGraph},
 };
 
 use itertools::Itertools;
 use petgraph::{
     algo::all_simple_paths,
     prelude::*,
-    visit::{GraphBase, IntoEdgeReferences, IntoNeighborsDirected, NodeFiltered, NodeRef},
+    visit::{GraphBase, IntoEdgeReferences, IntoNeighborsDirected},
 };
 
 #[derive(Clone)]
 pub struct BindedScc<'a> {
     pub graph_part: CFSubGraph<'a>,
     pub top_level: bool,
+}
+
+impl<'a> PartialEq for BindedScc<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.graph_part.nodes.eq(&other.graph_part.nodes)
+    }
 }
 impl<'a> BindedScc<'a> {
     pub fn new(
@@ -86,6 +89,15 @@ impl<'a> BindedScc<'a> {
             .collect()
     }
 
+    pub fn extern_edges_into_entry_nodes(&self) -> Vec<(usize, usize)> {
+        self.graph_part
+            .graph
+            .edge_references()
+            .filter(|edge| self.entry_nodes().contains(&edge.target().index()))
+            .map(|it| (it.source().index(), it.target().index()))
+            .collect()
+    }
+
     pub fn reduciable(&self) -> bool {
         self.entry_nodes().len() == 1
     }
@@ -98,6 +110,7 @@ impl<'a> BindedScc<'a> {
             None
         } else {
             let entry_node = entry_nodes[0];
+            dbg!(entry_node);
             let largest_simple_loop = self
                 .graph_part
                 .neighbors_directed(entry_node.into(), Incoming)
@@ -138,7 +151,7 @@ impl<'a> BindedScc<'a> {
                 .into_iter()
                 .map(|content| {
                     Self::new(
-                        &self.graph_part.graph,
+                        self.graph_part.graph,
                         content,
                         edges_without_backedge.clone(),
                         false,
@@ -155,8 +168,19 @@ impl<'a> BindedScc<'a> {
         } else if !self.reduciable() {
             return Some(self.clone());
         } else {
+            // dbg!(self.top_level_sccs());
+            // if self
+            //     .top_level_sccs()
+            //     .map(|it| it.len() != 2)
+            //     .unwrap_or(false)
+            // {
+            //     return None;
+            // }
             let sccs = self.top_level_sccs().unwrap();
             for scc in sccs {
+                // if &scc == self {
+                //     return Some(scc);
+                // }
                 if let Some(first_irreducible) = scc.first_irreducible_sub_scc() {
                     return Some(first_irreducible);
                 }
@@ -336,5 +360,49 @@ mod tests {
         // let scc = &top_level_sccs[0];
         // let top_level_sccs = scc.top_level_sccs().unwrap();
         // println!("{:?}", &top_level_sccs);
+    }
+
+    #[test]
+    fn test_top_level_strange() {
+        let mut graph: DiGraph<_, _, usize> = DiGraph::default();
+        let node_0 = graph.add_node(());
+        let node_1 = graph.add_node(());
+        let node_2 = graph.add_node(());
+        graph.add_edge(node_0, node_1, ());
+        graph.add_edge(node_1, node_2, ());
+        graph.add_edge(node_2, node_0, ());
+        graph.add_edge(node_0, node_2, ());
+        graph.add_edge(node_2, node_1, ());
+        graph.add_edge(node_1, node_0, ());
+
+        let scc = BindedScc::new_top_level_from_graph(&graph);
+        println!("{:?}", scc.top_level_sccs());
+        println!(
+            "first_irreducible_sub_scc={:?}",
+            scc.first_irreducible_sub_scc()
+        );
+    }
+
+    #[test]
+    fn test_top_level_strange_0() {
+        let mut graph: DiGraph<_, _, usize> = DiGraph::default();
+        let node_0 = graph.add_node(());
+        let node_1 = graph.add_node(());
+        let node_2 = graph.add_node(());
+        let node_3 = graph.add_node(());
+        graph.add_edge(node_0, node_1, ());
+        graph.add_edge(node_1, node_2, ());
+        graph.add_edge(node_1, node_3, ());
+        graph.add_edge(node_2, node_3, ());
+        graph.add_edge(node_3, node_1, ());
+        graph.add_edge(node_2, node_1, ());
+        graph.add_edge(node_3, node_2, ());
+
+        let scc = BindedScc::new_top_level_from_graph(&graph);
+
+        println!(
+            "first_irreducible_sub_scc={:?}",
+            scc.first_irreducible_sub_scc()
+        );
     }
 }

@@ -1,7 +1,6 @@
 use delegate::delegate;
 use std::{
-    cmp::Ordering, collections::VecDeque, fmt, iter::zip, num::ParseIntError, ops::RangeBounds,
-    result, str::FromStr,
+    cmp::Ordering, collections::VecDeque, fmt, iter::zip, num::ParseIntError, ops::RangeBounds, str::FromStr,
 };
 
 #[derive(Clone, PartialEq, Eq)]
@@ -112,8 +111,8 @@ impl FromStr for CFSelector {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut result = VecDeque::new();
-        let mut parts = s.split("/");
-        while let Some(next_part) = parts.next() {
+        let parts = s.split('/');
+        for next_part in parts {
             let segment = CFSelectorSegment::from_str(next_part)?;
             result.push_back(segment);
         }
@@ -222,11 +221,7 @@ impl CFSelector {
             false
         } else {
             let shared_part = Self::lowest_common_ancestor(selector, last_selector);
-            if shared_part.len() == selector.len() - 1 {
-                true
-            } else {
-                false
-            }
+            shared_part.len() == selector.len() - 1
         }
     }
 

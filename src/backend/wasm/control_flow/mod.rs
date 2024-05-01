@@ -234,7 +234,7 @@ impl ControlFlowElement {
         assert!(!element.is_empty());
         let (parent_selector, last_segment) = element.clone().split_last().unwrap();
         let parent = &mut self[&parent_selector];
-        return match (parent, last_segment) {
+        match (parent, last_segment) {
             (ControlFlowElement::Block { content }, CFSelectorSegment::ContentAtIndex(i)) => {
                 content.remove(i)
             }
@@ -252,7 +252,7 @@ impl ControlFlowElement {
             (ControlFlowElement::If { .. }, _) => unreachable!(),
             (ControlFlowElement::Loop { .. }, _) => unreachable!(),
             (ControlFlowElement::BasicBlock { .. }, _) => unreachable!(),
-        };
+        }
     }
     pub fn get(&self, index: &CFSelector) -> Option<&ControlFlowElement> {
         if index.is_empty() {
@@ -349,7 +349,7 @@ mod tests {
         let selector = content.find_node(2);
         assert_eq!(
             selector.unwrap(),
-            CFSelector::from_str("1/success/0").unwrap()
+            CFSelector::from_str("1/success->0").unwrap()
         );
         let selector = content.find_node(3);
         assert_eq!(selector.unwrap(), CFSelector::from_str("2").unwrap());

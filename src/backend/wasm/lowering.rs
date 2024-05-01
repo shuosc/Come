@@ -278,7 +278,7 @@ fn generate_if_condition(
     register_name_id_map: &HashMap<RegisterName, u32>,
     result: &mut Function,
 ) {
-    let data_type = decide_branch_operation_type(&branch_statement, register_type);
+    let data_type = decide_branch_operation_type(branch_statement, register_type);
     put_value_onto_stack(
         &branch_statement.operand1,
         register_name_id_map,
@@ -338,7 +338,7 @@ fn lower_basic_block(
     result: &mut Function,
     bb_id: usize,
     block: &BasicBlock,
-    selector: CFSelector,
+    _selector: CFSelector,
     binded_cfg: &BindedControlFlowGraph,
     register_name_id_map: &HashMap<RegisterName, u32>,
     cfe_root: &ControlFlowElement,
@@ -396,7 +396,7 @@ fn lower_control_flow_element(
             lower_control_flow_element(
                 result,
                 body,
-                &condition,
+                condition,
                 new_selector,
                 binded_cfg,
                 register_name_id_map,
@@ -418,7 +418,7 @@ fn lower_control_flow_element(
                     register_type,
                 );
             }
-            if on_failure.len() != 0 {
+            if !on_failure.is_empty() {
                 result.instruction(&Instruction::Else);
                 for (i, failure_block) in on_failure.iter().enumerate() {
                     let mut new_selector = current.clone();
