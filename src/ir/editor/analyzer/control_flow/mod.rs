@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     cell::{OnceCell, Ref, RefCell},
     collections::HashMap,
 };
@@ -18,10 +19,9 @@ use crate::{
     utility::{self},
 };
 
-use self::scc::Scc;
+pub use self::scc::BindedScc;
 
 use super::IsAnalyzer;
-pub use scc::BindedScc;
 
 mod scc;
 
@@ -32,7 +32,7 @@ pub struct ControlFlowGraphContent {
     frontiers: HashMap<usize, Vec<usize>>,
     bb_name_index_map: BiMap<usize, String>,
     dominators: Dominators<NodeIndex<usize>>,
-    top_level_scc: Scc,
+    // top_level_scc: BindedScc,
     // fixme: remove this refcell!
     from_to_may_pass_blocks: RefCell<HashMap<(usize, usize), Vec<usize>>>,
 }
@@ -84,7 +84,7 @@ impl ControlFlowGraphContent {
             dominators: dorminators,
             bb_name_index_map,
             from_to_may_pass_blocks: RefCell::new(HashMap::new()),
-            top_level_scc: Scc::new(0..function_definition.content.len(), true),
+            // top_level_scc: Scc::new(0..function_definition.content.len(), true),
         }
     }
 
@@ -177,8 +177,9 @@ impl ControlFlowGraph {
     fn dominate(&self, content: &ir::FunctionDefinition, bb_index: usize) -> Vec<usize> {
         self.content(content).dominates(bb_index)
     }
-    fn top_level_scc(&self, content: &FunctionDefinition) -> Scc {
-        self.content(content).top_level_scc.clone()
+    fn top_level_scc(&self, content: &FunctionDefinition) -> BindedScc {
+        // self.content(content).top_level_scc.clone()
+        todo!()
     }
     fn branch_direction(
         &self,
@@ -233,8 +234,9 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
     pub fn may_pass_blocks(&self, from: usize, to: usize) -> Ref<Vec<usize>> {
         self.item.may_pass_blocks(self.bind_on, from, to)
     }
-    pub fn top_level_scc(&self) -> BindedScc<'_> {
-        self.item.top_level_scc(self.bind_on).bind(self.graph())
+    pub fn top_level_scc(&self) -> BindedScc<'item> {
+        let content = &self.item.content(&self.bind_on).graph;
+        BindedScc::new_top_level_from_graph(content)
     }
     pub fn graph(&self) -> &DiGraph<(), (), usize> {
         &self.item.content(self.bind_on).graph

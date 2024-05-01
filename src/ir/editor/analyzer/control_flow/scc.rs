@@ -1,61 +1,75 @@
 use std::fmt;
 
-use crate::utility::graph::{kosaraju_scc_with_filter, subgraph::SubGraph};
-use delegate::delegate;
+use crate::{
+    ir::analyzer::control_flow::scc,
+    utility::graph::{
+        kosaraju_scc_with_filter,
+        subgraph::{CFGraph, CFSubGraph},
+    },
+};
 
 use itertools::Itertools;
 use petgraph::{
     algo::all_simple_paths,
-    graph,
     prelude::*,
-    visit::{IntoNeighborsDirected, NodeFiltered, NodeRef},
+    visit::{GraphBase, IntoEdgeReferences, IntoNeighborsDirected, NodeFiltered, NodeRef},
 };
 
 #[derive(Clone)]
-pub struct Scc {
-    pub nodes: Vec<usize>,
+pub struct BindedScc<'a> {
+    pub graph_part: CFSubGraph<'a>,
     pub top_level: bool,
 }
-
-impl Scc {
-    pub fn new(nodes: impl IntoIterator<Item = usize>, top_level: bool) -> Self {
+impl<'a> BindedScc<'a> {
+    pub fn new(
+        graph: &'a CFGraph,
+        nodes: impl IntoIterator<Item = <CFGraph as GraphBase>::NodeId>,
+        edges: impl IntoIterator<Item = <CFGraph as GraphBase>::EdgeId>,
+        top_level: bool,
+    ) -> Self {
         Self {
-            nodes: nodes.into_iter().collect(),
+            graph_part: CFSubGraph::new(graph, nodes, edges),
             top_level,
         }
     }
-
+    pub fn new_top_level_from_graph(graph: &'a CFGraph) -> Self {
+        let nodes = graph.node_indices();
+        let edges = graph.edge_indices();
+        Self::new(graph, nodes, edges, true)
+    }
     pub fn is_trivial(&self) -> bool {
-        self.nodes.len() == 1
+        self.graph_part.nodes.len() == 1
     }
-
-    pub fn edges(&self, graph: &DiGraph<(), (), usize>) -> Vec<(usize, usize)> {
-        graph
+    pub fn contains(&self, node: usize) -> bool {
+        self.graph_part.nodes.contains(&node.into())
+    }
+    pub fn edges(&self) -> Vec<(usize, usize)> {
+        self.graph_part
             .edge_references()
             .filter(|edge| {
-                self.nodes.contains(&edge.source().index())
-                    && self.nodes.contains(&edge.target().index())
+                self.graph_part.nodes.contains(&edge.source())
+                    && self.graph_part.nodes.contains(&edge.target())
+            })
+            .map(|it| (it.source().index(), it.target().index()))
+            .collect()
+    }
+    pub fn entry_edges(&self) -> Vec<(usize, usize)> {
+        self.graph_part
+            .graph
+            .edge_references()
+            .filter(|edge| {
+                !self.graph_part.nodes.contains(&edge.source())
+                    && self.graph_part.nodes.contains(&edge.target())
             })
             .map(|it| (it.source().index(), it.target().index()))
             .collect()
     }
 
-    pub fn entry_edges(&self, graph: &DiGraph<(), (), usize>) -> Vec<(usize, usize)> {
-        graph
-            .edge_references()
-            .filter(|edge| {
-                !self.nodes.contains(&edge.source().index())
-                    && self.nodes.contains(&edge.target().index())
-            })
-            .map(|it| (it.source().index(), it.target().index()))
-            .collect()
-    }
-
-    pub fn entry_nodes(&self, graph: &DiGraph<(), (), usize>) -> Vec<usize> {
-        if self.top_level || self.nodes.len() == 1 {
-            vec![self.nodes[0]]
+    pub fn entry_nodes(&self) -> Vec<usize> {
+        if self.top_level || self.graph_part.nodes.len() == 1 {
+            vec![self.graph_part.nodes[0].index()]
         } else {
-            self.entry_edges(graph)
+            self.entry_edges()
                 .into_iter()
                 .map(|(_, to)| to)
                 .sorted()
@@ -64,68 +78,86 @@ impl Scc {
         }
     }
 
-    pub fn edges_into_entry_nodes(&self, graph: &DiGraph<(), (), usize>) -> Vec<(usize, usize)> {
-        graph
+    pub fn edges_into_entry_nodes(&self) -> Vec<(usize, usize)> {
+        self.graph_part
             .edge_references()
-            .filter(|edge| self.entry_nodes(graph).contains(&edge.target().index()))
+            .filter(|edge| self.entry_nodes().contains(&edge.target().index()))
             .map(|it| (it.source().index(), it.target().index()))
             .collect()
     }
 
-    pub fn reduciable(&self, graph: &DiGraph<(), (), usize>) -> bool {
-        self.entry_nodes(graph).len() == 1
+    pub fn reduciable(&self) -> bool {
+        self.entry_nodes().len() == 1
     }
 
     /// Returns all top level sccs for a reducible subgraph.
     /// Return None if the subgraph is not reducible.
-    pub fn top_level_sccs(&self, graph: &DiGraph<(), (), usize>) -> Option<Vec<Scc>> {
-        let entry_nodes = self.entry_nodes(graph);
+    pub fn top_level_sccs(&self) -> Option<Vec<Self>> {
+        let entry_nodes = self.entry_nodes();
         if entry_nodes.len() != 1 {
             None
         } else {
             let entry_node = entry_nodes[0];
-            let node_filtered =
-                NodeFiltered::from_fn(graph, |node| self.nodes.contains(&node.index()));
-            let subgraph = SubGraph(node_filtered);
-            let largest_simple_loop = subgraph
+            let largest_simple_loop = self
+                .graph_part
                 .neighbors_directed(entry_node.into(), Incoming)
                 .flat_map(|pred| {
-                    all_simple_paths::<Vec<_>, _>(&subgraph, entry_node.into(), pred, 1, None)
-                        .max_by(|a, b| a.len().cmp(&b.len()))
+                    all_simple_paths::<Vec<_>, _>(
+                        &self.graph_part,
+                        entry_node.into(),
+                        pred,
+                        0,
+                        None,
+                    )
+                    .max_by(|a, b| a.len().cmp(&b.len()))
                 })
                 .max_by(|a, b| a.len().cmp(&b.len()));
-            dbg!(&largest_simple_loop);
             let backedge = if let Some(mut largest_simple_loops) = largest_simple_loop {
                 let last_node = largest_simple_loops.pop().unwrap();
-                graph.find_edge(last_node, entry_node.into())
+                self.graph_part.find_edge(last_node, entry_node.into())
             } else {
                 None
             };
-            let backedge_info = backedge.and_then(|e| graph.edge_endpoints(e));
-            println!("entry: {:?}, {:?}", entry_node, backedge_info);
+            let edges_without_backedge = if let Some(backedge) = backedge {
+                self.graph_part
+                    .edges
+                    .iter()
+                    .filter(|&&e| e != backedge)
+                    .cloned()
+                    .collect()
+            } else {
+                self.graph_part.edges.clone()
+            };
             let sccs = kosaraju_scc_with_filter(
-                graph,
+                &self.graph_part,
                 entry_nodes[0].into(),
-                |node| self.nodes.contains(&node.index()),
-                |edge| Some(edge) != backedge,
+                |_| true,
+                |e| Some(e) != backedge,
             );
             let result = sccs
                 .into_iter()
-                .map(|content| Self::new(content.into_iter().map(NodeIndex::index), false))
+                .map(|content| {
+                    Self::new(
+                        &self.graph_part.graph,
+                        content,
+                        edges_without_backedge.clone(),
+                        false,
+                    )
+                })
                 .collect();
             Some(result)
         }
     }
 
-    pub fn first_irreducible_sub_scc(&self, graph: &DiGraph<(), (), usize>) -> Option<Scc> {
-        if self.nodes.len() == 1 {
+    pub fn first_irreducible_sub_scc(&self) -> Option<Self> {
+        if self.graph_part.nodes.len() == 1 {
             return None;
-        } else if !self.reduciable(graph) {
+        } else if !self.reduciable() {
             return Some(self.clone());
         } else {
-            let sccs = self.top_level_sccs(graph).unwrap();
+            let sccs = self.top_level_sccs().unwrap();
             for scc in sccs {
-                if let Some(first_irreducible) = scc.first_irreducible_sub_scc(graph) {
+                if let Some(first_irreducible) = scc.first_irreducible_sub_scc() {
                     return Some(first_irreducible);
                 }
             }
@@ -133,105 +165,46 @@ impl Scc {
         None
     }
 
-    pub fn contains(&self, node: usize) -> bool {
-        self.nodes.contains(&node)
-    }
-
     /// Returns the smallest non trivial (ie. not a single node) scc
     /// the node is in.
-    pub fn smallest_non_trivial_scc_node_in(
-        &self,
-        graph: &DiGraph<(), (), usize>,
-        node: usize,
-    ) -> Option<Scc> {
+    pub fn smallest_non_trivial_scc_node_in(&self, node: usize) -> Option<Self> {
         if !self.contains(node) {
             None
         } else if self.is_trivial() {
             None
-        } else if let Some(sub_sccs) = self.top_level_sccs(graph) {
+        } else if let Some(sub_sccs) = self.top_level_sccs() {
             for sub_scc in sub_sccs {
                 if sub_scc.is_trivial() && sub_scc.contains(node) {
                     return Some(self.clone());
-                } else if let Some(result) = sub_scc.smallest_non_trivial_scc_node_in(graph, node) {
+                } else if let Some(result) = sub_scc.smallest_non_trivial_scc_node_in(node) {
                     return Some(result);
                 }
             }
             unreachable!()
         } else {
-            debug_assert!(!self.reduciable(graph));
+            debug_assert!(!self.reduciable());
             Some(self.clone())
         }
     }
 }
 
-impl fmt::Display for Scc {
+impl<'a> fmt::Display for BindedScc<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.nodes)
+        write!(
+            f,
+            "Scc{{{:?}, top_level: {}}}",
+            self.graph_part.nodes, self.top_level
+        )
     }
 }
 
-impl fmt::Debug for Scc {
+impl<'a> fmt::Debug for BindedScc<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.nodes)
-    }
-}
-
-#[derive(Clone)]
-pub struct BindedScc<'bind> {
-    graph: &'bind DiGraph<(), (), usize>,
-    item: Scc,
-}
-
-impl fmt::Display for BindedScc<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.item.fmt(f)
-    }
-}
-
-impl fmt::Debug for BindedScc<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.item.fmt(f)
-    }
-}
-
-impl<'bind> BindedScc<'bind> {
-    pub fn new(graph: &'bind DiGraph<(), (), usize>, item: Scc) -> Self {
-        Self { graph, item }
-    }
-    delegate! {
-        to self.item {
-            pub fn is_trivial(&self) -> bool;
-            pub fn edges(&self, [self.graph]) -> Vec<(usize, usize)>;
-            pub fn entry_edges(&self, [self.graph]) -> Vec<(usize, usize)>;
-            pub fn entry_nodes(&self, [self.graph]) -> Vec<usize>;
-            pub fn edges_into_entry_nodes(&self, [self.graph]) -> Vec<(usize, usize)>;
-            pub fn reduciable(&self, [self.graph]) -> bool;
-            pub fn contains(&self, node: usize) -> bool;
-        }
-    }
-    pub fn top_level_sccs(&self) -> Option<Vec<Self>> {
-        self.item
-            .top_level_sccs(self.graph)
-            .map(|it| it.into_iter().map(|it| it.bind(self.graph)).collect_vec())
-    }
-    pub fn first_irreducible_sub_scc(&self) -> Option<Self> {
-        self.item
-            .first_irreducible_sub_scc(self.graph)
-            .map(|it| it.bind(self.graph))
-    }
-    pub fn smallest_non_trivial_scc_node_in(&self, node: usize) -> Option<Self> {
-        self.item
-            .smallest_non_trivial_scc_node_in(self.graph, node)
-            .map(|it| it.bind(self.graph))
-    }
-    pub fn top_level(&self) -> bool {
-        self.item.top_level
-    }
-}
-
-impl<'item, 'bind: 'item> Scc {
-    pub fn bind(&'item self, graph: &'bind DiGraph<(), (), usize>) -> BindedScc<'bind> {
-        BindedScc::new(graph, self.clone())
+        write!(
+            f,
+            "Scc{{{:?}, top_level: {}}}",
+            self.graph_part.nodes, self.top_level
+        )
     }
 }
 
@@ -269,10 +242,13 @@ mod tests {
         graph.add_edge(node_6, node_10, ());
         graph.add_edge(node_10, node_6, ());
         graph.add_edge(node_10, node_4, ());
-        let scc = Scc::new(0..10, true);
-        let scc = BindedScc::new(&graph, scc);
+
+        let scc = BindedScc::new_top_level_from_graph(&graph);
         println!("{:?}", scc.top_level_sccs());
-        println!("{:?}", scc.first_irreducible_sub_scc());
+        println!(
+            "first_irreducible_sub_scc={:?}",
+            scc.first_irreducible_sub_scc()
+        );
     }
 
     #[test]
@@ -291,12 +267,16 @@ mod tests {
         graph.add_edge(node_4, node_1, ());
         graph.add_edge(node_3, node_1, ());
         graph.add_edge(node_4, node_5, ());
-        let scc = Scc::new(0..6, true);
-        let scc = BindedScc::new(&graph, scc);
+        let scc = BindedScc::new_top_level_from_graph(&graph);
         let top_level_sccs = scc.top_level_sccs().unwrap();
         println!("{:?}", &top_level_sccs);
-        let contains_recursive = &top_level_sccs[1];
-        println!("{:?}", contains_recursive.top_level_sccs());
+        let scc = &top_level_sccs[1];
+        println!("{:?}", &scc);
+        let top_level_sccs = scc.top_level_sccs().unwrap();
+        println!("{:?}", &top_level_sccs);
+        let scc = &top_level_sccs[0];
+        let top_level_sccs = scc.top_level_sccs().unwrap();
+        println!("{:?}", &top_level_sccs);
     }
 
     #[test]
@@ -309,7 +289,35 @@ mod tests {
         let node_4 = graph.add_node(());
         let node_5 = graph.add_node(());
         let node_6 = graph.add_node(());
-        let node_7 = graph.add_node(());
+        graph.add_edge(node_0, node_1, ());
+        graph.add_edge(node_1, node_2, ());
+        graph.add_edge(node_2, node_3, ());
+        graph.add_edge(node_3, node_4, ());
+        graph.add_edge(node_4, node_5, ());
+        graph.add_edge(node_3, node_6, ());
+        graph.add_edge(node_6, node_1, ());
+        graph.add_edge(node_4, node_6, ());
+
+        let scc = BindedScc::new_top_level_from_graph(&graph);
+        let top_level_sccs = scc.top_level_sccs().unwrap();
+        println!("{:?}", &top_level_sccs);
+        let scc = &top_level_sccs[1];
+        let top_level_sccs = scc.top_level_sccs().unwrap();
+        println!("{:?}", &top_level_sccs);
+        // let scc = &top_level_sccs[0];
+        // let top_level_sccs = scc.top_level_sccs().unwrap();
+        // println!("{:?}", &top_level_sccs);
+    }
+    #[test]
+    fn test_top_level_scc_recursive3() {
+        let mut graph: DiGraph<_, _, usize> = DiGraph::default();
+        let node_0 = graph.add_node(());
+        let node_1 = graph.add_node(());
+        let node_2 = graph.add_node(());
+        let node_3 = graph.add_node(());
+        let node_4 = graph.add_node(());
+        let node_5 = graph.add_node(());
+        let node_6 = graph.add_node(());
         graph.add_edge(node_0, node_1, ());
         graph.add_edge(node_1, node_2, ());
         graph.add_edge(node_2, node_3, ());
@@ -318,13 +326,15 @@ mod tests {
         graph.add_edge(node_4, node_5, ());
         graph.add_edge(node_5, node_1, ());
         graph.add_edge(node_3, node_6, ());
-        graph.add_edge(node_2, node_4, ());
-        graph.add_edge(node_4, node_7, ());
-        let scc = Scc::new(0..8, true);
-        let scc = BindedScc::new(&graph, scc);
+
+        let scc = BindedScc::new_top_level_from_graph(&graph);
         let top_level_sccs = scc.top_level_sccs().unwrap();
-        println!("{:?}", top_level_sccs);
-        let contains_recursive = &top_level_sccs[1];
-        println!("{:?}", contains_recursive.top_level_sccs());
+        println!("{:?}", &top_level_sccs);
+        let scc = &top_level_sccs[1];
+        let top_level_sccs = scc.top_level_sccs().unwrap();
+        println!("{:?}", &top_level_sccs);
+        // let scc = &top_level_sccs[0];
+        // let top_level_sccs = scc.top_level_sccs().unwrap();
+        // println!("{:?}", &top_level_sccs);
     }
 }

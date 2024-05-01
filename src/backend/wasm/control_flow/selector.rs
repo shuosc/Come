@@ -1,7 +1,7 @@
 use delegate::delegate;
 use std::{
-    collections::VecDeque, fmt, iter::zip, num::ParseIntError, ops::RangeBounds, result,
-    str::FromStr,
+    cmp::Ordering, collections::VecDeque, fmt, iter::zip, num::ParseIntError, ops::RangeBounds,
+    result, str::FromStr,
 };
 
 #[derive(Clone, PartialEq, Eq)]
@@ -17,8 +17,8 @@ impl fmt::Display for CFSelectorSegment {
         match self {
             CFSelectorSegment::ContentAtIndex(index) => write!(f, "{}", index),
             CFSelectorSegment::IfCondition => write!(f, "if_condition"),
-            CFSelectorSegment::IndexInSuccess(index) => write!(f, "success/{}", index),
-            CFSelectorSegment::IndexInFailure(index) => write!(f, "failure/{}", index),
+            CFSelectorSegment::IndexInSuccess(index) => write!(f, "success->{}", index),
+            CFSelectorSegment::IndexInFailure(index) => write!(f, "failure->{}", index),
         }
     }
 }
@@ -35,17 +35,47 @@ impl FromStr for CFSelectorSegment {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "if_condition" {
             Ok(CFSelectorSegment::IfCondition)
-        } else if s.starts_with("success/") {
-            let index_str = s.strip_prefix("success/").unwrap();
+        } else if s.starts_with("success->") {
+            let index_str = s.strip_prefix("success->").unwrap();
             let value = index_str.parse()?;
             Ok(CFSelectorSegment::IndexInSuccess(value))
-        } else if s.starts_with("failure/") {
-            let index_str = s.strip_prefix("failure/").unwrap();
+        } else if s.starts_with("failure->") {
+            let index_str = s.strip_prefix("failure->").unwrap();
             let value = index_str.parse()?;
             Ok(CFSelectorSegment::IndexInFailure(value))
         } else {
             let value = s.parse()?;
             Ok(CFSelectorSegment::ContentAtIndex(value))
+        }
+    }
+}
+
+impl PartialOrd for CFSelectorSegment {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (CFSelectorSegment::ContentAtIndex(i), CFSelectorSegment::ContentAtIndex(j))
+            | (CFSelectorSegment::IndexInSuccess(i), CFSelectorSegment::IndexInSuccess(j))
+            | (CFSelectorSegment::IndexInFailure(i), CFSelectorSegment::IndexInFailure(j)) => {
+                i.partial_cmp(j)
+            }
+            (CFSelectorSegment::IfCondition, CFSelectorSegment::IfCondition) => {
+                Some(Ordering::Equal)
+            }
+            (
+                CFSelectorSegment::IfCondition,
+                CFSelectorSegment::IndexInSuccess(_) | CFSelectorSegment::IndexInFailure(_),
+            ) => Some(Ordering::Less),
+            (
+                CFSelectorSegment::IndexInFailure(_) | CFSelectorSegment::IndexInSuccess(_),
+                CFSelectorSegment::IfCondition,
+            ) => Some(Ordering::Greater),
+            (CFSelectorSegment::IndexInSuccess(_), CFSelectorSegment::IndexInFailure(_)) => {
+                Some(Ordering::Less)
+            }
+            (CFSelectorSegment::IndexInFailure(_), CFSelectorSegment::IndexInSuccess(_)) => {
+                Some(Ordering::Greater)
+            }
+            _ => None,
         }
     }
 }
@@ -84,14 +114,8 @@ impl FromStr for CFSelector {
         let mut result = VecDeque::new();
         let mut parts = s.split("/");
         while let Some(next_part) = parts.next() {
-            if next_part.starts_with("success") || next_part.starts_with("failure") {
-                let next_next_part = parts.next().unwrap();
-                let segment = CFSelectorSegment::from_str(&[next_part, next_next_part].join("/"))?;
-                result.push_back(segment);
-            } else {
-                let segment = CFSelectorSegment::from_str(next_part)?;
-                result.push_back(segment);
-            }
+            let segment = CFSelectorSegment::from_str(next_part)?;
+            result.push_back(segment);
         }
         Ok(Self(result))
     }
@@ -102,7 +126,7 @@ impl CFSelector {
         Self(VecDeque::new())
     }
 
-    pub(super) fn from_segment(segment: CFSelectorSegment) -> Self {
+    pub fn from_segment(segment: CFSelectorSegment) -> Self {
         let mut result = VecDeque::new();
         result.push_back(segment);
         Self(result)
@@ -191,5 +215,51 @@ impl CFSelector {
 
     pub fn range<R: RangeBounds<usize>>(&self, range: R) -> Self {
         Self(self.0.range(range).cloned().collect())
+    }
+
+    pub fn is_sibling(selector: &CFSelector, last_selector: &CFSelector) -> bool {
+        if selector.len() != last_selector.len() {
+            false
+        } else {
+            let shared_part = Self::lowest_common_ancestor(selector, last_selector);
+            if shared_part.len() == selector.len() - 1 {
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    pub fn block_like_count(&self) -> usize {
+        self.0
+            .iter()
+            .filter(|it| matches!(it, CFSelectorSegment::ContentAtIndex(_)))
+            .count()
+    }
+
+    pub fn is_after(&self, other: &CFSelector) -> Option<bool> {
+        for (from_self, from_other) in self.0.iter().zip(other.0.iter()) {
+            if from_other < from_self {
+                return Some(false);
+            } else if from_other > from_self {
+                return Some(true);
+            }
+        }
+        None
+    }
+
+    pub fn levels_before(&self, other: &CFSelector) -> Option<usize> {
+        if self.is_after(other).unwrap_or(false) {
+            return None;
+        }
+        let shared_part = Self::lowest_common_ancestor(self, other);
+        let self_unique_part = self.range(shared_part.len()..);
+        Some(
+            self_unique_part
+                .0
+                .into_iter()
+                .filter(|it| matches!(it, CFSelectorSegment::ContentAtIndex(_)))
+                .count(),
+        )
     }
 }

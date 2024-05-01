@@ -263,6 +263,13 @@ impl ControlFlowElement {
             first_result?.get(&rest)
         }
     }
+    pub fn block_content(&self) -> Option<&Vec<ControlFlowElement>> {
+        if let ControlFlowElement::Block { content } = self {
+            Some(content)
+        } else {
+            None
+        }
+    }
 }
 
 impl IndexMut<&CFSelector> for ControlFlowElement {

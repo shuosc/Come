@@ -490,10 +490,10 @@ fn test_shit() {
             return_type: data_type::Type::None,
         },
         content: vec![
+            jump_block(0, 1),
             branch_block(1, 2, 3),
             branch_block(2, 3, 1),
             branch_block(3, 1, 2),
-            jump_block(0, 1),
         ],
     };
     println!("{}", function_definition);

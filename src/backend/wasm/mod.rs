@@ -21,7 +21,7 @@ use crate::{
 
 use self::{
     control_flow::{CFSelector, ControlFlowElement},
-    lowering::lower_function_type,
+    lowering::{lower_function_body, lower_function_type},
 };
 
 mod control_flow;
@@ -32,6 +32,7 @@ fn fold_loop(
     scc: &BindedScc,
     current_result: &mut Vec<ControlFlowElement>,
 ) {
+    dbg!(scc);
     if let Some(sub_sccs) = scc.top_level_sccs() {
         for sub_scc in sub_sccs
             .into_iter()
@@ -78,6 +79,7 @@ fn fold_if_else_once(
 ) -> bool {
     for block_id in 0..control_flow_graph.bind_on.content.len() {
         let predecessors = control_flow_graph.predecessor(block_id);
+        println!("{block_id}'s predecessors are {:?}", predecessors);
         if predecessors.len() == 1 {
             let predecessor_block_id = predecessors[0];
             let predecessor_last_instruction = control_flow_graph.bind_on[predecessor_block_id]
@@ -129,12 +131,10 @@ fn fold_if_else_once(
                 } else {
                     unreachable!()
                 }
+            } else if let ControlFlowElement::If { on_failure, .. } = predecessor_element {
+                on_failure
             } else {
-                if let ControlFlowElement::If { on_failure, .. } = predecessor_element {
-                    on_failure
-                } else {
-                    unreachable!()
-                }
+                unreachable!()
             };
             move_to.extend(to_move_items);
             for to_move_selector in to_move_selectors.iter().rev() {
@@ -179,7 +179,7 @@ fn fold_if_else(function_definition: &FunctionDefinition, content: &mut ControlF
     loop {
         let cfg = ControlFlowGraph::new();
         let control_flow_graph = cfg.bind(function_definition);
-        if fold_if_else_once(content, control_flow_graph) {
+        if !fold_if_else_once(content, control_flow_graph) {
             break;
         }
     }
@@ -188,7 +188,6 @@ fn fold_if_else(function_definition: &FunctionDefinition, content: &mut ControlF
 fn fold(function_definition: &FunctionDefinition) -> Vec<ControlFlowElement> {
     let analyzer = Analyzer::new();
     let binded = analyzer.bind(&function_definition);
-    let control_flow_graph = binded.control_flow_graph();
     let current_result = (0..(function_definition.content.len()))
         .map(ControlFlowElement::new_node)
         .collect_vec();
@@ -209,7 +208,7 @@ fn generate_function(
         &mut CodeSection,
     ),
     function_definition: &FunctionDefinition,
-    control_flow: &[ControlFlowElement],
+    control_flow_root: &ControlFlowElement,
 ) {
     let function_index = result.0.len();
     let (param_type, return_type) = lower_function_type(&function_definition.header);
@@ -220,6 +219,10 @@ fn generate_function(
         ExportKind::Func,
         function_index,
     );
+    let cfg = ControlFlowGraph::new();
+    let cfg = cfg.bind(function_definition);
+    let function = lower_function_body(&function_definition.content, control_flow_root, &cfg);
+    result.3.function(&function);
 }
 
 #[cfg(test)]
