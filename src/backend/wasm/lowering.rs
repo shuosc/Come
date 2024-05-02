@@ -13,7 +13,7 @@ use crate::{
             calculate::{binary, unary},
             Branch, IRStatement,
         },
-        FunctionHeader, RegisterName,
+        FunctionDefinition, FunctionHeader, RegisterName,
     },
     utility::data_type::{Integer, Type},
 };
@@ -258,7 +258,20 @@ fn lower_statement(
                 result.instruction(&Instruction::BrIf(levels as u32));
             }
         }
-        IRStatement::Ret(_) => {
+        IRStatement::Ret(ret) => {
+            if let Some(return_value) = &ret.value {
+                match return_value {
+                    Quantity::RegisterName(register) => {
+                        let register_id = register_name_id_map[register];
+                        result.instruction(&Instruction::LocalGet(register_id));
+                    }
+                    Quantity::GlobalVariableName(_) => unimplemented!(),
+                    Quantity::NumberLiteral(n) => {
+                        // fixme: `n`'s data type
+                        result.instruction(&Instruction::I32Const(*n as _));
+                    }
+                }
+            }
             result.instruction(&Instruction::Return);
         }
 
@@ -471,14 +484,26 @@ fn lower_control_flow_element(
 }
 
 pub fn lower_function_body(
-    body: &[BasicBlock],
+    function: &FunctionDefinition,
     control_flow_root: &ControlFlowElement,
     binded_cfg: &BindedControlFlowGraph,
 ) -> Function {
-    let locals = body
+    let parameters = function
+        .header
+        .parameters
         .iter()
-        .flat_map(|block| block.created_registers())
+        .map(|parameter| (parameter.name.clone(), parameter.data_type.clone()))
         .collect_vec();
+    let locals = parameters
+        .into_iter()
+        .chain(
+            function
+                .content
+                .iter()
+                .flat_map(|block| block.created_registers()),
+        )
+        .collect_vec();
+    let body = &function.content;
     let locals_name_type_map: HashMap<RegisterName, Type> = locals.iter().cloned().collect();
     let register_name_id_map: HashMap<RegisterName, u32> = locals
         .iter()
@@ -503,5 +528,6 @@ pub fn lower_function_body(
             &locals_name_type_map,
         );
     }
+    function.instruction(&Instruction::End);
     function
 }

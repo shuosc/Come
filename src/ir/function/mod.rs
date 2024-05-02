@@ -203,7 +203,11 @@ pub fn parse(code: &str) -> IResult<&str, FunctionDefinition> {
             multispace0,
             data_type::parse,
             multispace0,
-            delimited(tag("{"), many0(basic_block::parse), tag("}")),
+            delimited(
+                tag("{"),
+                many0(parsing::in_multispace(basic_block::parse)),
+                tag("}"),
+            ),
         )),
         |(_, _, name, parameters, _, _, _, return_type, _, basic_blocks)| {
             formalize(FunctionDefinition {

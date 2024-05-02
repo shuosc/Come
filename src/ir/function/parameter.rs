@@ -1,5 +1,5 @@
 use nom::{
-    bytes::complete::tag, character::complete::space0, combinator::map, sequence::tuple, IResult,
+    character::complete::space0, combinator::map, sequence::tuple, IResult,
 };
 
 use crate::{
@@ -19,8 +19,8 @@ pub struct Parameter {
 
 pub fn parse(code: &str) -> IResult<&str, Parameter> {
     map(
-        tuple((local::parse, space0, tag(":"), space0, data_type::parse)),
-        |(name, _, _, _, data_type)| Parameter { name, data_type },
+        tuple((data_type::parse, space0, local::parse, space0)),
+        |(data_type, _, name, _)| Parameter { name, data_type },
     )(code)
 }
 

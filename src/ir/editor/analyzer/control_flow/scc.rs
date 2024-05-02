@@ -110,7 +110,6 @@ impl<'a> BindedScc<'a> {
             None
         } else {
             let entry_node = entry_nodes[0];
-            dbg!(entry_node);
             let largest_simple_loop = self
                 .graph_part
                 .neighbors_directed(entry_node.into(), Incoming)
@@ -192,9 +191,7 @@ impl<'a> BindedScc<'a> {
     /// Returns the smallest non trivial (ie. not a single node) scc
     /// the node is in.
     pub fn smallest_non_trivial_scc_node_in(&self, node: usize) -> Option<Self> {
-        if !self.contains(node) {
-            None
-        } else if self.is_trivial() {
+        if !self.contains(node) || self.is_trivial() {
             None
         } else if let Some(sub_sccs) = self.top_level_sccs() {
             for sub_scc in sub_sccs {

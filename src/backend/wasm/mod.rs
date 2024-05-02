@@ -211,15 +211,16 @@ fn generate_function(
     );
     let cfg = ControlFlowGraph::new();
     let cfg = cfg.bind(function_definition);
-    let function = lower_function_body(&function_definition.content, control_flow_root, &cfg);
+    let function = lower_function_body(function_definition, control_flow_root, &cfg);
     result.3.function(&function);
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{assert_matches::assert_matches, str::FromStr};
+    use std::{assert_matches::assert_matches, fs::File, io::Write, str::FromStr};
 
     use analyzer::Analyzer;
+    use wasm_encoder::Module;
 
     use crate::{
         ir::{
@@ -546,5 +547,40 @@ mod tests {
         };
         let result = fold(&function_definition);
         dbg!(result);
+    }
+
+    #[test]
+    fn test_generate_function() {
+        let function = ir::function::parse(
+            "fn test_code(i32 %a, i32 %b) -> i32 {
+  test_code_entry:
+    %0 = add i32 %a, 2
+    %2 = add i32 %b, 1
+    %4 = add i32 %0, %2
+    ret %4
+}
+",
+        )
+        .unwrap()
+        .1;
+        let folded = fold(&function);
+        let root = ControlFlowElement::new_block(folded);
+        let mut types = TypeSection::new();
+        let mut functions = FunctionSection::new();
+        let mut exports = ExportSection::new();
+        let mut codes = CodeSection::new();
+        generate_function(
+            (&mut types, &mut functions, &mut exports, &mut codes),
+            &function,
+            &root,
+        );
+        let mut module = Module::new();
+        module.section(&types);
+        module.section(&functions);
+        module.section(&exports);
+        module.section(&codes);
+        let bytes = module.finish();
+        let mut f = File::create("./test.wasm").unwrap();
+        f.write_all(&bytes).unwrap();
     }
 }
