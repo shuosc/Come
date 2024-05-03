@@ -1,6 +1,7 @@
 use delegate::delegate;
 use std::{
-    cmp::Ordering, collections::VecDeque, fmt, iter::zip, num::ParseIntError, ops::RangeBounds, str::FromStr,
+    cmp::Ordering, collections::VecDeque, fmt, iter::zip, num::ParseIntError, ops::RangeBounds,
+    str::FromStr,
 };
 
 #[derive(Clone, PartialEq, Eq)]
@@ -244,17 +245,18 @@ impl CFSelector {
     }
 
     pub fn levels_before(&self, other: &CFSelector) -> Option<usize> {
-        if self.is_after(other).unwrap_or(false) {
+        // if self.is_after(other).unwrap_or(false) {
+        //     return None;
+        // }
+        let shared_part = Self::lowest_common_ancestor(self, other);
+        dbg!(&shared_part);
+        if shared_part.is_empty() {
             return None;
         }
-        let shared_part = Self::lowest_common_ancestor(self, other);
         let self_unique_part = self.range(shared_part.len()..);
         Some(
             self_unique_part
-                .0
-                .into_iter()
-                .filter(|it| matches!(it, CFSelectorSegment::ContentAtIndex(_)))
-                .count(),
+                .0.len(),
         )
     }
 }

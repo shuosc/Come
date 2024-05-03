@@ -5,7 +5,7 @@ use wasm_encoder::{BlockType, Function, Instruction, MemArg, ValType};
 
 use crate::{
     ir::{
-        analyzer::{register_usage, BindedControlFlowGraph},
+        analyzer::{BindedControlFlowGraph},
         function::basic_block::BasicBlock,
         quantity::Quantity,
         statement::{
@@ -256,8 +256,11 @@ fn lower_statement(
         IRStatement::Jump(jump_statement) => {
             let jump_target = cfg.basic_block_index_by_name(&jump_statement.label);
             let jump_target_selector = cfe_root.find_node(jump_target).unwrap();
+            println!("{:?}", cfe_root);
+            println!("{jump_target_selector}, {current}");
             if let Some(levels) = jump_target_selector.levels_before(&current) {
-                result.instruction(&Instruction::BrIf(levels as u32));
+                println!("{levels}");
+                result.instruction(&Instruction::Br(levels as u32));
             }
         }
         IRStatement::Ret(ret) => {
@@ -285,7 +288,7 @@ fn lower_statement(
         IRStatement::Load(load) => {
             result.instruction(&Instruction::GlobalGet(0));
             let offset = match &load.from {
-                Quantity::RegisterName(register) => offset_table.get(&register).unwrap(),
+                Quantity::RegisterName(register) => offset_table.get(register).unwrap(),
                 Quantity::GlobalVariableName(_) => unimplemented!(),
                 Quantity::NumberLiteral(_) => unimplemented!(),
             };
@@ -303,7 +306,7 @@ fn lower_statement(
             // todo: handle data types
             result.instruction(&Instruction::GlobalGet(0));
             let offset = match &store.target {
-                Quantity::RegisterName(register) => offset_table.get(&register).unwrap(),
+                Quantity::RegisterName(register) => offset_table.get(register).unwrap(),
                 Quantity::GlobalVariableName(_) => unimplemented!(),
                 Quantity::NumberLiteral(_) => unimplemented!(),
             };
@@ -312,7 +315,7 @@ fn lower_statement(
             match &store.source {
                 Quantity::RegisterName(register) => {
                     // fixme: register maybe another memory Address
-                    let register_id = register_name_id_map.get(&register).unwrap();
+                    let register_id = register_name_id_map.get(register).unwrap();
                     result.instruction(&Instruction::LocalGet(*register_id));
                 }
                 Quantity::NumberLiteral(n) => {
@@ -589,7 +592,7 @@ pub fn lower_function_body(
                 .content
                 .iter()
                 .flat_map(|block| block.created_registers())
-                .filter(|(register, _)| !offset_table.contains_key(&register)),
+                .filter(|(register, _)| !offset_table.contains_key(register)),
         )
         .collect_vec();
     let body = &function.content;
@@ -599,12 +602,12 @@ pub fn lower_function_body(
         .enumerate()
         .map(|(a, (b, _))| (b.clone(), a as u32))
         .collect();
-    let mut function = Function::new_with_locals_types(locals.iter().map(|(_, t)| lower_type(t)));
+    let mut result = Function::new_with_locals_types(locals.iter().map(|(_, t)| lower_type(t)));
     if move_stack_pointer != 0 {
-        function.instruction(&Instruction::GlobalGet(0));
-        function.instruction(&Instruction::I32Const(move_stack_pointer));
-        function.instruction(&Instruction::I32Add);
-        function.instruction(&Instruction::GlobalSet(0));
+        result.instruction(&Instruction::GlobalGet(0));
+        result.instruction(&Instruction::I32Const(move_stack_pointer));
+        result.instruction(&Instruction::I32Add);
+        result.instruction(&Instruction::GlobalSet(0));
     }
     for (i, control_flow_element) in control_flow_root
         .block_content()
@@ -613,7 +616,7 @@ pub fn lower_function_body(
         .enumerate()
     {
         lower_control_flow_element(
-            &mut function,
+            &mut result,
             body,
             control_flow_element,
             CFSelector::from_segment(CFSelectorSegment::ContentAtIndex(i)),
@@ -625,6 +628,25 @@ pub fn lower_function_body(
             move_stack_pointer,
         );
     }
-    function.instruction(&Instruction::End);
-    function
+    if move_stack_pointer != 0 {
+        result.instruction(&Instruction::GlobalGet(0));
+        result.instruction(&Instruction::I32Const(move_stack_pointer));
+        result.instruction(&Instruction::I32Sub);
+        result.instruction(&Instruction::GlobalSet(0));
+    }
+    match function.header.return_type {
+        Type::Integer(Integer {
+            signed: true,
+            width: 32,
+        }) => {
+            result.instruction(&Instruction::I32Const(0));
+            result.instruction(&Instruction::Return);
+        }
+        Type::Integer(Integer { .. }) => unimplemented!(),
+        Type::StructRef(_) => unimplemented!(),
+        Type::Address => unimplemented!(),
+        Type::None => (/* pass */),
+    }
+    result.instruction(&Instruction::End);
+    result
 }

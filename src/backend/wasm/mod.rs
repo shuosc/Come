@@ -18,11 +18,7 @@ mod control_flow;
 mod lowering;
 
 // fixme: currently this presumes that we have not folded any if-else or block before
-fn fold_loop(
-    function_content: &FunctionDefinition,
-    scc: &BindedScc,
-    current_result: &mut Vec<ControlFlowElement>,
-) {
+fn fold_loop(scc: &BindedScc, current_result: &mut Vec<ControlFlowElement>) {
     if let Some(sub_sccs) = scc.top_level_sccs() {
         for sub_scc in sub_sccs
             .into_iter()
@@ -52,7 +48,7 @@ fn fold_loop(
                 .iter()
                 .cloned()
                 .collect_vec();
-            fold_loop(function_content, &sub_scc, &mut new_result);
+            fold_loop(&sub_scc, &mut new_result);
             current_result.splice(
                 sub_scc_start_index..=sub_scc_end_index,
                 [ControlFlowElement::Loop {
@@ -69,7 +65,6 @@ fn fold_if_else_once(
 ) -> bool {
     for block_id in 0..control_flow_graph.bind_on.content.len() {
         let predecessors = control_flow_graph.predecessor(block_id);
-        println!("{block_id}'s predecessors are {:?}", predecessors);
         if predecessors.len() == 1 {
             let predecessor_block_id = predecessors[0];
             let predecessor_last_instruction = control_flow_graph.bind_on[predecessor_block_id]
@@ -185,7 +180,7 @@ fn fold(function_definition: &FunctionDefinition) -> Vec<ControlFlowElement> {
     let mut content = ControlFlowElement::new_block(current_result);
     let control_flow_graph = binded.control_flow_graph();
     let root_scc = control_flow_graph.top_level_scc();
-    fold_loop(function_definition, &root_scc, content.unwrap_content_mut());
+    fold_loop(&root_scc, content.unwrap_content_mut());
     fold_if_else(function_definition, &mut content);
     mem::take(content.unwrap_content_mut())
 }
@@ -526,7 +521,7 @@ mod tests {
         let mut current_result = (0..(function_definition.content.len()))
             .map(ControlFlowElement::new_node)
             .collect_vec();
-        fold_loop(&function_definition, &scc, &mut current_result);
+        fold_loop(&scc, &mut current_result);
         dbg!(current_result);
     }
 
@@ -628,6 +623,85 @@ mod tests {
     ret %4
   if_0_end:
     ret 0
+}
+",
+        )
+        .unwrap()
+        .1;
+        let folded = fold(&function);
+        let root = ControlFlowElement::new_block(folded);
+        let mut types = TypeSection::new();
+        let mut functions = FunctionSection::new();
+        let mut exports = ExportSection::new();
+        let mut codes = CodeSection::new();
+        let mut global_section = GlobalSection::new();
+        let mut memory_section = MemorySection::new();
+        generate_function(
+            (&mut types, &mut functions, &mut exports, &mut codes),
+            &function,
+            &root,
+        );
+        let mut module = Module::new();
+        // stack pointer
+        global_section.global(
+            GlobalType {
+                val_type: ValType::I32,
+                mutable: true,
+                shared: false,
+            },
+            &ConstExpr::i32_const(0),
+        );
+        memory_section.memory(MemoryType {
+            minimum: 1,
+            maximum: None,
+            memory64: false,
+            shared: false,
+            page_size_log2: None,
+        });
+        module.section(&types);
+        module.section(&functions);
+        module.section(&memory_section);
+        module.section(&global_section);
+        module.section(&exports);
+        module.section(&codes);
+
+        let bytes = module.finish();
+        let mut f = File::create("./test.wasm").unwrap();
+        f.write_all(&bytes).unwrap();
+    }
+
+    #[test]
+    fn test_generate_function3() {
+        let function = ir::function::parse(
+            "fn test_condition(i32 %a, i32 %b) -> i32 {
+  test_condition_entry:
+    %a_0_addr = alloca i32
+    store i32 %a, address %a_0_addr
+    %b_0_addr = alloca i32
+    store i32 %b, address %b_0_addr
+    %result_0_addr = alloca i32
+    store i32 0, address %result_0_addr
+    %i_0_addr = alloca i32
+    %0 = load i32 %a_0_addr
+    store i32 %0, address %i_0_addr
+    j loop_0_condition
+  loop_0_condition:
+    %2 = load i32 %i_0_addr
+    %3 = load i32 %b_0_addr
+    %1 = slt i32 %2, %3
+    bne %1, 0, loop_0_success, loop_0_fail
+  loop_0_success:
+    %5 = load i32 %result_0_addr
+    %6 = load i32 %i_0_addr
+    %4 = add i32 %5, %6
+    store i32 %4, address %result_0_addr
+    %8 = load i32 %i_0_addr
+    %7 = add i32 %8, 1
+    store i32 %7, address %i_0_addr
+    j loop_0_condition
+  loop_0_fail:
+    %9 = load i32 %result_0_addr
+    ret %9
 }
 ",
         )
