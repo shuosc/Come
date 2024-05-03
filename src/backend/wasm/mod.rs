@@ -220,7 +220,9 @@ mod tests {
     use std::{assert_matches::assert_matches, fs::File, io::Write, str::FromStr};
 
     use analyzer::Analyzer;
-    use wasm_encoder::Module;
+    use wasm_encoder::{
+        ConstExpr, GlobalSection, GlobalType, MemorySection, MemoryType, Module, ValType,
+    };
 
     use crate::{
         ir::{
@@ -569,16 +571,105 @@ mod tests {
         let mut functions = FunctionSection::new();
         let mut exports = ExportSection::new();
         let mut codes = CodeSection::new();
+        let mut global_section = GlobalSection::new();
+        let mut memory_section = MemorySection::new();
         generate_function(
             (&mut types, &mut functions, &mut exports, &mut codes),
             &function,
             &root,
         );
         let mut module = Module::new();
+        // stack pointer
+        global_section.global(
+            GlobalType {
+                val_type: ValType::I32,
+                mutable: true,
+                shared: false,
+            },
+            &ConstExpr::i32_const(0),
+        );
+        memory_section.memory(MemoryType {
+            minimum: 1,
+            maximum: None,
+            memory64: false,
+            shared: false,
+            page_size_log2: None,
+        });
         module.section(&types);
         module.section(&functions);
+        module.section(&memory_section);
+        module.section(&global_section);
         module.section(&exports);
         module.section(&codes);
+
+        let bytes = module.finish();
+        let mut f = File::create("./test.wasm").unwrap();
+        f.write_all(&bytes).unwrap();
+    }
+
+    #[test]
+    fn test_generate_function2() {
+        let function = ir::function::parse(
+            "fn test_condition(i32 %a, i32 %b) -> i32 {
+  test_condition_entry:
+    %a_0_addr = alloca i32
+    store i32 %a, address %a_0_addr
+    %b_0_addr = alloca i32
+    store i32 %b, address %b_0_addr
+    %1 = load i32 %a_0_addr
+    %2 = load i32 %b_0_addr
+    %0 = slt i32 %1, %2
+    bne %0, 0, if_0_success, if_0_fail
+  if_0_success:
+    %3 = load i32 %a_0_addr
+    ret %3
+  if_0_fail:
+    %4 = load i32 %b_0_addr
+    ret %4
+  if_0_end:
+    ret 0
+}
+",
+        )
+        .unwrap()
+        .1;
+        let folded = fold(&function);
+        let root = ControlFlowElement::new_block(folded);
+        let mut types = TypeSection::new();
+        let mut functions = FunctionSection::new();
+        let mut exports = ExportSection::new();
+        let mut codes = CodeSection::new();
+        let mut global_section = GlobalSection::new();
+        let mut memory_section = MemorySection::new();
+        generate_function(
+            (&mut types, &mut functions, &mut exports, &mut codes),
+            &function,
+            &root,
+        );
+        let mut module = Module::new();
+        // stack pointer
+        global_section.global(
+            GlobalType {
+                val_type: ValType::I32,
+                mutable: true,
+                shared: false,
+            },
+            &ConstExpr::i32_const(0),
+        );
+        memory_section.memory(MemoryType {
+            minimum: 1,
+            maximum: None,
+            memory64: false,
+            shared: false,
+            page_size_log2: None,
+        });
+        module.section(&types);
+        module.section(&functions);
+        module.section(&memory_section);
+        module.section(&global_section);
+        module.section(&exports);
+        module.section(&codes);
+
         let bytes = module.finish();
         let mut f = File::create("./test.wasm").unwrap();
         f.write_all(&bytes).unwrap();

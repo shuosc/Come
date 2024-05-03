@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
 use itertools::Itertools;
-use wasm_encoder::{BlockType, Function, Instruction, ValType};
+use wasm_encoder::{BlockType, Function, Instruction, MemArg, ValType};
 
 use crate::{
     ir::{
-        analyzer::BindedControlFlowGraph,
+        analyzer::{register_usage, BindedControlFlowGraph},
         function::basic_block::BasicBlock,
         quantity::Quantity,
         statement::{
             branch::BranchType,
             calculate::{binary, unary},
-            Branch, IRStatement,
+            Alloca, Branch, IRStatement,
         },
         FunctionDefinition, FunctionHeader, RegisterName,
     },
@@ -196,11 +196,13 @@ fn lower_binary_calculate(
 fn lower_statement(
     result: &mut Function,
     register_name_id_map: &HashMap<RegisterName, u32>,
+    offset_table: &HashMap<RegisterName, i32>,
     statement: &IRStatement,
     bb_id: usize,
     cfe_root: &ControlFlowElement,
     register_type: &HashMap<RegisterName, Type>,
     cfg: &BindedControlFlowGraph,
+    move_stack_pointer: i32,
 ) {
     let current = cfe_root.find_node(bb_id).unwrap();
     match statement {
@@ -259,6 +261,12 @@ fn lower_statement(
             }
         }
         IRStatement::Ret(ret) => {
+            if move_stack_pointer != 0 {
+                result.instruction(&Instruction::GlobalGet(0));
+                result.instruction(&Instruction::I32Const(move_stack_pointer));
+                result.instruction(&Instruction::I32Sub);
+                result.instruction(&Instruction::GlobalSet(0));
+            }
             if let Some(return_value) = &ret.value {
                 match return_value {
                     Quantity::RegisterName(register) => {
@@ -274,12 +282,54 @@ fn lower_statement(
             }
             result.instruction(&Instruction::Return);
         }
+        IRStatement::Load(load) => {
+            result.instruction(&Instruction::GlobalGet(0));
+            let offset = match &load.from {
+                Quantity::RegisterName(register) => offset_table.get(&register).unwrap(),
+                Quantity::GlobalVariableName(_) => unimplemented!(),
+                Quantity::NumberLiteral(_) => unimplemented!(),
+            };
+            result.instruction(&Instruction::I32Const(*offset));
+            result.instruction(&Instruction::I32Sub);
+            result.instruction(&Instruction::I32Load(MemArg {
+                offset: 0,
+                align: 0,
+                memory_index: 0,
+            }));
+            let load_target = register_name_id_map.get(&load.to).unwrap();
+            result.instruction(&Instruction::LocalSet(*load_target));
+        }
+        IRStatement::Store(store) => {
+            // todo: handle data types
+            result.instruction(&Instruction::GlobalGet(0));
+            let offset = match &store.target {
+                Quantity::RegisterName(register) => offset_table.get(&register).unwrap(),
+                Quantity::GlobalVariableName(_) => unimplemented!(),
+                Quantity::NumberLiteral(_) => unimplemented!(),
+            };
+            result.instruction(&Instruction::I32Const(*offset));
+            result.instruction(&Instruction::I32Sub);
+            match &store.source {
+                Quantity::RegisterName(register) => {
+                    // fixme: register maybe another memory Address
+                    let register_id = register_name_id_map.get(&register).unwrap();
+                    result.instruction(&Instruction::LocalGet(*register_id));
+                }
+                Quantity::NumberLiteral(n) => {
+                    result.instruction(&Instruction::I32Const(*n as _));
+                }
+                Quantity::GlobalVariableName(_) => unimplemented!(),
+            }
+            result.instruction(&Instruction::I32Store(MemArg {
+                offset: 0,
+                align: 0,
+                memory_index: 0,
+            }));
+        }
+        IRStatement::Alloca(_) => (/* already handled in alloca_stack */),
 
         IRStatement::Phi(_) => unimplemented!(),
-        IRStatement::Alloca(_) => unimplemented!(),
         IRStatement::Call(_) => unimplemented!(),
-        IRStatement::Load(_) => unimplemented!(),
-        IRStatement::Store(_) => unimplemented!(),
         IRStatement::LoadField(_) => unimplemented!(),
         IRStatement::SetField(_) => unimplemented!(),
     }
@@ -351,21 +401,24 @@ fn lower_basic_block(
     result: &mut Function,
     bb_id: usize,
     block: &BasicBlock,
-    _selector: CFSelector,
     binded_cfg: &BindedControlFlowGraph,
     register_name_id_map: &HashMap<RegisterName, u32>,
+    offset_table: &HashMap<RegisterName, i32>,
     cfe_root: &ControlFlowElement,
     register_type: &HashMap<RegisterName, Type>,
+    move_stack_pointer: i32,
 ) {
     for statement in &block.content {
         lower_statement(
             result,
             register_name_id_map,
+            offset_table,
             statement,
             bb_id,
             cfe_root,
             register_type,
             binded_cfg,
+            move_stack_pointer,
         )
     }
 }
@@ -377,8 +430,10 @@ fn lower_control_flow_element(
     current: CFSelector,
     binded_cfg: &BindedControlFlowGraph,
     register_name_id_map: &HashMap<RegisterName, u32>,
+    offset_table: &HashMap<RegisterName, i32>,
     cfe_root: &ControlFlowElement,
     register_type: &HashMap<RegisterName, Type>,
+    move_stack_pointer: i32,
 ) {
     match element {
         ControlFlowElement::Block { content } => {
@@ -393,8 +448,10 @@ fn lower_control_flow_element(
                     new_selector,
                     binded_cfg,
                     register_name_id_map,
+                    offset_table,
                     cfe_root,
                     register_type,
+                    move_stack_pointer,
                 );
             }
             result.instruction(&Instruction::End);
@@ -413,10 +470,12 @@ fn lower_control_flow_element(
                 new_selector,
                 binded_cfg,
                 register_name_id_map,
+                offset_table,
                 cfe_root,
                 register_type,
+                move_stack_pointer,
             );
-            result.instruction(&Instruction::If(BlockType::Empty));
+            // result.instruction(&Instruction::If(BlockType::Empty));
             for (i, success_block) in on_success.iter().enumerate() {
                 let mut new_selector = current.clone();
                 new_selector.push_back(CFSelectorSegment::IndexInSuccess(i));
@@ -427,8 +486,10 @@ fn lower_control_flow_element(
                     new_selector,
                     binded_cfg,
                     register_name_id_map,
+                    offset_table,
                     cfe_root,
                     register_type,
+                    move_stack_pointer,
                 );
             }
             if !on_failure.is_empty() {
@@ -443,8 +504,10 @@ fn lower_control_flow_element(
                         new_selector,
                         binded_cfg,
                         register_name_id_map,
+                        offset_table,
                         cfe_root,
                         register_type,
+                        move_stack_pointer,
                     );
                 }
             }
@@ -462,8 +525,10 @@ fn lower_control_flow_element(
                     new_selector,
                     binded_cfg,
                     register_name_id_map,
+                    offset_table,
                     cfe_root,
                     register_type,
+                    move_stack_pointer,
                 );
             }
             result.instruction(&Instruction::End);
@@ -473,14 +538,36 @@ fn lower_control_flow_element(
                 result,
                 *id,
                 &body[*id],
-                current,
                 binded_cfg,
                 register_name_id_map,
+                offset_table,
                 cfe_root,
                 register_type,
+                move_stack_pointer,
             );
         }
     }
+}
+
+pub fn alloca_stack(function: &FunctionDefinition) -> (HashMap<RegisterName, i32>, i32) {
+    let alloca_statements = function
+        .content
+        .iter()
+        .flat_map(|it| it.content.iter())
+        .flat_map(IRStatement::try_as_alloca);
+    let mut offset_table = HashMap::new();
+    let mut current_offset = 0;
+    for Alloca { to, alloc_type } in alloca_statements {
+        let bytes = match alloc_type {
+            Type::Address => 4i32,
+            Type::Integer(Integer { width, .. }) => *width as i32 / 8,
+            Type::StructRef(_) => unimplemented!(),
+            Type::None => unreachable!(),
+        };
+        offset_table.insert(to.clone(), current_offset + bytes);
+        current_offset += bytes;
+    }
+    (offset_table, current_offset)
 }
 
 pub fn lower_function_body(
@@ -494,13 +581,15 @@ pub fn lower_function_body(
         .iter()
         .map(|parameter| (parameter.name.clone(), parameter.data_type.clone()))
         .collect_vec();
+    let (offset_table, move_stack_pointer) = alloca_stack(function);
     let locals = parameters
         .into_iter()
         .chain(
             function
                 .content
                 .iter()
-                .flat_map(|block| block.created_registers()),
+                .flat_map(|block| block.created_registers())
+                .filter(|(register, _)| !offset_table.contains_key(&register)),
         )
         .collect_vec();
     let body = &function.content;
@@ -511,6 +600,12 @@ pub fn lower_function_body(
         .map(|(a, (b, _))| (b.clone(), a as u32))
         .collect();
     let mut function = Function::new_with_locals_types(locals.iter().map(|(_, t)| lower_type(t)));
+    if move_stack_pointer != 0 {
+        function.instruction(&Instruction::GlobalGet(0));
+        function.instruction(&Instruction::I32Const(move_stack_pointer));
+        function.instruction(&Instruction::I32Add);
+        function.instruction(&Instruction::GlobalSet(0));
+    }
     for (i, control_flow_element) in control_flow_root
         .block_content()
         .unwrap()
@@ -524,8 +619,10 @@ pub fn lower_function_body(
             CFSelector::from_segment(CFSelectorSegment::ContentAtIndex(i)),
             binded_cfg,
             &register_name_id_map,
+            &offset_table,
             control_flow_root,
             &locals_name_type_map,
+            move_stack_pointer,
         );
     }
     function.instruction(&Instruction::End);

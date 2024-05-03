@@ -75,7 +75,7 @@ impl fmt::Display for BasicBlock {
 
 /// Parse a basic block's name.
 fn parse_tag(code: &str) -> IResult<&str, String> {
-    map(pair(parsing::ident, tag(":")), |(_, name)| name.to_string())(code)
+    map(pair(parsing::ident, tag(":")), |(name, _)| name)(code)
 }
 
 /// Parse the ir code to get a [`BasicBlock`].
