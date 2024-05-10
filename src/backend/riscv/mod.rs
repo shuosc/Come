@@ -220,7 +220,7 @@ fn parse_single_section(
                 .push(index);
         }
     }
-    pending_symbols.drain_filter(|name, indexes| {
+    pending_symbols.extract_if(|name, indexes| {
         if let Some(symbol_offset_bytes) = all_symbols.get(name) {
             for index in indexes {
                 simple_instructions[*index].decide_symbol(&Symbol {
