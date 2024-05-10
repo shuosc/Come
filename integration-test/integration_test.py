@@ -33,6 +33,7 @@ for casename in listdir(CASE_DIR):
     command = ["./target/debug/come",
                "-i", "{}{}/{}.come".format(CASE_DIR, casename, casename),
                "-o", "{}{}/{}.asm".format(CASE_DIR, casename, casename),
+               "-t", "riscv",
                "--emit-ir", "{}{}/{}.cmir".format(CASE_DIR, casename, casename)]
     if path.exists("{}{}/road.json".format(CASE_DIR, casename, casename)):
         road = json.load(
