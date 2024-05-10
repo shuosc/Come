@@ -87,7 +87,12 @@ impl fmt::Display for BinaryOperation {
 fn binary_operation(code: &str) -> IResult<&str, BinaryOperation> {
     alt((
         map(tag("add"), |_| BinaryOperation::Add),
-        map(tag("less"), |_| BinaryOperation::LessThan),
+        map(tag("slt"), |_| BinaryOperation::LessThan),
+        map(tag("sle"), |_| BinaryOperation::LessOrEqualThan),
+        map(tag("sgt"), |_| BinaryOperation::GreaterThan),
+        map(tag("sge"), |_| BinaryOperation::GreaterOrEqualThan),
+        map(tag("eq"), |_| BinaryOperation::Equal),
+        map(tag("ne"), |_| BinaryOperation::NotEqual),
         map(tag("sub"), |_| BinaryOperation::Sub),
         map(tag("or"), |_| BinaryOperation::Or),
         map(tag("xor"), |_| BinaryOperation::Xor),

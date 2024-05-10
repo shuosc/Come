@@ -1,4 +1,7 @@
-use crate::utility::parsing;
+use crate::{
+    ir::RegisterName,
+    utility::{data_type::Type, parsing},
+};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -10,7 +13,10 @@ use nom::{
 };
 use std::fmt;
 
-use super::statement::{self, IRStatement};
+use super::{
+    statement::{self, IRStatement},
+    IsIRStatement,
+};
 
 /// A basic block.
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Default)]
@@ -42,6 +48,17 @@ impl BasicBlock {
     pub fn remove(&mut self, index: usize) {
         self.content.remove(index);
     }
+
+    pub fn is_branch(&self) -> bool {
+        matches!(self.content.last(), Some(IRStatement::Branch(_)))
+    }
+
+    pub fn created_registers(&self) -> Vec<(RegisterName, Type)> {
+        self.content
+            .iter()
+            .flat_map(|it| it.generate_register())
+            .collect()
+    }
 }
 
 impl fmt::Display for BasicBlock {
@@ -58,7 +75,7 @@ impl fmt::Display for BasicBlock {
 
 /// Parse a basic block's name.
 fn parse_tag(code: &str) -> IResult<&str, String> {
-    map(pair(parsing::ident, tag(":")), |(_, name)| name.to_string())(code)
+    map(pair(parsing::ident, tag(":")), |(name, _)| name)(code)
 }
 
 /// Parse the ir code to get a [`BasicBlock`].

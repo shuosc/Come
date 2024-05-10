@@ -336,7 +336,7 @@ function renderComeIR() {
     parameters: Vec::new(),
     return_type: data_type::Type::None,
     },
-    content: vec![`;
+    content: vec![\n`;
     let nodes = new Set();
     for (let edge of edgesInfo) {
         let { first, second, line } = edge;
@@ -346,10 +346,6 @@ function renderComeIR() {
         nodes.add(secondId);
     }
     for (let node of nodes) {
-        content += `
-        BasicBlock {
-            name: Some("bb${node}".to_string()),
-            content: vec![`;
         let to = edgesInfo.filter(({ first }) => {
             const firstId = first.getAttribute("id").substring("node-".length);
             return firstId === node;
@@ -357,19 +353,20 @@ function renderComeIR() {
             const secondId = second.getAttribute("id").substring("node-".length);
             return secondId;
         });
+        content += "        ";
         if (to.length === 0) {
-            content += `Ret { value: None }.into()`;
+            content += `ret_block(${node}),`;
         } else if (to.length === 1) {
             let target = to[0];
-            content += `jump("bb${target}")`;
+            content += `jump_block(${node}, ${target}),`;
         } else if (to.length === 2) {
             let first = to[0];
             let second = to[1];
-            content += `branch("bb${first}", "bb${second}")`;
+            content += `branch_block(${node}, ${first}, ${second}),`;
         }
-        content += `],
-        },`
+        content += "\n";
     }
+    content = content.slice(0, -1);
     content += `
     ],
 };`;

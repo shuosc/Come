@@ -1,15 +1,23 @@
-use std::path::PathBuf;
+use std::{fs::File, path::PathBuf};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use come::{
     ast,
-    backend::riscv,
+    backend::{riscv, wasm},
     ir::{self, optimize},
 };
 use ezio::file;
 use shadow_rs::shadow;
 use std::io::Write;
 shadow!(build);
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, ValueEnum)]
+enum Target {
+    /// riscv backend
+    RISCV,
+    /// web assembly backend
+    WASM,
+}
 
 /// Come language compiler.
 #[derive(Parser, Debug)]
@@ -29,6 +37,9 @@ struct Args {
 
     #[arg(short = 'O', long, value_delimiter = ',')]
     optimize: Vec<ir::optimize::pass::Pass>,
+
+    #[arg(short = 't', long, value_enum)]
+    target: Target,
 }
 
 fn main() {
@@ -43,6 +54,15 @@ fn main() {
             writeln!(w, "{ir}").unwrap();
         }
     }
-    let code = riscv::from_ir::emit_asm(&ir);
-    file::write(args.output, &code);
+    match args.target {
+        Target::RISCV => {
+            let code = riscv::from_ir::emit_asm(&ir);
+            file::write(args.output, &code);
+        }
+        Target::WASM => {
+            let module = wasm::compile(&ir);
+            let mut output_file = File::create(args.output).unwrap();
+            output_file.write_all(module.as_slice()).unwrap();
+        }
+    }
 }

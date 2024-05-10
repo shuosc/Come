@@ -9,6 +9,7 @@ use petgraph::{
     Direction,
 };
 use std::{fmt::Debug, hash::Hash};
+pub mod subgraph;
 /// Initially implemented bu @m4b in [petgraph#178](https://github.com/petgraph/petgraph/pull/178).
 ///
 /// This function will return dominance frontiers of a graph,
@@ -26,7 +27,7 @@ use std::{fmt::Debug, hash::Hash};
 ///
 /// [0]: http://www.cs.rice.edu/~keith/EMBED/dom.pdf
 pub fn dominance_frontiers<N, G>(
-    dorminators: &Dominators<N>,
+    dominators: &Dominators<N>,
     graph: G,
 ) -> HashMap<G::NodeId, Vec<G::NodeId>>
 where
@@ -54,10 +55,10 @@ where
         if predecessors_len >= 2 {
             for p in predecessors {
                 let mut runner = p;
-                if let Some(dominator) = dorminators.immediate_dominator(node) {
+                if let Some(dominator) = dominators.immediate_dominator(node) {
                     while runner != dominator {
                         frontiers.entry(runner).or_insert(vec![]).push(node);
-                        runner = dorminators.immediate_dominator(runner).unwrap();
+                        runner = dominators.immediate_dominator(runner).unwrap();
                     }
                 }
             }
@@ -320,21 +321,20 @@ mod tests {
         let node_10 = graph.add_node(10);
         graph.add_edge(node_0, node_1, ());
         graph.add_edge(node_1, node_2, ());
+        graph.add_edge(node_1, node_6, ());
         graph.add_edge(node_2, node_3, ());
         graph.add_edge(node_3, node_5, ());
-        graph.add_edge(node_5, node_4, ());
         graph.add_edge(node_4, node_2, ());
+        graph.add_edge(node_4, node_9, ());
+        graph.add_edge(node_5, node_4, ());
+        graph.add_edge(node_5, node_10, ());
         graph.add_edge(node_6, node_4, ());
-        graph.add_edge(node_1, node_6, ());
+        graph.add_edge(node_6, node_7, ());
         graph.add_edge(node_7, node_8, ());
+        graph.add_edge(node_8, node_3, ());
         graph.add_edge(node_8, node_9, ());
         graph.add_edge(node_9, node_7, ());
-        graph.add_edge(node_6, node_7, ());
-        graph.add_edge(node_4, node_9, ());
-        graph.add_edge(node_8, node_3, ());
-        graph.add_edge(node_5, node_10, ());
         let result = kosaraju_scc_with_filter(&graph, node_0, |_| true, |_| true);
-
         assert_eq!(result.len(), 5);
         let node_2_in_scc = result.iter().find(|scc| scc.contains(&node_2)).unwrap();
         assert_eq!(node_2_in_scc.len(), 7);

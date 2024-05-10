@@ -3,6 +3,8 @@
 #![feature(let_chains)]
 #![feature(hash_drain_filter)]
 #![feature(exact_size_is_empty)]
+// #![feature(arbitrary_self_types)]
+#![feature(assert_matches)]
 /// Definitions of AST nodes and their parser.
 pub mod ast;
 /// Functions for generating assembly and binary code from ir.

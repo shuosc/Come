@@ -4,7 +4,7 @@ use itertools::Itertools;
 use petgraph::prelude::*;
 
 use crate::ir::{
-    analyzer::{BindedControlFlowGraph, IsAnalyzer, Loop},
+    analyzer::{BindedControlFlowGraph, IsAnalyzer},
     optimize::pass::fix_irreducible::FixIrreducible,
 };
 
@@ -17,8 +17,7 @@ impl IsPass for TopologicalSort {
     fn run(&self, editor: &mut crate::ir::editor::Editor) {
         let analyzer = editor.analyzer.bind(&editor.content);
         let graph = analyzer.control_flow_graph();
-        let loops = graph.loops();
-        let content: Vec<_> = topological_order(&graph, &loops)
+        let content: Vec<_> = topological_order(&graph)
             .into_iter()
             .map(|it| mem::take(&mut editor.content.content[it]))
             .collect();
@@ -36,7 +35,6 @@ impl IsPass for TopologicalSort {
 
 fn topological_order_dfs(
     graph: &BindedControlFlowGraph,
-    top_level: &Loop,
     current_at: NodeIndex<usize>,
     visited: &mut Vec<NodeIndex<usize>>,
     result: &mut Vec<NodeIndex<usize>>,
@@ -45,7 +43,9 @@ fn topological_order_dfs(
         return;
     }
     visited.push(current_at);
-    let in_loop = top_level.smallest_loop_node_in(current_at);
+    let in_loop = graph
+        .top_level_scc()
+        .smallest_non_trivial_scc_node_in(current_at.index());
     let mut to_visit = graph
         .graph()
         .neighbors_directed(current_at, Direction::Outgoing)
@@ -71,24 +71,23 @@ fn topological_order_dfs(
             return 2 + at_index;
         }
         // we should visit all nodes in this loop before the others
-        if let Some(in_loop) = in_loop && in_loop.is_node_in(*to_visit_node) {
+        if let Some(in_loop) = &in_loop && in_loop.contains(to_visit_node.index()) {
             return 1;
         }
         0
     });
     for to_visit_node in to_visit {
-        topological_order_dfs(graph, top_level, to_visit_node, visited, result);
+        topological_order_dfs(graph, to_visit_node, visited, result);
     }
     result.push(current_at);
 }
 
-pub fn topological_order(graph: &BindedControlFlowGraph, top_level: &Loop) -> Vec<usize> {
+pub fn topological_order(graph: &BindedControlFlowGraph) -> Vec<usize> {
     let mut order = vec![];
     let mut visited = vec![];
-    topological_order_dfs(graph, top_level, 0.into(), &mut visited, &mut order);
+    topological_order_dfs(graph, 0.into(), &mut visited, &mut order);
     order.reverse();
     let mut order: Vec<usize> = order.into_iter().map(NodeIndex::index).collect();
-    dbg!(&order);
     let exit_block_position = order.iter().position_max().unwrap();
     order.remove(exit_block_position);
     order
