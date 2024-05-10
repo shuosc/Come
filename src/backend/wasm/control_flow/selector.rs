@@ -254,9 +254,6 @@ impl CFSelector {
             return None;
         }
         let self_unique_part = self.range(shared_part.len()..);
-        Some(
-            self_unique_part
-                .0.len(),
-        )
+        Some(self_unique_part.0.len())
     }
 }

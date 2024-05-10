@@ -1,12 +1,15 @@
 use itertools::Itertools;
 use std::mem;
-use wasm_encoder::{CodeSection, ExportKind, ExportSection, FunctionSection, TypeSection};
+use wasm_encoder::{
+    CodeSection, ConstExpr, ExportKind, ExportSection, FunctionSection, GlobalSection, GlobalType,
+    MemorySection, MemoryType, Module, TypeSection, ValType,
+};
 
 use crate::ir::{
     analyzer::{BindedControlFlowGraph, BindedScc, ControlFlowGraph, IsAnalyzer},
     editor::Analyzer,
     statement::IRStatement,
-    FunctionDefinition,
+    FunctionDefinition, IR,
 };
 
 use self::{
@@ -208,6 +211,53 @@ fn generate_function(
     let cfg = cfg.bind(function_definition);
     let function = lower_function_body(function_definition, control_flow_root, &cfg);
     result.3.function(&function);
+}
+
+pub fn compile(ir_content: &[IR]) -> Module {
+    let mut module = Module::new();
+    let mut types = TypeSection::new();
+    let mut functions = FunctionSection::new();
+    let mut exports = ExportSection::new();
+    let mut codes = CodeSection::new();
+    let mut global_section = GlobalSection::new();
+    let mut memory_section = MemorySection::new();
+    // stack pointer
+    global_section.global(
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+        &ConstExpr::i32_const(0),
+    );
+    memory_section.memory(MemoryType {
+        minimum: 1,
+        maximum: None,
+        memory64: false,
+        shared: false,
+        page_size_log2: None,
+    });
+
+    for ir_part in ir_content {
+        if let IR::FunctionDefinition(function) = ir_part {
+            let folded = fold(function);
+            let root = ControlFlowElement::new_block(folded);
+            generate_function(
+                (&mut types, &mut functions, &mut exports, &mut codes),
+                function,
+                &root,
+            );
+        }
+    }
+
+    module.section(&types);
+    module.section(&functions);
+    module.section(&memory_section);
+    module.section(&global_section);
+    module.section(&exports);
+    module.section(&codes);
+
+    module
 }
 
 #[cfg(test)]

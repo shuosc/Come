@@ -1,6 +1,4 @@
-use nom::{
-    character::complete::space0, combinator::map, sequence::tuple, IResult,
-};
+use nom::{character::complete::space0, combinator::map, sequence::tuple, IResult};
 
 use crate::{
     ast,

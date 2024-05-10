@@ -5,7 +5,7 @@ use wasm_encoder::{BlockType, Function, Instruction, MemArg, ValType};
 
 use crate::{
     ir::{
-        analyzer::{BindedControlFlowGraph},
+        analyzer::BindedControlFlowGraph,
         function::basic_block::BasicBlock,
         quantity::Quantity,
         statement::{
