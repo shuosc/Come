@@ -276,8 +276,18 @@ pub fn formalize(mut function: FunctionDefinition) -> FunctionDefinition {
     for (this_index, next_index) in (0..function.content.len()).tuple_windows() {
         let next_item_name = function.content[next_index].name.clone().unwrap();
         let this = &mut function.content[this_index];
-        if let Some(last) = this.content.last() && !matches!(last, IRStatement::Jump(_) | IRStatement::Branch(_) | IRStatement::Ret(_)) {
-            this.content.push(Jump { label: next_item_name }.into())
+        if let Some(last) = this.content.last()
+            && !matches!(
+                last,
+                IRStatement::Jump(_) | IRStatement::Branch(_) | IRStatement::Ret(_)
+            )
+        {
+            this.content.push(
+                Jump {
+                    label: next_item_name,
+                }
+                .into(),
+            )
         }
     }
     function

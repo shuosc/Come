@@ -99,10 +99,14 @@ impl Branch {
 
 impl IsIRStatement for Branch {
     fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
-        if let Quantity::RegisterName(operand1) = &mut self.operand1 && operand1 == from {
+        if let Quantity::RegisterName(operand1) = &mut self.operand1
+            && operand1 == from
+        {
             self.operand1 = to.clone();
         }
-        if let Quantity::RegisterName(operand2) = &mut self.operand2 && operand2 == from {
+        if let Quantity::RegisterName(operand2) = &mut self.operand2
+            && operand2 == from
+        {
             self.operand2 = to;
         }
     }

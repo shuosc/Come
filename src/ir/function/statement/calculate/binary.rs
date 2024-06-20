@@ -115,10 +115,14 @@ pub struct BinaryCalculate {
 
 impl IsIRStatement for BinaryCalculate {
     fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
-        if let Quantity::RegisterName(op1) = &self.operand1 && op1 == from {
+        if let Quantity::RegisterName(op1) = &self.operand1
+            && op1 == from
+        {
             self.operand1 = to.clone();
         }
-        if let Quantity::RegisterName(op2) = &self.operand2 && op2 == from {
+        if let Quantity::RegisterName(op2) = &self.operand2
+            && op2 == from
+        {
             self.operand2 = to.clone();
         }
         if &self.to == from {

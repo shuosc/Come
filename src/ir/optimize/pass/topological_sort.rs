@@ -71,7 +71,9 @@ fn topological_order_dfs(
             return 2 + at_index;
         }
         // we should visit all nodes in this loop before the others
-        if let Some(in_loop) = &in_loop && in_loop.contains(to_visit_node.index()) {
+        if let Some(in_loop) = &in_loop
+            && in_loop.contains(to_visit_node.index())
+        {
             return 1;
         }
         0
