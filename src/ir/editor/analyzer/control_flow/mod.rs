@@ -11,6 +11,7 @@ use petgraph::{
         dominators::{simple_fast, Dominators},
     },
     prelude::*,
+    visit::{depth_first_search, DfsEvent},
 };
 
 use crate::{
@@ -23,6 +24,7 @@ pub use self::scc::BindedScc;
 use super::IsAnalyzer;
 
 mod scc;
+pub mod structural;
 
 /// [`ControlFlowGraph`] is the control flow graph and related infomation of a function.
 #[derive(Debug)]
@@ -87,7 +89,7 @@ impl ControlFlowGraphContent {
         }
     }
 
-    /// [Dorminance Frontier](https://en.wikipedia.org/wiki/Dominator_(graph_theory)) of basic block indexed by `bb_index`.
+    /// [Dominance Frontier](https://en.wikipedia.org/wiki/Dominator_(graph_theory)) of basic block indexed by `bb_index`.
     pub fn dominance_frontier(&self, bb_index: usize) -> &[usize] {
         self.frontiers.get(&bb_index).unwrap()
     }
@@ -176,7 +178,6 @@ impl ControlFlowGraph {
     fn dominate(&self, content: &ir::FunctionDefinition, bb_index: usize) -> Vec<usize> {
         self.content(content).dominates(bb_index)
     }
-
     fn branch_direction(
         &self,
         content: &FunctionDefinition,
@@ -208,6 +209,16 @@ impl ControlFlowGraph {
         let block1_under_success = block1_under_success.contains(&block1_index);
         let block2_under_success = block2_under_success.contains(&block2_index);
         block1_under_success == block2_under_success
+    }
+
+    fn back_edges(&self, content: &ir::FunctionDefinition) -> Vec<(usize, usize)> {
+        let mut result = Vec::new();
+        depth_first_search(&self.content(content).graph, [0.into()], |event| {
+            if let DfsEvent::BackEdge(from, to) = event {
+                result.push((from.index(), to.index()))
+            }
+        });
+        result
     }
 }
 
@@ -281,6 +292,9 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
             block1_index,
             block2_index,
         )
+    }
+    pub fn back_edges(&self) -> Vec<(usize, usize)> {
+        self.item.back_edges(self.bind_on)
     }
 }
 

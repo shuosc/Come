@@ -5,9 +5,9 @@ use crate::{
     ir::{quantity::local, RegisterName},
     utility::data_type::{self, Type},
 };
-
+use serde::{Deserialize, Serialize};
 /// [`Parameter`] represents a function's parameter.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Parameter {
     /// Name of the parameter.
     pub name: RegisterName,

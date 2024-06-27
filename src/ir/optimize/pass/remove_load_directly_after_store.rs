@@ -1,11 +1,11 @@
-use crate::ir::editor::Editor;
-
 use super::IsPass;
+use crate::ir::editor::Editor;
+use serde::{Deserialize, Serialize};
 
 /// This pass will remove all load instructions which are
 /// - in same block with a store instruction
 /// - after the store instruction.
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub struct RemoveLoadDirectlyAfterStore;
 
 impl IsPass for RemoveLoadDirectlyAfterStore {

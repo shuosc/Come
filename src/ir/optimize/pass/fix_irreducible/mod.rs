@@ -1,9 +1,9 @@
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
     hash::Hash,
 };
-
-use itertools::Itertools;
 
 use crate::{
     ir::{
@@ -20,7 +20,7 @@ use crate::{
 
 use super::{IsPass, Pass};
 
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub struct FixIrreducible;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
@@ -184,7 +184,7 @@ fn generate_edit_plan(
     // Generate all the branches, include the last one
     let mut branches = phis
         .iter()
-        .zip(origin_targets.into_iter())
+        .zip(origin_targets)
         .tuple_windows()
         .map(
             |((depend_on_phi_result, target_block_index), (_, next_target_block_index))| Branch {
@@ -287,7 +287,7 @@ fn execute_edit_plan(function: &mut FunctionDefinition, plan: EditPlan) {
     for fix_plan in plan.fix_other_block_plan {
         fix_other_block(function, &first_guard_block_name, &plan.scc_id, fix_plan);
     }
-    function.content.extend(guard_blocks.into_iter());
+    function.content.extend(guard_blocks);
 }
 
 fn generate_origin_target_to_source_map(

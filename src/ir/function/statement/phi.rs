@@ -17,10 +17,10 @@ use nom::{
     sequence::{delimited, tuple},
     IResult,
 };
+use serde::{Deserialize, Serialize};
 use std::fmt;
-
 /// [`Phi`]'s source.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub struct PhiSource {
     pub value: Quantity,
     pub block: String,
@@ -50,7 +50,7 @@ fn parse_phi_source(code: &str) -> IResult<&str, PhiSource> {
 }
 
 /// [`Phi`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct Phi {
     /// Where to store the result of the phi.
     pub to: RegisterName,

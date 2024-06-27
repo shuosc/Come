@@ -19,10 +19,10 @@ use nom::{
     IResult,
 };
 use phf::phf_map;
+use serde::{Deserialize, Serialize};
 use std::fmt;
-
 /// [`BinaryOperation`] represents a binary operation operator.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum BinaryOperation {
     Add,
     LessThan,
@@ -104,7 +104,7 @@ fn binary_operation(code: &str) -> IResult<&str, BinaryOperation> {
 }
 
 /// [`BinaryCalculate`] represents a binary operation statement.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub struct BinaryCalculate {
     pub operation: BinaryOperation,
     pub operand1: Quantity,
@@ -115,10 +115,14 @@ pub struct BinaryCalculate {
 
 impl IsIRStatement for BinaryCalculate {
     fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
-        if let Quantity::RegisterName(op1) = &self.operand1 && op1 == from {
+        if let Quantity::RegisterName(op1) = &self.operand1
+            && op1 == from
+        {
             self.operand1 = to.clone();
         }
-        if let Quantity::RegisterName(op2) = &self.operand2 && op2 == from {
+        if let Quantity::RegisterName(op2) = &self.operand2
+            && op2 == from
+        {
             self.operand2 = to.clone();
         }
         if &self.to == from {

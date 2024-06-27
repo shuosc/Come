@@ -11,9 +11,9 @@ use memory_to_register::MemoryToRegister;
 use remove_load_directly_after_store::RemoveLoadDirectlyAfterStore;
 use remove_only_once_store::RemoveOnlyOnceStore;
 use remove_unused_register::RemoveUnusedRegister;
-pub use topological_sort::TopologicalSort;
-
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+pub use topological_sort::TopologicalSort;
 /// This trait should be implemented by all passes which can do optimizing on ir function.
 #[enum_dispatch]
 pub trait IsPass {
@@ -28,7 +28,7 @@ pub trait IsPass {
 
 /// All passes which can do optimizing on ir function.
 #[enum_dispatch(IsPass)]
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Pass {
     RemoveUnusedRegister,
     RemoveOnlyOnceStore,

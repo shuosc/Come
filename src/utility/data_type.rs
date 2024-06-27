@@ -7,10 +7,11 @@ use nom::{
     sequence::pair,
     IResult,
 };
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// An integer type
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct Integer {
     /// Whether the integer is signed.
     pub signed: bool,
@@ -19,7 +20,7 @@ pub struct Integer {
 }
 
 /// Type in IR
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub enum Type {
     Integer(Integer),
     StructRef(String),

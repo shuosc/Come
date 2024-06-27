@@ -5,15 +5,15 @@ pub use crate::ir::quantity::{global::GlobalVariableName, local::RegisterName};
 use crate::utility::parsing;
 use enum_dispatch::enum_dispatch;
 use nom::{branch::alt, combinator::map, IResult};
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
-
 /// Tag trait for [`Quantity`].
 #[enum_dispatch]
 trait IsQuantity {}
 
 /// [`Quantity`] represents a variable (global or local) or a constant value
 #[enum_dispatch(IsQuantity)]
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub enum Quantity {
     RegisterName,
     GlobalVariableName,

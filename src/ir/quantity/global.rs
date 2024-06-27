@@ -1,9 +1,10 @@
 use crate::utility::parsing;
 use nom::{bytes::complete::tag, combinator::map, sequence::pair, IResult};
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 
 /// [`GlobalVariableName`] represents a global variable's name.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct GlobalVariableName(pub String);
 
 impl Display for GlobalVariableName {

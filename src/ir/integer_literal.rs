@@ -2,9 +2,10 @@ use std::fmt;
 
 use crate::{ast, utility::parsing};
 use nom::{combinator::map, IResult};
+use serde::{Deserialize, Serialize};
 
 /// An integer literal.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct IntegerLiteral(pub i64);
 
 impl From<i64> for IntegerLiteral {

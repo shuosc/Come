@@ -19,10 +19,10 @@ use nom::{
     sequence::{delimited, tuple},
     IResult,
 };
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
-
 /// [`Call`] instruction.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Call {
     /// Where to store the result of the call.
     pub to: Option<RegisterName>,
@@ -36,7 +36,9 @@ pub struct Call {
 
 impl IsIRStatement for Call {
     fn on_register_change(&mut self, from: &RegisterName, to: Quantity) {
-        if let Some(result_to) = &self.to && result_to == from {
+        if let Some(result_to) = &self.to
+            && result_to == from
+        {
             self.to = Some(to.clone().unwrap_local());
         }
         for param in self.params.iter_mut() {

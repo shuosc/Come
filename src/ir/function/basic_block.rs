@@ -1,3 +1,7 @@
+use super::{
+    statement::{self, IRStatement},
+    IsIRStatement,
+};
 use crate::{
     ir::RegisterName,
     utility::{data_type::Type, parsing},
@@ -11,15 +15,11 @@ use nom::{
     sequence::{pair, tuple},
     IResult,
 };
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use super::{
-    statement::{self, IRStatement},
-    IsIRStatement,
-};
-
 /// A basic block.
-#[derive(Debug, Eq, PartialEq, Clone, Hash, Default)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Default, Serialize, Deserialize)]
 pub struct BasicBlock {
     /// Name of the basic block.
     pub name: Option<String>,

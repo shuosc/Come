@@ -14,9 +14,9 @@ use nom::{
     sequence::tuple,
     IResult,
 };
-
+use serde::{Deserialize, Serialize};
 /// [`Load`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct Load {
     pub to: RegisterName,
     pub data_type: Type,

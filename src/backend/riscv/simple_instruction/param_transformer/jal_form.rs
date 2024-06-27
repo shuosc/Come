@@ -8,6 +8,12 @@ use super::IsParamTransformer;
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct JalForm;
 
+impl Default for JalForm {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JalForm {
     pub const fn new() -> Self {
         Self

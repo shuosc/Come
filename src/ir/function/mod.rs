@@ -15,6 +15,7 @@ use nom::{
     IResult,
 };
 use parameter::Parameter;
+use serde::{Deserialize, Serialize};
 use statement::*;
 use std::{
     fmt, mem,
@@ -106,7 +107,7 @@ impl<'a> Iter<'a> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct FunctionHeader {
     /// Name of the function.
     pub name: String,
@@ -117,7 +118,7 @@ pub struct FunctionHeader {
 }
 
 /// [`FunctionDefinition`] represents a function definition.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct FunctionDefinition {
     pub header: FunctionHeader,
     /// Basic blocks of the function.
@@ -276,9 +277,32 @@ pub fn formalize(mut function: FunctionDefinition) -> FunctionDefinition {
     for (this_index, next_index) in (0..function.content.len()).tuple_windows() {
         let next_item_name = function.content[next_index].name.clone().unwrap();
         let this = &mut function.content[this_index];
-        if let Some(last) = this.content.last() && !matches!(last, IRStatement::Jump(_) | IRStatement::Branch(_) | IRStatement::Ret(_)) {
-            this.content.push(Jump { label: next_item_name }.into())
+        if let Some(last) = this.content.last()
+            && !matches!(
+                last,
+                IRStatement::Jump(_) | IRStatement::Branch(_) | IRStatement::Ret(_)
+            )
+        {
+            this.content.push(
+                Jump {
+                    label: next_item_name,
+                }
+                .into(),
+            )
         }
     }
     function
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // todo: more tests
+    #[test]
+    fn test_parse() {
+        let code = r"fn main() -> () {
+              %0 = add i32 1, 2
+            }";
+        assert!(parse(code).is_ok());
+    }
 }

@@ -8,6 +8,12 @@ use super::IsParamTransformer;
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct Register;
 
+impl Default for Register {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Register {
     pub const fn new() -> Self {
         Self

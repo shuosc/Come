@@ -12,10 +12,10 @@ use nom::{
     sequence::tuple,
     IResult,
 };
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
-
 /// [`Alloca`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct Alloca {
     /// Local variable, pointing to the space allocated on the stack.
     pub to: RegisterName,

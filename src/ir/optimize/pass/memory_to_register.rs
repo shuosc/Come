@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use itertools::Itertools;
-
 use crate::{
     ir::{
         editor::{analyzer, Editor},
@@ -11,6 +9,8 @@ use crate::{
     },
     utility::data_type::Type,
 };
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 
 use super::{
     remove_only_once_store::RemoveOnlyOnceStore, remove_unused_register::RemoveUnusedRegister,
@@ -19,7 +19,7 @@ use super::{
 
 /// [`MemoryToRegister`] is a pass that convert memory access to register access.
 /// It is similar to LLVM's [`mem2reg`](https://llvm.org/docs/Passes.html#mem2reg-promote-memory-to-register).
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MemoryToRegister;
 
 impl IsPass for MemoryToRegister {
