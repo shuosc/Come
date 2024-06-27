@@ -20,9 +20,9 @@ use nom::{
     sequence::{delimited, tuple},
     IResult,
 };
-
+use serde::{Deserialize, Serialize};
 /// [`SetField`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct SetField {
     /// Where to store the result.
     pub target: RegisterName,

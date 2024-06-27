@@ -17,9 +17,10 @@ use nom::{
     sequence::tuple,
     IResult,
 };
+use serde::{Deserialize, Serialize};
 
 /// [`GlobalDefinition`] represents a global variable definition.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct GlobalDefinition {
     /// Name of the global variable.
     pub name: GlobalVariableName,

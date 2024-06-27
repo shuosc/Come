@@ -8,6 +8,12 @@ use bitvec::prelude::*;
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct Csr;
 
+impl Default for Csr {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Csr {
     pub const fn new() -> Self {
         Self

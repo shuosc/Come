@@ -11,10 +11,11 @@ use nom::{
     sequence::{delimited, tuple},
     IResult,
 };
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt};
 
 /// [`TypeDefinition`] represents definition of a struct.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct TypeDefinition {
     pub name: String,
     pub fields: Vec<Type>,

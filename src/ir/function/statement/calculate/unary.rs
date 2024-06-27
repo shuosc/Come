@@ -19,10 +19,10 @@ use nom::{
     IResult,
 };
 use phf::phf_map;
+use serde::{Deserialize, Serialize};
 use std::fmt;
-
 /// [`UnaryOperation`] represents a unary operation operator.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum UnaryOperation {
     Neg,
     Not,
@@ -51,7 +51,7 @@ impl fmt::Display for UnaryOperation {
 }
 
 /// [`UnaryCalculate`] represents the result of a unary operator.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub struct UnaryCalculate {
     pub operation: UnaryOperation,
     pub operand: Quantity,

@@ -1,7 +1,7 @@
-use std::mem;
-
 use itertools::Itertools;
 use petgraph::prelude::*;
+use serde::{Deserialize, Serialize};
+use std::mem;
 
 use crate::ir::{
     analyzer::{BindedControlFlowGraph, IsAnalyzer},
@@ -10,7 +10,7 @@ use crate::ir::{
 
 use super::IsPass;
 
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub struct TopologicalSort;
 
 impl IsPass for TopologicalSort {

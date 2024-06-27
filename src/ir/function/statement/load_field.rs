@@ -1,3 +1,4 @@
+use super::Load;
 use crate::{
     ast::{
         self,
@@ -21,12 +22,11 @@ use nom::{
     sequence::{delimited, tuple},
     IResult,
 };
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use super::Load;
-
 /// [`LoadField`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct LoadField {
     /// Where to store the result of the load.
     pub target: RegisterName,

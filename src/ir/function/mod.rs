@@ -15,6 +15,7 @@ use nom::{
     IResult,
 };
 use parameter::Parameter;
+use serde::{Deserialize, Serialize};
 use statement::*;
 use std::{
     fmt, mem,
@@ -106,7 +107,7 @@ impl<'a> Iter<'a> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct FunctionHeader {
     /// Name of the function.
     pub name: String,
@@ -117,7 +118,7 @@ pub struct FunctionHeader {
 }
 
 /// [`FunctionDefinition`] represents a function definition.
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct FunctionDefinition {
     pub header: FunctionHeader,
     /// Basic blocks of the function.
@@ -291,4 +292,17 @@ pub fn formalize(mut function: FunctionDefinition) -> FunctionDefinition {
         }
     }
     function
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // todo: more tests
+    #[test]
+    fn test_parse() {
+        let code = r"fn main() -> () {
+              %0 = add i32 1, 2
+            }";
+        assert!(parse(code).is_ok());
+    }
 }

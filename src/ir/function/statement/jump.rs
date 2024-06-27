@@ -5,13 +5,13 @@ use crate::{
 use nom::{
     bytes::complete::tag, character::complete::space1, combinator::map, sequence::tuple, IResult,
 };
+use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     fmt::{Display, Formatter},
 };
-
 /// [`Jump`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct Jump {
     pub label: String,
 }

@@ -1,9 +1,8 @@
-use crate::ir::editor;
-
 use super::IsPass;
-use crate::ir::editor::analyzer::register_usage::RegisterDefinePosition;
+use crate::ir::{editor, editor::analyzer::register_usage::RegisterDefinePosition};
+use serde::{Deserialize, Serialize};
 /// This pass will remove the register which are defined but not used.
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub struct RemoveUnusedRegister;
 
 impl IsPass for RemoveUnusedRegister {

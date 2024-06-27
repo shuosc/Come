@@ -19,10 +19,10 @@ use nom::{
     sequence::{delimited, tuple},
     IResult,
 };
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
-
 /// [`Call`] instruction.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Call {
     /// Where to store the result of the call.
     pub to: Option<RegisterName>,

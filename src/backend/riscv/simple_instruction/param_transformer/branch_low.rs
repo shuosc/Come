@@ -8,6 +8,12 @@ use bitvec::prelude::*;
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct BranchLow;
 
+impl Default for BranchLow {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BranchLow {
     pub const fn new() -> Self {
         Self

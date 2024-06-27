@@ -3,6 +3,7 @@ use std::fmt;
 use enum_dispatch::enum_dispatch;
 use nom::{branch::alt, combinator::map, IResult};
 use paste::paste;
+use serde::{Deserialize, Serialize};
 
 /// Data structure, parser and ir generator for `alloca` statement.
 mod alloca;
@@ -27,6 +28,10 @@ pub(crate) mod set_field;
 /// Data structure, parser and ir generator for `store` statement.
 mod store;
 
+use crate::{
+    ir::{quantity::Quantity, RegisterName},
+    utility::data_type::Type,
+};
 pub use alloca::Alloca;
 pub use branch::Branch;
 pub use calculate::{BinaryCalculate, UnaryCalculate};
@@ -39,11 +44,6 @@ pub use ret::Ret;
 pub use set_field::SetField;
 pub use store::Store;
 
-use crate::{
-    ir::{quantity::Quantity, RegisterName},
-    utility::data_type::Type,
-};
-
 /// This trait should be implemented for all IRStatements
 #[enum_dispatch]
 pub trait IsIRStatement {
@@ -54,7 +54,7 @@ pub trait IsIRStatement {
 
 /// A statement in a function.
 #[enum_dispatch(IsIRStatement)]
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub enum IRStatement {
     Phi,
     Alloca,

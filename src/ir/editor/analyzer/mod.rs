@@ -8,7 +8,7 @@ pub use self::{
 };
 use super::action::Action;
 
-mod control_flow;
+pub mod control_flow;
 mod memory_usage;
 pub mod register_usage;
 

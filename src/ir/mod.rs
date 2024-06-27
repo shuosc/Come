@@ -4,6 +4,7 @@ use std::{
 };
 
 use enum_dispatch::enum_dispatch;
+use serde::{Deserialize, Serialize};
 
 /// Data structure, parser and ir generator for functions.
 pub mod function;
@@ -35,11 +36,21 @@ pub use editor::analyzer;
 
 /// The root nodes of IR.
 #[enum_dispatch]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum IR {
     TypeDefinition,
     FunctionDefinition,
     GlobalDefinition,
+}
+
+impl IR {
+    pub fn as_function_definition(&self) -> &FunctionDefinition {
+        if let IR::FunctionDefinition(f) = self {
+            f
+        } else {
+            panic!("This is not a function definition!")
+        }
+    }
 }
 
 impl fmt::Display for IR {
@@ -167,4 +178,15 @@ pub fn from_ast(ast: &Ast) -> Vec<IR> {
         .collect()
 }
 
-// todo: tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // todo: more tests
+    #[test]
+    fn test_parse() {
+        let code = r"fn main() -> () {
+              %0 = add i32 1, 2
+            }";
+        assert!(parse(code).is_ok());
+    }
+}

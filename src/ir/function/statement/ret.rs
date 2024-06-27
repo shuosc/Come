@@ -13,10 +13,10 @@ use nom::{
     sequence::tuple,
     IResult,
 };
+use serde::{Deserialize, Serialize};
 use std::fmt;
-
 /// [`Ret`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub struct Ret {
     pub value: Option<Quantity>,
 }

@@ -8,13 +8,14 @@ use petgraph::{
     visit::{depth_first_search, DfsEvent, DfsPostOrder, EdgeRef},
     Direction,
 };
+use serde::{Deserialize, Serialize};
 
 use super::BindedControlFlowGraph;
 
 mod selector;
 
-#[derive(Clone, Debug, Default)]
-struct FoldedCFG {
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct FoldedCFG {
     graph: StableDiGraph<RegionNode, Vec<(usize, usize)>, usize>,
     entry: NodeIndex<usize>,
 }
@@ -45,14 +46,14 @@ fn back_edges(c: &FoldedCFG) -> Vec<(NodeIndex<usize>, NodeIndex<usize>)> {
     result
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct If {
     content: FoldedCFG,
     on_then: NodeIndex<usize>,
     on_else: Option<NodeIndex<usize>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 enum RegionNode {
     Single(usize),
     Loop(FoldedCFG),
@@ -143,7 +144,7 @@ impl FoldedCFG {
             let mut loop_subgraph = FoldedCFG::default();
             let mut node_index_map = HashMap::new(); // id in old => id in new
             for loop_content_index in &smallest_loop_content {
-                let loop_content_node = &content.graph[loop_content_index.clone()];
+                let loop_content_node = &content.graph[*loop_content_index];
                 node_index_map.insert(
                     loop_content_index,
                     loop_subgraph.graph.add_node(loop_content_node.clone()),
@@ -155,16 +156,15 @@ impl FoldedCFG {
             for loop_content_index in &smallest_loop_content {
                 let incoming_edges = content
                     .graph
-                    .edges_directed(loop_content_index.clone(), Direction::Incoming)
-                    .into_iter();
+                    .edges_directed(*loop_content_index, Direction::Incoming);
                 let (intern_edges, extern_edges) = incoming_edges
                     .partition::<Vec<_>, _>(|it| node_index_map.contains_key(&it.source()));
                 for intern_edge in intern_edges {
                     let intern_from = node_index_map.get(&intern_edge.source()).unwrap();
                     let intern_target = node_index_map.get(&intern_edge.target()).unwrap();
                     loop_subgraph.graph.add_edge(
-                        intern_from.clone(),
-                        intern_target.clone(),
+                        *intern_from,
+                        *intern_target,
                         intern_edge.weight().clone(),
                     );
                 }
@@ -177,8 +177,7 @@ impl FoldedCFG {
 
                 let outgoing_edges = content
                     .graph
-                    .edges_directed(loop_content_index.clone(), Direction::Outgoing)
-                    .into_iter();
+                    .edges_directed(*loop_content_index, Direction::Outgoing);
                 let (_intern_edges, extern_edges) = outgoing_edges
                     .partition::<Vec<_>, _>(|it| node_index_map.contains_key(&it.target()));
                 // no need to handle `intern_edges`, because they will be handled of `incoming_edges` on the other side
@@ -228,14 +227,13 @@ impl FoldedCFG {
     }
     pub fn from_control_flow_graph(graph: &BindedControlFlowGraph) -> FoldedCFG {
         let graph_ = graph.graph();
-        let mut result = graph_.map(
+        let result = graph_.map(
             |node_index, _| RegionNode::Single(node_index.index()),
             |edge_id, _| {
                 let (from, to) = graph_.edge_endpoints(edge_id).unwrap();
                 vec![(from.index(), to.index())]
             },
         );
-        result.remove_node(graph.bind_on.content.len().into());
         FoldedCFG {
             graph: result.into(),
             entry: 0.into(),
@@ -250,13 +248,6 @@ fn fold_if_else(
 ) -> bool {
     let (outgoing_node_a, outgoing_node_b) =
         outgoing_nodes_from_condition(region_content, condition, cfg);
-    println!(
-        "fold_if_else on {}, cond={}, a_side={}, b_side={}",
-        region_content,
-        region_content.graph[condition],
-        region_content.graph[outgoing_node_a],
-        region_content.graph[outgoing_node_b],
-    );
     let subregion_node = &region_content.graph[condition];
     let subregion_a = &region_content.graph[outgoing_node_a].clone();
     let mut new_region_content = FoldedCFG {
@@ -269,20 +260,10 @@ fn fold_if_else(
         .graph
         .neighbors_directed(outgoing_node_a, Direction::Outgoing)
         .collect_vec();
-    print!("after_a: ");
-    for aa in &after_a {
-        print!("{}, ", region_content.graph[aa.clone()]);
-    }
-    println!();
     let after_b = region_content
         .graph
         .neighbors_directed(outgoing_node_b, Direction::Outgoing)
         .collect_vec();
-    print!("after_b: ");
-    for bb in &after_b {
-        print!("{}, ", region_content.graph[bb.clone()]);
-    }
-    println!();
     let edges_into_node = region_content
         .graph
         .edges_directed(condition, Direction::Incoming)
@@ -290,9 +271,17 @@ fn fold_if_else(
         .collect_vec();
     if after_a.contains(&outgoing_node_b) {
         // if, without an else
-        println!("if, without an else");
         // the content should only contains the condition (`node`) and the then part (`a`)
         let inserted_subregion_a_index = new_region_content.graph.add_node(subregion_a.clone());
+        let edge_condition_to_a = region_content
+            .graph
+            .find_edge(condition, outgoing_node_a)
+            .unwrap();
+        new_region_content.graph.add_edge(
+            inserted_subregion_node_index,
+            inserted_subregion_a_index,
+            region_content.graph[edge_condition_to_a].clone(),
+        );
         let new_if = If {
             content: new_region_content,
             on_then: inserted_subregion_a_index,
@@ -320,7 +309,7 @@ fn fold_if_else(
         let _new_edge = region_content.graph.add_edge(
             new_node,
             outgoing_node_b,
-            Iterator::chain(condition_to_b.into_iter(), a_to_b.into_iter())
+            Iterator::chain(condition_to_b.iter(), a_to_b)
                 .cloned()
                 .collect(),
         );
@@ -332,21 +321,26 @@ fn fold_if_else(
     } else if after_a.len() == 1 && after_a == after_b {
         let c = after_a[0];
         // if, with an else
-        println!("if, with an else");
         let subregion_b = &region_content.graph[outgoing_node_b].clone();
         let inserted_subregion_a_index = new_region_content.graph.add_node(subregion_a.clone());
         let inserted_subregion_b_index = new_region_content.graph.add_node(subregion_b.clone());
-        println!(
-            "{}: subregion_a={} == {}",
-            inserted_subregion_a_index.index(),
-            subregion_a,
-            &new_region_content.graph[inserted_subregion_a_index],
+        let edge_condition_to_a = region_content
+            .graph
+            .find_edge(condition, outgoing_node_a)
+            .unwrap();
+        let edge_condition_to_b = region_content
+            .graph
+            .find_edge(condition, outgoing_node_b)
+            .unwrap();
+        new_region_content.graph.add_edge(
+            inserted_subregion_node_index,
+            inserted_subregion_a_index,
+            region_content.graph[edge_condition_to_a].clone(),
         );
-        println!(
-            "{}: subregion_b={} == {}",
-            inserted_subregion_b_index.index(),
-            subregion_b,
-            &new_region_content.graph[inserted_subregion_b_index],
+        new_region_content.graph.add_edge(
+            inserted_subregion_node_index,
+            inserted_subregion_b_index,
+            region_content.graph[edge_condition_to_b].clone(),
         );
         let new_if = If {
             content: new_region_content,
@@ -372,7 +366,7 @@ fn fold_if_else(
             )
             .collect_tuple()
             .unwrap();
-        let new_weight = Iterator::chain(a_to_c.weight().into_iter(), b_to_c.weight().into_iter())
+        let new_weight = Iterator::chain(a_to_c.weight().iter(), b_to_c.weight())
             .cloned()
             .collect();
         let _new_edge = region_content.graph.add_edge(new_node, c, new_weight);
@@ -436,19 +430,19 @@ fn single_entry_single_exit_nodes(
     // detect up
     while content
         .graph
-        .neighbors_directed(current_looking_at_node.into(), Direction::Incoming)
+        .neighbors_directed(current_looking_at_node, Direction::Incoming)
         .count()
         == 1
         && content
             .graph
-            .neighbors_directed(current_looking_at_node.into(), Direction::Outgoing)
+            .neighbors_directed(current_looking_at_node, Direction::Outgoing)
             .count()
             == 1
     {
         result.push(current_looking_at_node);
         current_looking_at_node = content
             .graph
-            .neighbors_directed(current_looking_at_node.into(), Direction::Incoming)
+            .neighbors_directed(current_looking_at_node, Direction::Incoming)
             .exactly_one()
             .unwrap();
     }
@@ -458,12 +452,12 @@ fn single_entry_single_exit_nodes(
     // detect down
     while content
         .graph
-        .neighbors_directed(current_looking_at_node.into(), Direction::Incoming)
+        .neighbors_directed(current_looking_at_node, Direction::Incoming)
         .count()
         == 1
         && content
             .graph
-            .neighbors_directed(current_looking_at_node.into(), Direction::Outgoing)
+            .neighbors_directed(current_looking_at_node, Direction::Outgoing)
             .count()
             == 1
     {
@@ -741,5 +735,35 @@ mod tests {
         let folded_cfg = FoldedCFG::from_control_flow_graph(&binded);
         let saed = FoldedCFG::structural_analysis(folded_cfg, &binded);
         println!("{}", saed);
+    }
+
+    #[test]
+    fn test_structual_analysis4() {
+        let code = r"fn test_condition(i32 %a, i32 %b) -> i32 {
+          test_condition_entry:
+            %a_0_addr = alloca i32
+            store i32 %a, address %a_0_addr
+            %b_0_addr = alloca i32
+            store i32 %b, address %b_0_addr
+            %1 = load i32 %a_0_addr
+            %2 = load i32 %b_0_addr
+            %0 = slt i32 %1, %2
+            bne %0, 0, if_0_success, if_0_fail
+          if_0_success:
+            %3 = load i32 %a_0_addr
+            ret %3
+          if_0_fail:
+            %4 = load i32 %b_0_addr
+            ret %4
+          if_0_end:
+            ret
+        }";
+        let ir_code = ir::parse(code).unwrap().1;
+        let f = ir_code.as_function_definition();
+        let cfg = ControlFlowGraph::new();
+        let cfg = cfg.bind(f);
+        let folded = FoldedCFG::from_control_flow_graph(&cfg);
+        let result = folded.structural_analysis(&cfg);
+        dbg!(result);
     }
 }

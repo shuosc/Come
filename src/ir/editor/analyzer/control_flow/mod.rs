@@ -24,7 +24,7 @@ pub use self::scc::BindedScc;
 use super::IsAnalyzer;
 
 mod scc;
-mod structural;
+pub mod structural;
 
 /// [`ControlFlowGraph`] is the control flow graph and related infomation of a function.
 #[derive(Debug)]
@@ -294,7 +294,7 @@ impl<'item, 'bind: 'item> BindedControlFlowGraph<'item, 'bind> {
         )
     }
     pub fn back_edges(&self) -> Vec<(usize, usize)> {
-        self.item.back_edges(&self.bind_on)
+        self.item.back_edges(self.bind_on)
     }
 }
 

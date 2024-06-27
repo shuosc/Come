@@ -1,3 +1,4 @@
+use super::calculate::{binary::BinaryOperation, BinaryCalculate};
 use crate::{
     ir::{
         function::IsIRStatement,
@@ -17,15 +18,14 @@ use nom::{
     sequence::tuple,
     IResult,
 };
+use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     fmt::{Display, Formatter},
 };
 
-use super::calculate::{binary::BinaryOperation, BinaryCalculate};
-
 /// Enum of all possible branch types.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum BranchType {
     EQ,
     NE,
@@ -49,7 +49,7 @@ fn branch_type(code: &str) -> IResult<&str, BranchType> {
 }
 
 /// [`Branch`] instruction.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub struct Branch {
     /// Type of the branch.
     pub branch_type: BranchType,

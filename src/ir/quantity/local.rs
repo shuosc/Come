@@ -7,10 +7,11 @@ use nom::{
     sequence::pair,
     IResult,
 };
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 
 /// [`RegisterName`] represents a local variable's name.
-#[derive(Debug, Eq, PartialEq, Clone, Hash, PartialOrd, Ord)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct RegisterName(pub String);
 
 impl Display for RegisterName {

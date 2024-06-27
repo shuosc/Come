@@ -19,10 +19,10 @@ use nom::{
     IResult,
 };
 use phf::phf_map;
+use serde::{Deserialize, Serialize};
 use std::fmt;
-
 /// [`BinaryOperation`] represents a binary operation operator.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum BinaryOperation {
     Add,
     LessThan,
@@ -104,7 +104,7 @@ fn binary_operation(code: &str) -> IResult<&str, BinaryOperation> {
 }
 
 /// [`BinaryCalculate`] represents a binary operation statement.
-#[derive(Debug, Eq, PartialEq, Clone, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Deserialize, Serialize)]
 pub struct BinaryCalculate {
     pub operation: BinaryOperation,
     pub operand1: Quantity,
